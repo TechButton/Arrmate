@@ -1,0 +1,38 @@
+<div class="card">
+    <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center space-x-3">
+            <span class="text-2xl">
+                {% if service.name == "sonarr" %}📺
+                {% elif service.name == "radarr" %}🎬
+                {% elif service.name == "lidarr" %}🎵
+                {% else %}📦
+                {% endif %}
+            </span>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white capitalize">{{ service.name }}</h3>
+        </div>
+        <span class="px-3 py-1 rounded-full text-xs font-medium {% if service.available %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300{% endif %}">
+            {% if service.available %}✓ Available{% else %}✗ Unavailable{% endif %}
+        </span>
+    </div>
+    
+    <div class="space-y-2 text-sm">
+        <div class="flex items-start">
+            <span class="text-gray-500 dark:text-gray-400 w-16">URL:</span>
+            <span class="text-gray-700 dark:text-gray-300 break-all">{{ service.url }}</span>
+        </div>
+        
+        {% if service.version %}
+        <div class="flex items-start">
+            <span class="text-gray-500 dark:text-gray-400 w-16">Version:</span>
+            <span class="text-gray-700 dark:text-gray-300">{{ service.version }}</span>
+        </div>
+        {% endif %}
+        
+        {% if service.api_key %}
+        <div class="flex items-start">
+            <span class="text-gray-500 dark:text-gray-400 w-16">API Key:</span>
+            <span class="text-gray-700 dark:text-gray-300 font-mono text-xs">{{ service.api_key[:8] }}...</span>
+        </div>
+        {% endif %}
+    </div>
+</div>

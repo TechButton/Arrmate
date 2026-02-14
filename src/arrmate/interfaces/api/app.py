@@ -1,8 +1,11 @@
 """FastAPI REST API interface for Arrmate."""
 
+from pathlib import Path
 from typing import Dict
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from ...clients.discovery import discover_services
@@ -11,6 +14,7 @@ from ...core.command_parser import CommandParser
 from ...core.executor import Executor
 from ...core.intent_engine import IntentEngine
 from ...core.models import ExecutionResult, ServiceInfo
+from ..web.routes import router as web_router
 
 # API models
 class CommandRequest(BaseModel):
@@ -37,8 +41,15 @@ class CommandResponse(BaseModel):
 app = FastAPI(
     title="Arrmate API",
     description="Natural language interface for media management",
-    version="0.1.0",
+    version="0.2.0",
 )
+
+# Mount static files
+static_dir = Path(__file__).parent.parent / "web" / "static"
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# Include web router
+app.include_router(web_router)
 
 # Global components (initialized per request to avoid state issues)
 parser = None
@@ -63,13 +74,9 @@ async def shutdown_event() -> None:
 
 
 @app.get("/")
-async def root() -> Dict[str, str]:
-    """Root endpoint."""
-    return {
-        "message": "Arrmate API",
-        "docs": "/docs",
-        "health": "/health",
-    }
+async def root():
+    """Root endpoint - redirect to web UI."""
+    return RedirectResponse(url="/web")
 
 
 @app.get("/health")

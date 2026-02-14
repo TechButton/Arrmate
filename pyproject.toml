@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arrmate"
-version = "0.1.0"
+version = "0.2.0"
 description = "🤝 Your AI companion for Sonarr, Radarr, and Lidarr - manage your media library with natural language"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
-    {name = "Arrmate Contributors", email = "arrmate@example.com"}
+    {name = "Arrmate Contributors", email = "arrmate@example.com"},
+    {name = "Claude Sonnet 4.5", email = "noreply@anthropic.com"}
 ]
 license = {text = "MIT"}
 keywords = ["sonarr", "radarr", "lidarr", "media-management", "natural-language", "llm", "ai"]
@@ -33,6 +34,8 @@ dependencies = [
     "anthropic>=0.8.0",
     "rich>=13.7.0",
     "python-dotenv>=1.0.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
 ]
 
 [project.optional-dependencies]

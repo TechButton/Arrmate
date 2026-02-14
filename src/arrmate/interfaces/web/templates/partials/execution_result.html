@@ -1,0 +1,36 @@
+<div class="card border-2 {% if result.success %}border-green-300 dark:border-green-700{% else %}border-red-300 dark:border-red-700{% endif %}">
+    <div class="flex items-start space-x-3 mb-4">
+        <span class="text-3xl">{% if result.success %}✅{% else %}❌{% endif %}</span>
+        <div class="flex-1">
+            <h3 class="text-lg font-semibold {% if result.success %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %} mb-1">
+                {% if result.success %}Success{% else %}Error{% endif %}
+            </h3>
+            <p class="text-gray-700 dark:text-gray-300">{{ result.message }}</p>
+        </div>
+    </div>
+    
+    {% if result.data %}
+    <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg mb-4">
+        <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Details:</h4>
+        <pre class="text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">{{ result.data }}</pre>
+    </div>
+    {% endif %}
+    
+    {% if result.errors %}
+    <div class="space-y-2">
+        <h4 class="text-sm font-medium text-red-700 dark:text-red-300">Errors:</h4>
+        <ul class="list-disc list-inside space-y-1">
+            {% for error in result.errors %}
+            <li class="text-sm text-red-600 dark:text-red-400">{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Toast notification (out-of-band swap) -->
+{% if show_toast %}
+<div id="toast-container" hx-swap-oob="beforeend">
+    {% include "components/toast.html" %}
+</div>
+{% endif %}

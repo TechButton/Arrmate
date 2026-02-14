@@ -1,0 +1,21 @@
+{% if results %}
+<div class="space-y-4">
+    {% for result in results %}
+        {% include "components/search_result.html" %}
+    {% endfor %}
+</div>
+{% else %}
+    {% if query %}
+    <div class="p-12 text-center">
+        <span class="text-6xl mb-4 block">🔍</span>
+        <p class="text-xl text-gray-600 dark:text-gray-400 mb-2">No results found</p>
+        <p class="text-sm text-gray-500 dark:text-gray-500">Try a different search term for "{{ query }}"</p>
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+        <span class="text-6xl mb-4 block">🎬</span>
+        <p class="text-xl text-gray-600 dark:text-gray-400 mb-2">Start searching</p>
+        <p class="text-sm text-gray-500 dark:text-gray-500">Enter a title above to find TV shows or movies</p>
+    </div>
+    {% endif %}
+{% endif %}

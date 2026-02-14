@@ -1,0 +1,68 @@
+<div class="card hover:shadow-lg transition-shadow">
+    <div class="flex items-start space-x-4">
+        <!-- Poster -->
+        <div class="w-20 h-28 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded flex-shrink-0 flex items-center justify-center">
+            {% if result.poster_url %}
+            <img src="{{ result.poster_url }}" alt="{{ result.title }}" class="w-full h-full object-cover rounded">
+            {% else %}
+            <span class="text-3xl">
+                {% if result.media_type == "tv" %}📺{% else %}🎬{% endif %}
+            </span>
+            {% endif %}
+        </div>
+        
+        <!-- Content -->
+        <div class="flex-1 min-w-0">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                {{ result.title }}
+                {% if result.year %}
+                <span class="text-sm font-normal text-gray-500 dark:text-gray-400">({{ result.year }})</span>
+                {% endif %}
+            </h3>
+            
+            {% if result.overview %}
+            <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">{{ result.overview }}</p>
+            {% endif %}
+            
+            <!-- Metadata -->
+            <div class="flex flex-wrap gap-2 mb-3 text-xs">
+                {% if result.status %}
+                <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
+                    {{ result.status }}
+                </span>
+                {% endif %}
+                {% if result.network %}
+                <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                    {{ result.network }}
+                </span>
+                {% endif %}
+                {% if result.rating %}
+                <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 rounded">
+                    ⭐ {{ result.rating }}
+                </span>
+                {% endif %}
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex items-center gap-2">
+                {% if result.quality_profiles %}
+                <select class="text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+                    {% for profile in result.quality_profiles %}
+                    <option value="{{ profile.id }}">{{ profile.name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+                
+                <button
+                    hx-post="/web/library/add"
+                    hx-vals='{"title": "{{ result.title }}", "media_type": "{{ result.media_type }}"}'
+                    hx-target="#toast-container"
+                    hx-swap="beforeend"
+                    class="btn-primary text-sm px-4 py-2"
+                    style="min-height: 36px;">
+                    + Add to Library
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
