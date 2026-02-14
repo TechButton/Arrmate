@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # Ollama - LLM Provider
+  ollama:
+    image: ollama/ollama:latest
+    container_name: arrmate-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Sonarr - TV Show Management
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: arrmate-sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    ports:
+      - "8989:8989"
+    volumes:
+      - sonarr-config:/config
+      - sonarr-tv:/tv
+      - sonarr-downloads:/downloads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Radarr - Movie Management
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: arrmate-radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    ports:
+      - "7878:7878"
+    volumes:
+      - radarr-config:/config
+      - radarr-movies:/movies
+      - radarr-downloads:/downloads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Arrmate - Main Application
+  arrmate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arrmate-app
+    environment:
+      # LLM Configuration
+      - LLM_PROVIDER=ollama
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2
+      
+      # Service URLs (using service names for container networking)
+      - SONARR_URL=http://sonarr:8989
+      - SONARR_API_KEY=${SONARR_API_KEY:-your-sonarr-api-key}
+      
+      - RADARR_URL=http://radarr:7878
+      - RADARR_API_KEY=${RADARR_API_KEY:-your-radarr-api-key}
+      
+      # API Configuration
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+      - sonarr
+      - radarr
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  ollama-data:
+    driver: local
+  sonarr-config:
+    driver: local
+  sonarr-tv:
+    driver: local
+  sonarr-downloads:
+    driver: local
+  radarr-config:
+    driver: local
+  radarr-movies:
+    driver: local
+  radarr-downloads:
+    driver: local
+
+networks:
+  default:
+    name: arrmate-network
