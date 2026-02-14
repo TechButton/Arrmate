@@ -59,11 +59,9 @@ services:
       retries: 3
       start_period: 60s
 
-  # Arrmate - Main Application
+  # Arrmate - Main Application (Published Image)
   arrmate:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: techbutton/arrmate:latest
     container_name: arrmate-app
     environment:
       # LLM Configuration
