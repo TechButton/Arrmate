@@ -1,0 +1,66 @@
+arrmate/
+├── README.md                          # Comprehensive documentation
+├── QUICKSTART.md                      # 5-minute setup guide
+├── IMPLEMENTATION_STATUS.md           # Implementation checklist and status
+├── PROJECT_STRUCTURE.txt              # This file
+├── .gitignore                         # Git ignore patterns
+├── .env.example                       # Environment variables template
+├── .env.local.example                 # Local development env template
+├── pyproject.toml                     # Python package configuration
+├── requirements.txt                   # Python dependencies
+│
+├── src/arrmate/                    # Main application package
+│   ├── __init__.py
+│   │
+│   ├── core/                          # Core business logic
+│   │   ├── __init__.py
+│   │   ├── models.py                  # Data models (Intent, ExecutionResult, etc.)
+│   │   ├── command_parser.py          # NL → Intent parser (uses LLM)
+│   │   ├── intent_engine.py           # Intent validation & enrichment
+│   │   └── executor.py                # Intent → API execution orchestrator
+│   │
+│   ├── llm/                           # LLM provider abstraction
+│   │   ├── __init__.py
+│   │   ├── base.py                    # Abstract provider interface
+│   │   ├── schemas.py                 # Tool/function calling schemas
+│   │   ├── ollama.py                  # Ollama provider implementation
+│   │   ├── openai.py                  # OpenAI provider implementation
+│   │   ├── anthropic.py               # Anthropic/Claude provider
+│   │   └── factory.py                 # Provider factory & registry
+│   │
+│   ├── clients/                       # Media service API clients
+│   │   ├── __init__.py
+│   │   ├── base.py                    # Abstract client interface
+│   │   ├── sonarr.py                  # Sonarr v3 API client
+│   │   ├── radarr.py                  # Radarr v3 API client
+│   │   └── discovery.py               # Service discovery & routing
+│   │
+│   ├── interfaces/                    # User-facing interfaces
+│   │   ├── __init__.py
+│   │   ├── cli/                       # Command-line interface
+│   │   │   ├── __init__.py
+│   │   │   └── main.py                # Typer CLI application
+│   │   ├── api/                       # REST API
+│   │   │   ├── __init__.py
+│   │   │   └── app.py                 # FastAPI application
+│   │   └── web/                       # Web UI (future)
+│   │       └── __init__.py
+│   │
+│   └── config/                        # Configuration management
+│       ├── __init__.py
+│       └── settings.py                # Pydantic settings (env vars)
+│
+├── tests/                             # Test suite
+│   ├── __init__.py
+│   └── test_models.py                 # Basic model tests
+│
+├── scripts/                           # Utility scripts
+│   └── dev-setup.sh                   # Development setup script
+│
+├── docker/                            # Docker deployment
+│   ├── Dockerfile                     # Container image definition
+│   └── docker-compose.yml             # Multi-container setup
+│
+└── config/                            # Runtime configuration
+    └── prompts/                       # LLM system prompts (future)
+

@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  arrmate:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: arrmate
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Application settings
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+
+      # LLM Provider (ollama, openai, anthropic)
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+
+      # Ollama settings
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:latest}
+
+      # OpenAI settings (if using OpenAI)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4-turbo-preview}
+
+      # Anthropic settings (if using Claude)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
+
+      # Sonarr configuration
+      - SONARR_URL=${SONARR_URL:-http://sonarr:8989}
+      - SONARR_API_KEY=${SONARR_API_KEY}
+
+      # Radarr configuration
+      - RADARR_URL=${RADARR_URL:-http://radarr:7878}
+      - RADARR_API_KEY=${RADARR_API_KEY}
+
+      # Lidarr configuration
+      - LIDARR_URL=${LIDARR_URL:-http://lidarr:8686}
+      - LIDARR_API_KEY=${LIDARR_API_KEY}
+
+      # Service discovery
+      - ENABLE_SERVICE_DISCOVERY=true
+    networks:
+      - media-network
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      - ollama
+
+  # Optional: Ollama for local LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: arrmate-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - media-network
+    # Uncomment to use GPU
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+networks:
+  media-network:
+    # Use existing network if you have Sonarr/Radarr already running
+    # Otherwise create a new one
+    external: false
+    name: media-network
+
+volumes:
+  ollama-data:
