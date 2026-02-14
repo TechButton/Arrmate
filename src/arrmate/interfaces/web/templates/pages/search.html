@@ -57,7 +57,9 @@
     
     <!-- Search Results -->
     <div id="search-results">
-        {% include "partials/search_results.html" with results=[], query=None %}
+        {% set results = [] %}
+        {% set query = None %}
+        {% include "partials/search_results.html" %}
     </div>
 </div>
 {% endblock %}

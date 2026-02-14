@@ -47,7 +47,10 @@
     
     <!-- Library Items -->
     <div id="library-items">
-        {% include "partials/library_list.html" with items=[], has_more=False, page=1 %}
+        {% set items = [] %}
+        {% set has_more = False %}
+        {% set page = 1 %}
+        {% include "partials/library_list.html" %}
     </div>
 </div>
 {% endblock %}
