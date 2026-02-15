@@ -68,6 +68,54 @@ class Settings(BaseSettings):
     )
     lidarr_api_key: Optional[str] = Field(default=None, description="Lidarr API key")
 
+    # Readarr settings (Project retired - support provided for existing instances)
+    readarr_url: Optional[str] = Field(
+        default=None, description="Readarr base URL (e.g., http://readarr:8787)"
+    )
+    readarr_api_key: Optional[str] = Field(default=None, description="Readarr API key")
+
+    # Whisparr settings
+    whisparr_url: Optional[str] = Field(
+        default=None, description="Whisparr base URL (e.g., http://whisparr:6969)"
+    )
+    whisparr_api_key: Optional[str] = Field(default=None, description="Whisparr API key")
+
+    # Bazarr settings
+    bazarr_url: Optional[str] = Field(
+        default=None, description="Bazarr base URL (e.g., http://bazarr:6767)"
+    )
+    bazarr_api_key: Optional[str] = Field(default=None, description="Bazarr API key")
+
+    # AudioBookshelf settings (Audiobook player/manager)
+    audiobookshelf_url: Optional[str] = Field(
+        default=None, description="AudioBookshelf base URL (e.g., http://audiobookshelf:13378)"
+    )
+    audiobookshelf_api_key: Optional[str] = Field(
+        default=None, description="AudioBookshelf API token"
+    )
+
+    # LazyLibrarian settings (Books/Audiobooks with downloading)
+    lazylibrarian_url: Optional[str] = Field(
+        default=None, description="LazyLibrarian base URL (e.g., http://lazylibrarian:5299)"
+    )
+    lazylibrarian_api_key: Optional[str] = Field(
+        default=None, description="LazyLibrarian API key"
+    )
+
+    # huntarr.io settings (Orchestration service)
+    huntarr_url: Optional[str] = Field(
+        default=None, description="huntarr.io base URL (e.g., http://huntarr:3000)"
+    )
+    huntarr_api_key: Optional[str] = Field(default=None, description="huntarr.io API key")
+
+    # Plex Media Server
+    plex_url: Optional[str] = Field(
+        default=None, description="Plex base URL (e.g., http://plex:32400)"
+    )
+    plex_token: Optional[str] = Field(
+        default=None, description="Plex authentication token (X-Plex-Token)"
+    )
+
     # Docker service discovery
     docker_network: Optional[str] = Field(
         default=None, description="Docker network name for service discovery"

@@ -5,10 +5,38 @@ Your AI companion for Sonarr, Radarr, and Lidarr - manage your media library wit
 ## Features
 
 - 🗣️ **Natural Language Interface** - Control your media with plain English
-- 🌐 **Mobile-Friendly Web UI** - Built with HTMX and Tailwind CSS  
+- 🌐 **Mobile-Friendly Web UI** - Built with HTMX and Tailwind CSS
 - 🐳 **Docker Ready** - Deploy in minutes with your existing services
 - 🤖 **Multiple LLM Providers** - Ollama (local), OpenAI, or Anthropic
-- 📺 **Multi-Service Support** - Sonarr (TV), Radarr (Movies), Lidarr (Music)
+- 📺 **Multi-Service Support** - Sonarr (TV), Radarr (Movies), Lidarr (Music), and more
+
+## Supported Services
+
+### Primary Media Services
+| Service | Status | API | Media Type | Features |
+|---------|--------|-----|------------|----------|
+| **Sonarr v3** | ✅ Complete | v3 | TV Shows | Full Support |
+| **Radarr v3** | ✅ Complete | v3 | Movies | Full Support |
+| **Lidarr v3** | 🔜 Implemented | v3 | Music | Testing Required |
+| **Whisparr v3** | 🔜 Implemented | v3 | Adult Content | Testing Required |
+
+### Book & Audiobook Services
+| Service | Status | API | Media Type | Notes |
+|---------|--------|-----|------------|-------|
+| **AudioBookshelf** | 🔜 Implemented | REST | Audiobooks/Podcasts | Modern player with apps |
+| **LazyLibrarian** | 🔜 Implemented | Custom | Books/Audiobooks | Automated downloading |
+| **Readarr** | ⚠️ Deprecated | v1 | Books/Audiobooks | Project Retired |
+
+### Companion & Orchestration
+| Service | Status | API | Purpose | Notes |
+|---------|--------|-----|---------|-------|
+| **Bazarr** | 🔜 Implemented | Custom | Subtitles | Sonarr/Radarr companion |
+| **huntarr.io** | 🔜 Implemented | REST | Orchestration | Multi-service automation |
+| **Plex** | 🔜 Implemented | REST | Media Server | Testing Required |
+
+**Legend:** ✅ Complete | 🔜 Testing Required | ⚠️ Deprecated
+
+See [SERVICES.md](SERVICES.md) for detailed service documentation, features, and configuration.
 
 ## Quick Start with Docker
 
