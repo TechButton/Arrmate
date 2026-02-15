@@ -566,7 +566,7 @@ See existing clients (Sonarr, Radarr, Lidarr) for implementation examples.
 ## Support & Contributing
 
 - **Issues:** Report bugs or request features at [GitHub Issues](https://github.com/your-repo/arrmate/issues)
-- **Documentation:** See [README.md](README.md) for general usage
+- **Documentation:** See [README.md](../README.md) for general usage
 - **API Docs:** See `/docs` endpoint when running the server
 
 For questions about specific services, consult their official documentation:

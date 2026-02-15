@@ -36,7 +36,7 @@ Your AI companion for Sonarr, Radarr, and Lidarr - manage your media library wit
 
 **Legend:** ✅ Complete | 🔜 Testing Required | ⚠️ Deprecated
 
-See [SERVICES.md](SERVICES.md) for detailed service documentation, features, and configuration.
+See [docs/services.md](docs/services.md) for detailed service documentation, features, and configuration.
 
 ## Quick Start with Docker
 
@@ -77,15 +77,17 @@ Required in `.env`:
 ```bash
 # LLM Provider (choose one)
 LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
+OLLAMA_BASE_URL=http://ollama:11434   # use container name on same Docker host
+OLLAMA_MODEL=qwen2.5:7b              # recommended model for tool calling
 
-# Your *arr Services
-SONARR_URL=http://localhost:8989
+# Your *arr Services (comment out any you don't use — they won't appear in UI)
+SONARR_URL=http://sonarr:8989
 SONARR_API_KEY=your-api-key
-RADARR_URL=http://localhost:7878
+RADARR_URL=http://radarr:7878
 RADARR_API_KEY=your-api-key
 ```
+
+> **Tip:** Use Docker service/container names as hostnames (e.g. `http://sonarr:8989`) when services run on the same Docker host. See [.env.example](.env.example) for all options including GPU acceleration and Traefik.
 
 ## Usage Examples
 
@@ -101,9 +103,14 @@ upgrade all episodes of The Office
 
 ## Documentation
 
-- 📖 [Docker Deployment](DOCKER.md)
-- 🌐 [Web UI Guide](WEB_UI_GUIDE.md)
-- 🚀 [Publishing Guide](PUBLISHING.md) (for contributors)
+| Doc | Audience |
+|-----|----------|
+| [Quick Start](docs/quickstart.md) | New users |
+| [Service Reference](docs/services.md) | All users — supported services, API details, config |
+| [Docker Deployment](docs/docker.md) | Self-hosted Docker users |
+| [Web UI Guide](docs/web-ui.md) | Web interface users |
+| [Docker Hub Publishing](docs/dev/docker-hub.md) | Contributors / maintainers |
+| [Publishing Guide](docs/dev/publishing.md) | Contributors / maintainers |
 
 ## Development
 
@@ -164,7 +171,7 @@ docker compose -f docker-compose.full.yml up -d
 
 ## Contributing
 
-Contributions welcome! See [PUBLISHING.md](PUBLISHING.md) for release process.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/dev/publishing.md](docs/dev/publishing.md) for the release process.
 
 ## Version
 
