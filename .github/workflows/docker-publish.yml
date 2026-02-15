@@ -2,8 +2,9 @@ name: Build and Push to Docker Hub
 
 on:
   workflow_dispatch:
-  tags:
-    - "v*.*.*"
+  push:
+    tags:
+      - "v*.*.*"
 
 env:
   IMAGE_NAME: techbutton/arrmate
