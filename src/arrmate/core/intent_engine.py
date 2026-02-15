@@ -28,7 +28,7 @@ class IntentEngine:
             ValueError: If required information cannot be resolved
         """
         # Get the appropriate client for this media type
-        client = get_client_for_media_type(intent.media_type.value)
+        client = get_client_for_media_type(intent.media_type)
 
         try:
             # If we have a title, try to find the item in the service
@@ -36,7 +36,7 @@ class IntentEngine:
                 await self._resolve_title(intent, client)
 
             # For TV shows, resolve episode information
-            if intent.media_type.value == "tv" and intent.series_id:
+            if intent.media_type == "tv" and intent.series_id:
                 await self._resolve_episodes(intent, client)
 
             return intent
@@ -65,7 +65,7 @@ class IntentEngine:
         for item in all_items:
             if item.get("title", "").lower() == intent.title.lower():
                 intent.item_id = item.get("id")
-                if intent.media_type.value == "tv":
+                if intent.media_type == "tv":
                     intent.series_id = item.get("id")
                 return
 
@@ -73,7 +73,7 @@ class IntentEngine:
         for item in all_items:
             if intent.title.lower() in item.get("title", "").lower():
                 intent.item_id = item.get("id")
-                if intent.media_type.value == "tv":
+                if intent.media_type == "tv":
                     intent.series_id = item.get("id")
                 return
 
@@ -88,9 +88,9 @@ class IntentEngine:
 
         # For items not in library, we may need to add them first
         # Store the search result for later use in executor
-        if intent.media_type.value == "tv":
+        if intent.media_type == "tv":
             intent.item_id = first_result.get("tvdbId")
-        elif intent.media_type.value == "movie":
+        elif intent.media_type == "movie":
             intent.item_id = first_result.get("tmdbId")
 
     async def _resolve_episodes(self, intent: Intent, client: BaseMediaClient) -> None:
@@ -124,17 +124,17 @@ class IntentEngine:
         errors = []
 
         # Check required fields based on action
-        if intent.action.value in ["remove", "delete", "info"]:
+        if intent.action in ["remove", "delete", "info"]:
             if not intent.title:
                 errors.append("Title is required for this action")
 
-        if intent.action.value == "add":
+        if intent.action == "add":
             if not intent.title:
                 errors.append("Title is required to add media")
 
         # TV-specific validation
-        if intent.media_type.value == "tv":
-            if intent.action.value in ["remove", "delete"]:
+        if intent.media_type == "tv":
+            if intent.action in ["remove", "delete"]:
                 if intent.episodes and not intent.season:
                     errors.append("Season number is required when specifying episodes")
 
