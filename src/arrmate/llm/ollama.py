@@ -13,13 +13,14 @@ class OllamaProvider(BaseLLMProvider):
 
     def __init__(
         self,
-        model: str = "llama3.1:latest",
+        model: str = "qwen2.5:7b",
         base_url: str = "http://localhost:11434",
     ) -> None:
         """Initialize Ollama provider.
 
         Args:
-            model: Ollama model to use (must support tool calling, e.g., llama3.1, mistral)
+            model: Ollama model to use (must support tool calling).
+                Recommended: qwen2.5:7b, llama3.1:8b, mistral-nemo:12b
             base_url: Ollama server base URL
         """
         super().__init__(model)
@@ -91,18 +92,30 @@ class OllamaProvider(BaseLLMProvider):
 
         Args:
             prompt: The prompt to respond to
-            context: Optional context
+            context: Optional context (execution result, error details, etc.)
 
         Returns:
             Generated response
         """
-        messages = []
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful media server assistant. "
+                    "Report the outcome of media library actions in plain English. "
+                    "Be concise (1-3 sentences). "
+                    "If successful, confirm what was done. "
+                    "If an error occurred, explain it clearly and suggest what the user can check. "
+                    "Never include raw JSON, internal IDs, or technical stack traces in your response."
+                ),
+            }
+        ]
 
         if context:
             messages.append(
                 {
                     "role": "system",
-                    "content": f"Context: {json.dumps(context)}",
+                    "content": f"Action result: {json.dumps(context)}",
                 }
             )
 

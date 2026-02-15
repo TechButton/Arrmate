@@ -1,6 +1,6 @@
 """Natural language command parser using LLM."""
 
-from typing import Dict
+from typing import Dict, List, Optional
 
 from ..llm.base import BaseLLMProvider
 from ..llm.factory import create_llm_provider
@@ -11,13 +11,21 @@ from .models import Intent
 class CommandParser:
     """Parses natural language commands into structured Intent objects."""
 
-    def __init__(self, llm_provider: BaseLLMProvider | None = None) -> None:
+    def __init__(
+        self,
+        llm_provider: Optional[BaseLLMProvider] = None,
+        available_services: Optional[List[str]] = None,
+    ) -> None:
         """Initialize the command parser.
 
         Args:
             llm_provider: Optional LLM provider (creates default if not provided)
+            available_services: List of service names that are configured and
+                reachable. Used to build a service-aware system prompt so the
+                LLM knows which media types and operations are actually available.
         """
         self.llm_provider = llm_provider or create_llm_provider()
+        self.available_services = available_services
 
     async def parse(self, user_input: str) -> Intent:
         """Parse a natural language command into structured intent.
@@ -31,11 +39,9 @@ class CommandParser:
         Raises:
             ValueError: If parsing fails or intent is invalid
         """
-        # Get tool schemas and system prompt
         tools = get_tool_schemas()
-        system_prompt = get_system_prompt()
+        system_prompt = get_system_prompt(self.available_services)
 
-        # Use LLM to extract structured intent
         try:
             parsed_data = await self.llm_provider.parse_command(
                 user_input, tools, system_prompt
@@ -43,7 +49,6 @@ class CommandParser:
         except Exception as e:
             raise ValueError(f"Failed to parse command: {str(e)}") from e
 
-        # Validate and create Intent object
         try:
             intent = Intent(**parsed_data)
         except Exception as e:

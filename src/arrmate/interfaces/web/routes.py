@@ -26,11 +26,13 @@ engine: Optional[IntentEngine] = None
 executor: Optional[Executor] = None
 
 
-def get_parser() -> CommandParser:
-    """Get or create command parser."""
+async def get_parser() -> CommandParser:
+    """Get or create command parser, with service-aware prompt on first init."""
     global parser
     if parser is None:
-        parser = CommandParser()
+        services = await discover_services()
+        available = [name for name, info in services.items() if info.available]
+        parser = CommandParser(available_services=available or None)
     return parser
 
 
@@ -130,9 +132,9 @@ async def search_page(request: Request):
 async def parse_command(request: Request, command: str = Form(...)):
     """Parse command and return preview HTML."""
     try:
-        cmd_parser = get_parser()
+        cmd_parser = await get_parser()
         intent = await cmd_parser.parse(command)
-        
+
         return templates.TemplateResponse(
             "partials/command_preview.html",
             {
@@ -157,7 +159,7 @@ async def execute_command(request: Request, command: str = Form(...)):
     """Execute command and return result HTML with toast."""
     try:
         # Parse
-        cmd_parser = get_parser()
+        cmd_parser = await get_parser()
         intent = await cmd_parser.parse(command)
         
         # Enrich

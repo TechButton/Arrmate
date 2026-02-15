@@ -91,19 +91,27 @@ class AnthropicProvider(BaseLLMProvider):
 
         Args:
             prompt: The prompt to respond to
-            context: Optional context
+            context: Optional context (execution result, error details, etc.)
 
         Returns:
             Generated response
         """
-        system_content = ""
+        system_parts = [
+            "You are a helpful media server assistant. "
+            "Report the outcome of media library actions in plain English. "
+            "Be concise (1-3 sentences). "
+            "If successful, confirm what was done. "
+            "If an error occurred, explain it clearly and suggest what the user can check. "
+            "Never include raw JSON, internal IDs, or technical stack traces in your response."
+        ]
         if context:
-            system_content = f"Context: {json.dumps(context)}"
+            system_parts.append(f"Action result: {json.dumps(context)}")
+        system_content = "\n\n".join(system_parts)
 
         response = await self.client.messages.create(
             model=self.model,
             max_tokens=1024,
-            system=system_content if system_content else None,
+            system=system_content,
             messages=[{"role": "user", "content": prompt}],
         )
 

@@ -34,7 +34,8 @@ class Settings(BaseSettings):
         default="http://localhost:11434", description="Ollama API base URL"
     )
     ollama_model: str = Field(
-        default="llama3.1:latest", description="Ollama model to use"
+        default="qwen2.5:7b",
+        description="Ollama model to use (must support tool calling, e.g. qwen2.5:7b, llama3.1:8b)",
     )
 
     # OpenAI settings

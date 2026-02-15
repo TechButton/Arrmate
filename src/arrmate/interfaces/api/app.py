@@ -61,7 +61,10 @@ executor = None
 async def startup_event() -> None:
     """Initialize components on startup."""
     global parser, engine, executor
-    parser = CommandParser()
+    # Discover services so the LLM prompt knows which ones are available
+    services = await discover_services()
+    available = [name for name, info in services.items() if info.available]
+    parser = CommandParser(available_services=available or None)
     engine = IntentEngine()
     executor = Executor()
 
