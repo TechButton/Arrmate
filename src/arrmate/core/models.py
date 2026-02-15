@@ -13,6 +13,8 @@ class MediaType(str, Enum):
     MOVIE = "movie"
     MUSIC = "music"
     AUDIOBOOK = "audiobook"
+    BOOK = "book"
+    ADULT = "adult"
 
 
 class ActionType(str, Enum):
@@ -25,6 +27,8 @@ class ActionType(str, Enum):
     LIST = "list"
     INFO = "info"
     DELETE = "delete"
+    DOWNLOAD_SUBTITLE = "download_subtitle"
+    SYNC_SUBTITLES = "sync_subtitles"
 
 
 class Intent(BaseModel):
@@ -77,6 +81,25 @@ class ExecutionResult(BaseModel):
         }
 
 
+class ImplementationStatus(str, Enum):
+    """Implementation status of a service."""
+
+    COMPLETE = "complete"
+    PARTIAL = "partial"
+    PLANNED = "planned"
+    DEPRECATED = "deprecated"
+
+
+class ServiceCapability(BaseModel):
+    """Features supported by a service."""
+
+    can_search: bool = Field(default=False, description="Can search for new media")
+    can_add: bool = Field(default=False, description="Can add media to library")
+    can_remove: bool = Field(default=False, description="Can remove media from library")
+    can_upgrade: bool = Field(default=False, description="Can upgrade media quality")
+    can_list: bool = Field(default=False, description="Can list library items")
+
+
 class ServiceInfo(BaseModel):
     """Information about a discovered media service."""
 
@@ -85,3 +108,22 @@ class ServiceInfo(BaseModel):
     api_key: Optional[str] = Field(default=None, description="API key (masked)")
     available: bool = Field(description="Whether the service is reachable")
     version: Optional[str] = Field(default=None, description="Service version")
+
+
+class EnhancedServiceInfo(ServiceInfo):
+    """Extended service info with implementation details."""
+
+    implementation_status: ImplementationStatus = Field(
+        description="Implementation status of this service"
+    )
+    api_version: str = Field(description="API version (v1, v3, custom)")
+    capabilities: ServiceCapability = Field(
+        description="Features supported by this service"
+    )
+    media_type: str = Field(description="Type of media managed (TV, Movie, Music, etc.)")
+    is_deprecated: bool = Field(
+        default=False, description="Whether this service is deprecated"
+    )
+    deprecation_message: Optional[str] = Field(
+        default=None, description="Deprecation warning message"
+    )

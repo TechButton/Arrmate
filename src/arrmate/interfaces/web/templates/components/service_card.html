@@ -1,38 +1,78 @@
-<div class="card">
+<div class="card hover:border-gray-600 transition-colors">
     <div class="flex items-center justify-between mb-3">
         <div class="flex items-center space-x-3">
             <span class="text-2xl">
                 {% if service.name == "sonarr" %}📺
                 {% elif service.name == "radarr" %}🎬
                 {% elif service.name == "lidarr" %}🎵
+                {% elif service.name == "plex" %}🎞️
+                {% elif service.name == "bazarr" %}💬
+                {% elif service.name == "audiobookshelf" %}🎧
+                {% elif service.name == "lazylibrarian" %}📖
+                {% elif service.name == "huntarr" %}🎯
+                {% elif service.name == "whisparr" %}🔞
+                {% elif service.name == "readarr" %}📚
                 {% else %}📦
                 {% endif %}
             </span>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white capitalize">{{ service.name }}</h3>
+            <div>
+                <h3 class="text-lg font-semibold text-white capitalize">{{ service.name }}</h3>
+                <p class="text-xs text-gray-500">{{ service.media_type }}</p>
+            </div>
         </div>
-        <span class="px-3 py-1 rounded-full text-xs font-medium {% if service.available %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300{% endif %}">
-            {% if service.available %}✓ Available{% else %}✗ Unavailable{% endif %}
+        <span class="px-3 py-1 rounded-full text-xs font-medium {% if service.available %}bg-green-900/40 text-green-400 border border-green-700/50{% else %}bg-red-900/40 text-red-400 border border-red-700/50{% endif %}">
+            {% if service.available %}Online{% else %}Offline{% endif %}
         </span>
     </div>
-    
+
     <div class="space-y-2 text-sm">
         <div class="flex items-start">
-            <span class="text-gray-500 dark:text-gray-400 w-16">URL:</span>
-            <span class="text-gray-700 dark:text-gray-300 break-all">{{ service.url }}</span>
+            <span class="text-gray-500 w-16 flex-shrink-0">URL:</span>
+            <span class="text-gray-300 break-all">{{ service.url }}</span>
         </div>
-        
+
         {% if service.version %}
         <div class="flex items-start">
-            <span class="text-gray-500 dark:text-gray-400 w-16">Version:</span>
-            <span class="text-gray-700 dark:text-gray-300">{{ service.version }}</span>
+            <span class="text-gray-500 w-16 flex-shrink-0">Version:</span>
+            <span class="text-gray-300">{{ service.version }}</span>
         </div>
         {% endif %}
-        
+
+        <div class="flex items-start">
+            <span class="text-gray-500 w-16 flex-shrink-0">API:</span>
+            <span class="text-gray-300">{{ service.api_version }}</span>
+        </div>
+
         {% if service.api_key %}
         <div class="flex items-start">
-            <span class="text-gray-500 dark:text-gray-400 w-16">API Key:</span>
-            <span class="text-gray-700 dark:text-gray-300 font-mono text-xs">{{ service.api_key[:8] }}...</span>
+            <span class="text-gray-500 w-16 flex-shrink-0">Key:</span>
+            <span class="text-gray-400 font-mono text-xs">{{ service.api_key }}</span>
         </div>
+        {% endif %}
+    </div>
+
+    {% if service.is_deprecated %}
+    <div class="mt-3 p-2 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-400">
+        ⚠️ {{ service.deprecation_message or "This service is deprecated" }}
+    </div>
+    {% endif %}
+
+    <!-- Capabilities -->
+    <div class="mt-3 flex flex-wrap gap-1">
+        {% if service.capabilities.can_search %}
+        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded border border-gray-700">Search</span>
+        {% endif %}
+        {% if service.capabilities.can_add %}
+        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded border border-gray-700">Add</span>
+        {% endif %}
+        {% if service.capabilities.can_remove %}
+        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded border border-gray-700">Remove</span>
+        {% endif %}
+        {% if service.capabilities.can_upgrade %}
+        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded border border-gray-700">Upgrade</span>
+        {% endif %}
+        {% if service.capabilities.can_list %}
+        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded border border-gray-700">List</span>
         {% endif %}
     </div>
 </div>

@@ -6,137 +6,137 @@
 <div class="max-w-7xl mx-auto">
     <!-- Welcome Header -->
     <div class="mb-8">
-        <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">🤝 Welcome to Arrmate</h1>
-        <p class="text-lg text-gray-600 dark:text-gray-400">Your AI companion for managing Sonarr, Radarr, and Lidarr</p>
+        <h1 class="text-4xl font-bold text-white mb-2">Welcome to Arrmate</h1>
+        <p class="text-lg text-gray-400">Your AI companion for managing Sonarr, Radarr, and Lidarr</p>
     </div>
-    
+
     <!-- Quick Stats -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <!-- Services Status -->
-        <div class="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-2 border-blue-200 dark:border-blue-800">
+        <div class="card bg-gradient-to-br from-blue-900/30 to-blue-800/20 border-blue-700/50">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Services</p>
-                    <p class="text-3xl font-bold text-blue-900 dark:text-blue-300">{{ available_count }}/{{ total_count }}</p>
-                    <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Online</p>
+                    <p class="text-sm font-medium text-blue-400 mb-1">Services</p>
+                    <p class="text-3xl font-bold text-blue-300">{{ available_count }}/{{ total_count }}</p>
+                    <p class="text-xs text-blue-400 mt-1">Online</p>
                 </div>
-                <span class="text-4xl">🌐</span>
+                <span class="text-4xl opacity-80">🌐</span>
             </div>
         </div>
-        
+
         <!-- TV Shows -->
-        <div class="card bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-2 border-purple-200 dark:border-purple-800">
+        <div class="card bg-gradient-to-br from-purple-900/30 to-purple-800/20 border-purple-700/50">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">TV Shows</p>
-                    <p class="text-3xl font-bold text-purple-900 dark:text-purple-300">-</p>
-                    <p class="text-xs text-purple-700 dark:text-purple-400 mt-1">In Library</p>
+                    <p class="text-sm font-medium text-purple-400 mb-1">TV Shows</p>
+                    <p class="text-3xl font-bold text-purple-300">-</p>
+                    <p class="text-xs text-purple-400 mt-1">In Library</p>
                 </div>
-                <span class="text-4xl">📺</span>
+                <span class="text-4xl opacity-80">📺</span>
             </div>
         </div>
-        
+
         <!-- Movies -->
-        <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-2 border-green-200 dark:border-green-800">
+        <div class="card bg-gradient-to-br from-green-900/30 to-green-800/20 border-green-700/50">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Movies</p>
-                    <p class="text-3xl font-bold text-green-900 dark:text-green-300">-</p>
-                    <p class="text-xs text-green-700 dark:text-green-400 mt-1">In Library</p>
+                    <p class="text-sm font-medium text-green-400 mb-1">Movies</p>
+                    <p class="text-3xl font-bold text-green-300">-</p>
+                    <p class="text-xs text-green-400 mt-1">In Library</p>
                 </div>
-                <span class="text-4xl">🎬</span>
+                <span class="text-4xl opacity-80">🎬</span>
             </div>
         </div>
     </div>
-    
+
     <!-- Quick Actions -->
     <div class="card mb-8">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
+        <h2 class="text-xl font-bold text-white mb-4">Quick Actions</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <a href="/web/command" class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-colors border-2 border-transparent hover:border-blue-300 dark:hover:border-blue-700" style="min-height: 44px;">
+            <a href="/web/command" class="p-4 bg-blue-900/20 rounded-lg hover:bg-blue-800/30 transition-colors border border-transparent hover:border-blue-600/50" style="min-height: 44px;">
                 <div class="flex items-center space-x-3">
                     <span class="text-2xl">💬</span>
                     <div>
-                        <p class="font-semibold text-gray-900 dark:text-white">Command</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Natural language</p>
+                        <p class="font-semibold text-white">Command</p>
+                        <p class="text-xs text-gray-400">Natural language</p>
                     </div>
                 </div>
             </a>
-            
-            <a href="/web/services" class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-800/30 transition-colors border-2 border-transparent hover:border-green-300 dark:hover:border-green-700" style="min-height: 44px;">
+
+            <a href="/web/services" class="p-4 bg-green-900/20 rounded-lg hover:bg-green-800/30 transition-colors border border-transparent hover:border-green-600/50" style="min-height: 44px;">
                 <div class="flex items-center space-x-3">
                     <span class="text-2xl">🔧</span>
                     <div>
-                        <p class="font-semibold text-gray-900 dark:text-white">Services</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Check status</p>
+                        <p class="font-semibold text-white">Services</p>
+                        <p class="text-xs text-gray-400">Check status</p>
                     </div>
                 </div>
             </a>
-            
-            <a href="/web/library" class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-800/30 transition-colors border-2 border-transparent hover:border-purple-300 dark:hover:border-purple-700" style="min-height: 44px;">
+
+            <a href="/web/library" class="p-4 bg-purple-900/20 rounded-lg hover:bg-purple-800/30 transition-colors border border-transparent hover:border-purple-600/50" style="min-height: 44px;">
                 <div class="flex items-center space-x-3">
                     <span class="text-2xl">📚</span>
                     <div>
-                        <p class="font-semibold text-gray-900 dark:text-white">Library</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Browse media</p>
+                        <p class="font-semibold text-white">Library</p>
+                        <p class="text-xs text-gray-400">Browse media</p>
                     </div>
                 </div>
             </a>
-            
-            <a href="/web/search" class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-800/30 transition-colors border-2 border-transparent hover:border-orange-300 dark:hover:border-orange-700" style="min-height: 44px;">
+
+            <a href="/web/search" class="p-4 bg-orange-900/20 rounded-lg hover:bg-orange-800/30 transition-colors border border-transparent hover:border-orange-600/50" style="min-height: 44px;">
                 <div class="flex items-center space-x-3">
                     <span class="text-2xl">🔍</span>
                     <div>
-                        <p class="font-semibold text-gray-900 dark:text-white">Search</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Find & add</p>
+                        <p class="font-semibold text-white">Search</p>
+                        <p class="text-xs text-gray-400">Find & add</p>
                     </div>
                 </div>
             </a>
         </div>
     </div>
-    
+
     <!-- Service Overview -->
     <div class="card">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Service Overview</h2>
-            <a href="/web/services" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">View All →</a>
+            <h2 class="text-xl font-bold text-white">Service Overview</h2>
+            <a href="/web/services" class="text-sm text-primary-400 hover:text-primary-300 hover:underline">View All &rarr;</a>
         </div>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             {% for name, service in services.items() %}
                 {% include "components/service_card.html" %}
             {% endfor %}
-            
+
             {% if not services %}
             <div class="col-span-full p-8 text-center">
                 <span class="text-4xl mb-4 block">⚠️</span>
-                <p class="text-gray-600 dark:text-gray-400 mb-2">No services configured yet</p>
-                <p class="text-sm text-gray-500 dark:text-gray-500">Configure your services to get started</p>
-                <a href="/web/services" class="btn-primary mt-4 inline-block">Configure Services →</a>
+                <p class="text-gray-400 mb-2">No services configured yet</p>
+                <p class="text-sm text-gray-500">Configure your services in the .env file to get started</p>
+                <a href="/web/services" class="btn-primary mt-4 inline-block">Configure Services &rarr;</a>
             </div>
             {% endif %}
         </div>
     </div>
-    
+
     <!-- Getting Started -->
-    <div class="card mt-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200 dark:border-indigo-800">
-        <h2 class="text-xl font-bold text-indigo-900 dark:text-indigo-300 mb-4">🚀 Getting Started</h2>
-        <div class="space-y-3 text-indigo-800 dark:text-indigo-300">
+    <div class="card mt-8 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 border-indigo-700/50">
+        <h2 class="text-xl font-bold text-indigo-300 mb-4">Getting Started</h2>
+        <div class="space-y-3 text-indigo-300">
             <div class="flex items-start space-x-3">
-                <span class="font-bold">1.</span>
-                <p>Configure your media services in the .env file</p>
+                <span class="font-bold text-indigo-400">1.</span>
+                <p>Configure your media services in the <code class="bg-indigo-900/30 px-2 py-0.5 rounded text-sm">.env</code> file</p>
             </div>
             <div class="flex items-start space-x-3">
-                <span class="font-bold">2.</span>
-                <p>Check that services are online in the <a href="/web/services" class="underline">Services</a> page</p>
+                <span class="font-bold text-indigo-400">2.</span>
+                <p>Check that services are online in the <a href="/web/services" class="underline hover:text-indigo-200">Services</a> page</p>
             </div>
             <div class="flex items-start space-x-3">
-                <span class="font-bold">3.</span>
-                <p>Use the <a href="/web/command" class="underline">Command</a> page to manage your library with natural language</p>
+                <span class="font-bold text-indigo-400">3.</span>
+                <p>Use the <a href="/web/command" class="underline hover:text-indigo-200">Command</a> page to manage your library with natural language</p>
             </div>
             <div class="flex items-start space-x-3">
-                <span class="font-bold">4.</span>
-                <p>Browse your <a href="/web/library" class="underline">Library</a> or <a href="/web/search" class="underline">Search</a> for new content</p>
+                <span class="font-bold text-indigo-400">4.</span>
+                <p>Browse your <a href="/web/library" class="underline hover:text-indigo-200">Library</a> or <a href="/web/search" class="underline hover:text-indigo-200">Search</a> for new content</p>
             </div>
         </div>
     </div>

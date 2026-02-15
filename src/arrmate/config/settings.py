@@ -117,6 +117,14 @@ class Settings(BaseSettings):
         default=None, description="Plex authentication token (X-Plex-Token)"
     )
 
+    # Authentication settings
+    secret_key: str = Field(
+        default="", description="Secret key for session signing (auto-generated if empty)"
+    )
+    auth_data_dir: str = Field(
+        default="/data", description="Directory for auth credential storage"
+    )
+
     # Docker service discovery
     docker_network: Optional[str] = Field(
         default=None, description="Docker network name for service discovery"

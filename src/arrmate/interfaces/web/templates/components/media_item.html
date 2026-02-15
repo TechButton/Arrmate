@@ -1,60 +1,50 @@
-<div class="card hover:shadow-lg transition-shadow">
+<div class="card hover:border-gray-600 transition-colors">
     <div class="flex items-start space-x-3">
         <!-- Poster Placeholder -->
-        <div class="w-16 h-24 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded flex-shrink-0 flex items-center justify-center">
+        <div class="w-16 h-24 bg-gradient-to-br from-gray-700 to-gray-800 rounded flex-shrink-0 flex items-center justify-center border border-gray-700">
             <span class="text-2xl">
                 {% if item.media_type == "tv" %}📺{% else %}🎬{% endif %}
             </span>
         </div>
-        
+
         <!-- Content -->
         <div class="flex-1 min-w-0">
-            <h3 class="font-semibold text-gray-900 dark:text-white truncate mb-1">{{ item.title }}</h3>
-            
+            <h3 class="font-semibold text-white truncate mb-1">{{ item.title }}</h3>
+
             <div class="flex flex-wrap gap-2 mb-2">
                 {% if item.monitored %}
-                <span class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 text-xs rounded-full">
-                    👁️ Monitored
+                <span class="px-2 py-0.5 bg-green-900/40 text-green-400 text-xs rounded-full border border-green-700/50">
+                    Monitored
                 </span>
                 {% else %}
-                <span class="px-2 py-0.5 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 text-xs rounded-full">
+                <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded-full border border-gray-700">
                     Unmonitored
                 </span>
                 {% endif %}
-                
+
                 {% if item.status %}
-                <span class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 text-xs rounded-full">
+                <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-xs rounded-full border border-blue-700/50">
                     {{ item.status }}
                 </span>
                 {% endif %}
             </div>
-            
-            <div class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+
+            <div class="text-xs text-gray-400 space-y-1">
                 {% if item.media_type == "tv" %}
                     {% if item.season_count %}
-                    <p>📺 {{ item.season_count }} season(s)</p>
+                    <p>{{ item.season_count }} season(s)</p>
                     {% endif %}
                     {% if item.episode_count %}
-                    <p>🎞️ {{ item.episode_count }} episode(s)</p>
+                    <p>{{ item.episode_count }} episode(s)</p>
                     {% endif %}
                 {% else %}
                     {% if item.year %}
-                    <p>📅 {{ item.year }}</p>
+                    <p>{{ item.year }}</p>
                     {% endif %}
                     {% if item.size %}
-                    <p>💾 {{ item.size }}</p>
+                    <p>{{ item.size }}</p>
                     {% endif %}
                 {% endif %}
-            </div>
-            
-            <!-- Actions -->
-            <div class="flex gap-2 mt-3">
-                <button class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors" style="min-height: 32px;">
-                    View
-                </button>
-                <button class="px-3 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800 transition-colors" style="min-height: 32px;">
-                    Delete
-                </button>
             </div>
         </div>
     </div>

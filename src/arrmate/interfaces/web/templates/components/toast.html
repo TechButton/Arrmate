@@ -1,17 +1,17 @@
-<div class="toast {{ type }}" 
-     x-data="{ show: true }" 
-     x-show="show" 
-     x-init="setTimeout(() => show = false, 5000)"
-     @click="show = false">
+<div class="toast {{ type }}"
+     x-data="{ show: true }"
+     x-show="show"
+     x-init="setTimeout(() => { show = false; $nextTick(() => $el.remove()) }, 5000)"
+     @click="show = false; $nextTick(() => $el.remove())">
     <div class="flex items-center space-x-3">
-        <span class="text-xl">
+        <span class="text-xl flex-shrink-0">
             {% if type == "success" %}✅
             {% elif type == "error" %}❌
             {% elif type == "warning" %}⚠️
             {% else %}ℹ️
             {% endif %}
         </span>
-        <p class="flex-1">{{ toast_message if toast_message else message }}</p>
-        <button class="text-white hover:text-gray-200" @click.stop="show = false">✕</button>
+        <p class="flex-1">{{ toast_message if toast_message is defined and toast_message else message }}</p>
+        <button class="text-white hover:text-gray-200 flex-shrink-0" @click.stop="show = false; $nextTick(() => $el.parentElement.remove())">✕</button>
     </div>
 </div>

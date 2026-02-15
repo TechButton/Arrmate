@@ -1,17 +1,17 @@
-<div id="service-list" 
-     hx-get="/web/services/refresh" 
-     hx-trigger="every 30s" 
+<div id="service-list"
+     hx-get="/web/services/refresh"
+     hx-trigger="every 30s"
      hx-swap="outerHTML"
      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for name, service in services.items() %}
         {% include "components/service_card.html" %}
     {% endfor %}
-    
+
     {% if not services %}
     <div class="col-span-full p-8 text-center">
-        <span class="text-4xl mb-4 block">🔍</span>
-        <p class="text-gray-600 dark:text-gray-400">No services configured</p>
-        <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">Configure your Sonarr, Radarr, or Lidarr services in the .env file</p>
+        <span class="text-4xl mb-4 block opacity-60">🔍</span>
+        <p class="text-gray-400">No services configured</p>
+        <p class="text-sm text-gray-500 mt-2">Configure your Sonarr, Radarr, or Lidarr services in the .env file</p>
     </div>
     {% endif %}
 </div>

@@ -1,12 +1,18 @@
 """Intent execution orchestrator."""
 
+import logging
 from typing import List
 
 from ..clients.base import BaseMediaClient
 from ..clients.discovery import get_client_for_media_type
+from ..clients.lidarr import LidarrClient
 from ..clients.radarr import RadarrClient
+from ..clients.readarr import ReadarrClient
 from ..clients.sonarr import SonarrClient
+from ..clients.whisparr import WhisparrClient
 from .models import ActionType, ExecutionResult, Intent
+
+logger = logging.getLogger(__name__)
 
 
 class Executor:
@@ -68,6 +74,12 @@ class Executor:
             return await self._remove_tv_content(intent, client)
         elif intent.media_type.value == "movie":
             return await self._remove_movie(intent, client)
+        elif intent.media_type.value == "music":
+            return await self._remove_music_content(intent, client)
+        elif intent.media_type.value in ("audiobook", "book"):
+            return await self._remove_book_content(intent, client)
+        elif intent.media_type.value == "adult":
+            return await self._remove_adult_content(intent, client)
         else:
             return ExecutionResult(
                 success=False,
@@ -190,6 +202,83 @@ class Executor:
             message=f"Removed movie '{intent.title}' and all files",
         )
 
+    async def _remove_music_content(
+        self, intent: Intent, client: LidarrClient
+    ) -> ExecutionResult:
+        """Remove music (artist).
+
+        Args:
+            intent: Intent with artist info
+            client: Lidarr client
+
+        Returns:
+            Execution result
+        """
+        if not intent.item_id:
+            return ExecutionResult(
+                success=False,
+                message=f"Could not find artist '{intent.title}' in library",
+            )
+
+        await client.delete_item(intent.item_id, delete_files=True)
+
+        return ExecutionResult(
+            success=True,
+            message=f"Removed artist '{intent.title}' and all files",
+        )
+
+    async def _remove_book_content(
+        self, intent: Intent, client: ReadarrClient
+    ) -> ExecutionResult:
+        """Remove book/audiobook (author).
+
+        Args:
+            intent: Intent with author info
+            client: Readarr client
+
+        Returns:
+            Execution result
+        """
+        logger.warning("Using deprecated Readarr client for removal")
+
+        if not intent.item_id:
+            return ExecutionResult(
+                success=False,
+                message=f"Could not find author '{intent.title}' in library",
+            )
+
+        await client.delete_item(intent.item_id, delete_files=True)
+
+        return ExecutionResult(
+            success=True,
+            message=f"Removed author '{intent.title}' and all files",
+        )
+
+    async def _remove_adult_content(
+        self, intent: Intent, client: WhisparrClient
+    ) -> ExecutionResult:
+        """Remove adult content.
+
+        Args:
+            intent: Intent with item info
+            client: Whisparr client
+
+        Returns:
+            Execution result
+        """
+        if not intent.item_id:
+            return ExecutionResult(
+                success=False,
+                message=f"Could not find item '{intent.title}' in library",
+            )
+
+        await client.delete_item(intent.item_id, delete_files=True)
+
+        return ExecutionResult(
+            success=True,
+            message=f"Removed '{intent.title}' and all files",
+        )
+
     async def _execute_search(
         self, intent: Intent, client: BaseMediaClient
     ) -> ExecutionResult:
@@ -211,6 +300,27 @@ class Executor:
                 data=result,
             )
         elif intent.item_id and intent.media_type.value == "movie":
+            result = await client.trigger_movie_search(intent.item_id)
+            return ExecutionResult(
+                success=True,
+                message=f"Triggered search for '{intent.title}'",
+                data=result,
+            )
+        elif intent.item_id and intent.media_type.value == "music":
+            result = await client.trigger_artist_search(intent.item_id)
+            return ExecutionResult(
+                success=True,
+                message=f"Triggered search for '{intent.title}'",
+                data=result,
+            )
+        elif intent.item_id and intent.media_type.value in ("audiobook", "book"):
+            result = await client.trigger_author_search(intent.item_id)
+            return ExecutionResult(
+                success=True,
+                message=f"Triggered search for '{intent.title}'",
+                data=result,
+            )
+        elif intent.item_id and intent.media_type.value == "adult":
             result = await client.trigger_movie_search(intent.item_id)
             return ExecutionResult(
                 success=True,
@@ -332,6 +442,31 @@ class Executor:
             return ExecutionResult(
                 success=True,
                 message=f"Found {len(items)} movie(s)",
+                data={"titles": titles, "count": len(items)},
+            )
+        elif intent.media_type.value == "music":
+            items = await client.get_all_artists()
+            titles = [item.get("artistName", item.get("title", "Unknown")) for item in items]
+            return ExecutionResult(
+                success=True,
+                message=f"Found {len(items)} artist(s)",
+                data={"titles": titles, "count": len(items)},
+            )
+        elif intent.media_type.value in ("audiobook", "book"):
+            logger.warning("Using deprecated Readarr client for listing")
+            items = await client.get_all_authors()
+            titles = [item.get("authorName", item.get("title", "Unknown")) for item in items]
+            return ExecutionResult(
+                success=True,
+                message=f"Found {len(items)} author(s)",
+                data={"titles": titles, "count": len(items)},
+            )
+        elif intent.media_type.value == "adult":
+            items = await client.get_all_movies()
+            titles = [item["title"] for item in items]
+            return ExecutionResult(
+                success=True,
+                message=f"Found {len(items)} item(s)",
                 data={"titles": titles, "count": len(items)},
             )
         else:

@@ -1,56 +1,56 @@
 {% if error %}
-<div class="card border-2 border-red-300 dark:border-red-700">
+<div class="card border-red-700/50">
     <div class="flex items-start space-x-3">
         <span class="text-2xl">❌</span>
         <div class="flex-1">
-            <h3 class="text-lg font-semibold text-red-600 dark:text-red-400 mb-1">Parse Error</h3>
-            <p class="text-red-700 dark:text-red-300">{{ error }}</p>
+            <h3 class="text-lg font-semibold text-red-400 mb-1">Parse Error</h3>
+            <p class="text-red-300">{{ error }}</p>
         </div>
     </div>
 </div>
 {% else %}
-<div class="card border-2 border-blue-300 dark:border-blue-700">
+<div class="card border-blue-700/50">
     <div class="flex items-start space-x-3 mb-4">
         <span class="text-2xl">📋</span>
         <div class="flex-1">
-            <h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-1">Parsed Intent</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">Here's how I understood your command</p>
+            <h3 class="text-lg font-semibold text-blue-400 mb-1">Parsed Intent</h3>
+            <p class="text-sm text-gray-400">Here's how I understood your command</p>
         </div>
     </div>
-    
+
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <!-- Action -->
-        <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Action</div>
-            <div class="text-sm font-semibold text-green-700 dark:text-green-400">{{ intent.action }}</div>
+        <div class="p-3 bg-green-900/20 rounded-lg border border-green-800/30">
+            <div class="text-xs font-medium text-gray-400 mb-1">Action</div>
+            <div class="text-sm font-semibold text-green-400">{{ intent.action }}</div>
         </div>
-        
+
         <!-- Media Type -->
-        <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Media Type</div>
-            <div class="text-sm font-semibold text-green-700 dark:text-green-400">{{ intent.media_type }}</div>
+        <div class="p-3 bg-green-900/20 rounded-lg border border-green-800/30">
+            <div class="text-xs font-medium text-gray-400 mb-1">Media Type</div>
+            <div class="text-sm font-semibold text-green-400">{{ intent.media_type }}</div>
         </div>
-        
+
         <!-- Title -->
-        <div class="p-3 {% if intent.title %}bg-green-50 dark:bg-green-900/20{% else %}bg-gray-50 dark:bg-gray-700{% endif %} rounded-lg">
-            <div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Title</div>
-            <div class="text-sm font-semibold {% if intent.title %}text-green-700 dark:text-green-400{% else %}text-gray-500{% endif %}">
+        <div class="p-3 {% if intent.title %}bg-green-900/20 border-green-800/30{% else %}bg-gray-800 border-gray-700{% endif %} rounded-lg border">
+            <div class="text-xs font-medium text-gray-400 mb-1">Title</div>
+            <div class="text-sm font-semibold {% if intent.title %}text-green-400{% else %}text-gray-500{% endif %}">
                 {{ intent.title or "Not specified" }}
             </div>
         </div>
-        
+
         <!-- Season -->
-        <div class="p-3 {% if intent.season %}bg-green-50 dark:bg-green-900/20{% else %}bg-gray-50 dark:bg-gray-700{% endif %} rounded-lg">
-            <div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Season</div>
-            <div class="text-sm font-semibold {% if intent.season %}text-green-700 dark:text-green-400{% else %}text-gray-500{% endif %}">
+        <div class="p-3 {% if intent.season %}bg-green-900/20 border-green-800/30{% else %}bg-gray-800 border-gray-700{% endif %} rounded-lg border">
+            <div class="text-xs font-medium text-gray-400 mb-1">Season</div>
+            <div class="text-sm font-semibold {% if intent.season %}text-green-400{% else %}text-gray-500{% endif %}">
                 {{ intent.season or "Not specified" }}
             </div>
         </div>
-        
+
         <!-- Episodes -->
-        <div class="p-3 {% if intent.episodes %}bg-green-50 dark:bg-green-900/20{% else %}bg-gray-50 dark:bg-gray-700{% endif %} rounded-lg sm:col-span-2">
-            <div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Episodes</div>
-            <div class="text-sm font-semibold {% if intent.episodes %}text-green-700 dark:text-green-400{% else %}text-gray-500{% endif %}">
+        <div class="p-3 {% if intent.episodes %}bg-green-900/20 border-green-800/30{% else %}bg-gray-800 border-gray-700{% endif %} rounded-lg border sm:col-span-2">
+            <div class="text-xs font-medium text-gray-400 mb-1">Episodes</div>
+            <div class="text-sm font-semibold {% if intent.episodes %}text-green-400{% else %}text-gray-500{% endif %}">
                 {% if intent.episodes %}
                     {{ intent.episodes|join(", ") }}
                 {% else %}
@@ -58,21 +58,21 @@
                 {% endif %}
             </div>
         </div>
-        
+
         <!-- Criteria -->
         {% if intent.criteria %}
-        <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg sm:col-span-2">
-            <div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Criteria</div>
-            <div class="text-sm font-semibold text-green-700 dark:text-green-400">
+        <div class="p-3 bg-green-900/20 rounded-lg border border-green-800/30 sm:col-span-2">
+            <div class="text-xs font-medium text-gray-400 mb-1">Criteria</div>
+            <div class="text-sm font-semibold text-green-400">
                 {{ intent.criteria }}
             </div>
         </div>
         {% endif %}
     </div>
-    
-    <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-        <p class="text-sm text-blue-700 dark:text-blue-300">
-            ✓ Command parsed successfully. Click "Execute Command" to run it.
+
+    <div class="mt-4 p-3 bg-blue-900/20 rounded-lg border border-blue-800/30">
+        <p class="text-sm text-blue-300">
+            Command parsed successfully. Click "Execute Command" to run it.
         </p>
     </div>
 </div>

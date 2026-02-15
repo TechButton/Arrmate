@@ -3,18 +3,19 @@
 from pathlib import Path
 from typing import Dict
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from ...auth.dependencies import AuthRedirectException, require_api_auth
 from ...clients.discovery import discover_services
 from ...config.settings import settings
 from ...core.command_parser import CommandParser
 from ...core.executor import Executor
 from ...core.intent_engine import IntentEngine
 from ...core.models import ExecutionResult, ServiceInfo
-from ..web.routes import router as web_router
+from ..web.routes import auth_router, router as web_router
 
 # API models
 class CommandRequest(BaseModel):
@@ -48,7 +49,19 @@ app = FastAPI(
 static_dir = Path(__file__).parent.parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# Include web router
+
+# Exception handler for auth redirects
+@app.exception_handler(AuthRedirectException)
+async def auth_redirect_handler(request: Request, exc: AuthRedirectException):
+    if exc.is_htmx:
+        return Response(status_code=200, headers={"HX-Redirect": exc.login_url})
+    return RedirectResponse(url=exc.login_url, status_code=303)
+
+
+# Include auth router first (unprotected login/logout routes)
+app.include_router(auth_router)
+
+# Include web router (protected routes)
 app.include_router(web_router)
 
 # Global components (initialized per request to avoid state issues)
@@ -79,7 +92,7 @@ async def shutdown_event() -> None:
 @app.get("/")
 async def root():
     """Root endpoint - redirect to web UI."""
-    return RedirectResponse(url="/web")
+    return RedirectResponse(url="/web/")
 
 
 @app.get("/health")
@@ -88,7 +101,11 @@ async def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/api/v1/execute", response_model=CommandResponse)
+@app.post(
+    "/api/v1/execute",
+    response_model=CommandResponse,
+    dependencies=[Depends(require_api_auth)],
+)
 async def execute_command(request: CommandRequest) -> CommandResponse:
     """Execute a natural language command.
 
@@ -138,7 +155,11 @@ async def execute_command(request: CommandRequest) -> CommandResponse:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/v1/services", response_model=Dict[str, ServiceInfo])
+@app.get(
+    "/api/v1/services",
+    response_model=Dict[str, ServiceInfo],
+    dependencies=[Depends(require_api_auth)],
+)
 async def get_services() -> Dict[str, ServiceInfo]:
     """Get status of all configured media services.
 
@@ -152,7 +173,10 @@ async def get_services() -> Dict[str, ServiceInfo]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/v1/config")
+@app.get(
+    "/api/v1/config",
+    dependencies=[Depends(require_api_auth)],
+)
 async def get_config() -> Dict[str, str]:
     """Get current configuration (sanitized).
 

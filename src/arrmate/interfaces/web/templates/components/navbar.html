@@ -1,47 +1,62 @@
-<nav class="fixed top-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-md z-40" x-data="{ mobileMenuOpen: false }">
+<nav class="fixed top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 shadow-lg z-40" x-data="{ mobileMenuOpen: false }">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             <!-- Logo -->
             <div class="flex items-center">
-                <a href="/web" class="flex items-center space-x-2">
+                <a href="/web/" class="flex items-center space-x-2">
                     <span class="text-2xl">🤝</span>
-                    <span class="text-xl font-bold text-gray-900 dark:text-white">Arrmate</span>
+                    <span class="text-xl font-bold text-white">Arrmate</span>
                 </a>
             </div>
-            
+
             <!-- Desktop Navigation -->
             <div class="hidden md:flex items-center space-x-1">
-                <a href="/web" 
-                   class="px-4 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <a href="/web/"
+                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                     Dashboard
                 </a>
-                <a href="/web/command" 
-                   class="px-4 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <a href="/web/command"
+                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                     Command
                 </a>
-                <a href="/web/services" 
-                   class="px-4 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <a href="/web/services"
+                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                     Services
                 </a>
-                <a href="/web/library" 
-                   class="px-4 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <a href="/web/library"
+                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                     Library
                 </a>
-                <a href="/web/search" 
-                   class="px-4 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <a href="/web/search"
+                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                     Search
                 </a>
-                
+                <a href="/web/help"
+                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    Help
+                </a>
+                <a href="/web/settings"
+                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    Settings
+                </a>
+
+                {% if auth_manager.is_auth_required() %}
+                <a href="/web/logout"
+                   class="ml-2 px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors border border-gray-600">
+                    Sign Out
+                </a>
+                {% endif %}
+
                 <!-- Service Status Indicator -->
                 <div class="ml-4 flex items-center space-x-2">
                     <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Services Online"></div>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Online</span>
+                    <span class="text-sm text-gray-400">Online</span>
                 </div>
             </div>
-            
+
             <!-- Mobile Menu Button -->
-            <button @click="mobileMenuOpen = !mobileMenuOpen" 
-                    class="md:hidden p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            <button @click="mobileMenuOpen = !mobileMenuOpen"
+                    class="md:hidden p-2 rounded-lg text-gray-300 hover:bg-gray-700"
                     style="min-width: 44px; min-height: 44px;">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path x-show="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -49,9 +64,9 @@
                 </svg>
             </button>
         </div>
-        
+
         <!-- Mobile Menu -->
-        <div x-show="mobileMenuOpen" 
+        <div x-show="mobileMenuOpen"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 -translate-y-2"
              x-transition:enter-end="opacity-100 translate-y-0"
@@ -60,36 +75,56 @@
              x-transition:leave-end="opacity-0 -translate-y-2"
              class="md:hidden pb-4">
             <div class="flex flex-col space-y-1">
-                <a href="/web" 
-                   class="px-4 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                <a href="/web/"
+                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                    style="min-height: 44px;">
                     Dashboard
                 </a>
-                <a href="/web/command" 
-                   class="px-4 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                <a href="/web/command"
+                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                    style="min-height: 44px;">
                     Command
                 </a>
-                <a href="/web/services" 
-                   class="px-4 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                <a href="/web/services"
+                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                    style="min-height: 44px;">
                     Services
                 </a>
-                <a href="/web/library" 
-                   class="px-4 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                <a href="/web/library"
+                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                    style="min-height: 44px;">
                     Library
                 </a>
-                <a href="/web/search" 
-                   class="px-4 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                <a href="/web/search"
+                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                    style="min-height: 44px;">
                     Search
                 </a>
-                
+                <a href="/web/help"
+                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                   style="min-height: 44px;">
+                    Help
+                </a>
+                <a href="/web/settings"
+                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                   style="min-height: 44px;">
+                    Settings
+                </a>
+
+                {% if auth_manager.is_auth_required() %}
+                <div class="border-t border-gray-700 mt-1 pt-1">
+                    <a href="/web/logout"
+                       class="px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                       style="min-height: 44px;">
+                        Sign Out
+                    </a>
+                </div>
+                {% endif %}
+
                 <!-- Mobile Service Status -->
                 <div class="px-4 py-2 flex items-center space-x-2">
                     <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Services Online</span>
+                    <span class="text-sm text-gray-400">Services Online</span>
                 </div>
             </div>
         </div>

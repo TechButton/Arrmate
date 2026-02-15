@@ -2,13 +2,19 @@
     {% for item in items %}
         {% include "components/media_item.html" %}
     {% endfor %}
-    
+
     {% if not items %}
     <div class="col-span-full p-12 text-center">
-        <span class="text-6xl mb-4 block">📭</span>
-        <p class="text-xl text-gray-600 dark:text-gray-400 mb-2">No items found</p>
-        <p class="text-sm text-gray-500 dark:text-gray-500">Try adding some {{ media_type }} shows to your library</p>
-        <a href="/web/search" class="btn-primary mt-4 inline-block">Search & Add →</a>
+        <span class="text-6xl mb-4 block opacity-60">📭</span>
+        <p class="text-xl text-gray-400 mb-2">No items found</p>
+        <p class="text-sm text-gray-500">
+            {% if media_type == 'tv' %}
+                No TV shows in your library yet. Add some using the Command or Search page.
+            {% else %}
+                No movies in your library yet. Add some using the Command or Search page.
+            {% endif %}
+        </p>
+        <a href="/web/search" class="btn-primary mt-4 inline-block">Search & Add &rarr;</a>
     </div>
     {% endif %}
 </div>
@@ -19,6 +25,6 @@
      hx-get="/web/library/items?media_type={{ media_type }}&page={{ page + 1 }}"
      hx-trigger="revealed"
      hx-swap="afterend">
-    <div class="text-gray-500 dark:text-gray-400">Loading more...</div>
+    <div class="text-gray-500">Loading more...</div>
 </div>
 {% endif %}

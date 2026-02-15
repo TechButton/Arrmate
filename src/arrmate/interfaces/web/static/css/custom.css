@@ -8,7 +8,6 @@
     display: inline-block;
 }
 
-/* Loading spinner */
 .htmx-request {
     position: relative;
 }
@@ -21,7 +20,7 @@
     width: 1rem;
     height: 1rem;
     margin-top: -0.5rem;
-    border: 2px solid rgba(0, 0, 0, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.15);
     border-top-color: #0ea5e9;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
@@ -35,7 +34,7 @@
 .toast {
     padding: 1rem 1.5rem;
     border-radius: 0.5rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
     color: white;
     font-weight: 500;
     animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 4.7s forwards;
@@ -70,12 +69,8 @@
 }
 
 @keyframes fadeOut {
-    from {
-        opacity: 1;
-    }
-    to {
-        opacity: 0;
-    }
+    from { opacity: 1; }
+    to { opacity: 0; }
 }
 
 /* ===== Focus States for Accessibility ===== */
@@ -90,7 +85,6 @@ select:focus {
 
 /* ===== Mobile Touch Improvements ===== */
 @media (max-width: 768px) {
-    /* Increase tap targets */
     button,
     a,
     input[type="button"],
@@ -98,8 +92,7 @@ select:focus {
         min-height: 44px;
         min-width: 44px;
     }
-    
-    /* Prevent text selection on buttons */
+
     button,
     .btn {
         -webkit-user-select: none;
@@ -123,34 +116,30 @@ select:focus {
 }
 
 .btn-primary:disabled {
-    background-color: #94a3b8;
+    background-color: #475569;
     cursor: not-allowed;
 }
 
 .btn-secondary {
-    background-color: #f1f5f9;
-    color: #334155;
+    background-color: #1e293b;
+    color: #e2e8f0;
     padding: 0.75rem 1.5rem;
     border-radius: 0.5rem;
     font-weight: 500;
     transition: background-color 0.2s;
+    border: 1px solid #334155;
 }
 
 .btn-secondary:hover {
-    background-color: #e2e8f0;
+    background-color: #334155;
 }
 
 .card {
-    background-color: white;
+    background-color: #1e293b;
     border-radius: 0.5rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
     padding: 1.5rem;
-}
-
-@media (prefers-color-scheme: dark) {
-    .card {
-        background-color: #1f2937;
-    }
+    border: 1px solid #334155;
 }
 
 /* ===== Infinite Scroll Loading ===== */

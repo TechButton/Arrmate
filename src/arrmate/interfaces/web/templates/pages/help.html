@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}Help - Arrmate{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">Help & Documentation</h1>
+        <p class="text-gray-400">Learn how to use Arrmate and troubleshoot common issues</p>
+    </div>
+
+    <!-- What is Arrmate -->
+    <div class="card mb-6">
+        <h2 class="text-xl font-bold text-white mb-3">What is Arrmate?</h2>
+        <p class="text-gray-300 mb-3">
+            Arrmate is an AI-powered companion for your media library. It lets you manage Sonarr, Radarr, Lidarr, Plex,
+            and other media services using plain English commands instead of navigating each service individually.
+        </p>
+        <p class="text-gray-400 text-sm">
+            Version {{ version }}
+        </p>
+    </div>
+
+    <!-- What You Can Do -->
+    <div class="card mb-6">
+        <h2 class="text-xl font-bold text-white mb-4">What You Can Do</h2>
+        <div class="space-y-4">
+            <div class="flex items-start space-x-3">
+                <span class="text-2xl flex-shrink-0">💬</span>
+                <div>
+                    <h3 class="font-semibold text-white">Natural Language Commands</h3>
+                    <p class="text-gray-400 text-sm mt-1">
+                        Use the <a href="/web/command" class="text-primary-400 hover:text-primary-300 underline">Command</a> page to control your media library in plain English.
+                        Arrmate uses an LLM to understand what you want and talks directly to your services.
+                    </p>
+                    <div class="mt-2 space-y-1">
+                        <p class="text-sm text-gray-500"><code class="bg-gray-800 px-2 py-0.5 rounded text-gray-300">list my TV shows</code></p>
+                        <p class="text-sm text-gray-500"><code class="bg-gray-800 px-2 py-0.5 rounded text-gray-300">add Breaking Bad to my library</code></p>
+                        <p class="text-sm text-gray-500"><code class="bg-gray-800 px-2 py-0.5 rounded text-gray-300">remove episode 1 of Angel season 1</code></p>
+                        <p class="text-sm text-gray-500"><code class="bg-gray-800 px-2 py-0.5 rounded text-gray-300">search for 4K version of Blade Runner</code></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+                <span class="text-2xl flex-shrink-0">🔧</span>
+                <div>
+                    <h3 class="font-semibold text-white">Monitor Services</h3>
+                    <p class="text-gray-400 text-sm mt-1">
+                        The <a href="/web/services" class="text-primary-400 hover:text-primary-300 underline">Services</a> page shows the status of all your connected media services.
+                        It auto-refreshes every 30 seconds so you can see at a glance what's online.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+                <span class="text-2xl flex-shrink-0">📚</span>
+                <div>
+                    <h3 class="font-semibold text-white">Browse Your Library</h3>
+                    <p class="text-gray-400 text-sm mt-1">
+                        The <a href="/web/library" class="text-primary-400 hover:text-primary-300 underline">Library</a> page lets you browse all TV shows and movies currently in your Sonarr and Radarr libraries.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+                <span class="text-2xl flex-shrink-0">🔍</span>
+                <div>
+                    <h3 class="font-semibold text-white">Search & Add Content</h3>
+                    <p class="text-gray-400 text-sm mt-1">
+                        The <a href="/web/search" class="text-primary-400 hover:text-primary-300 underline">Search</a> page lets you find new TV shows or movies and add them directly to your library.
+                        Results come from the same sources your Sonarr/Radarr uses.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+                <span class="text-2xl flex-shrink-0">🔒</span>
+                <div>
+                    <h3 class="font-semibold text-white">Optional Authentication</h3>
+                    <p class="text-gray-400 text-sm mt-1">
+                        The <a href="/web/settings" class="text-primary-400 hover:text-primary-300 underline">Settings</a> page lets you set up optional login protection for your Arrmate instance.
+                        Authentication is disabled by default &mdash; create a username and password to enable it.
+                        When enabled, both the web UI and API require authentication.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supported Services -->
+    <div class="card mb-6">
+        <h2 class="text-xl font-bold text-white mb-4">Supported Services</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-700">
+                        <th class="text-left py-2 pr-4 text-gray-400 font-medium">Service</th>
+                        <th class="text-left py-2 pr-4 text-gray-400 font-medium">Type</th>
+                        <th class="text-left py-2 text-gray-400 font-medium">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-300">
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">📺 Sonarr</td>
+                        <td class="py-2 pr-4">TV Shows</td>
+                        <td class="py-2"><span class="text-green-400">Full Support</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">🎬 Radarr</td>
+                        <td class="py-2 pr-4">Movies</td>
+                        <td class="py-2"><span class="text-green-400">Full Support</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">🎵 Lidarr</td>
+                        <td class="py-2 pr-4">Music</td>
+                        <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">🎞️ Plex</td>
+                        <td class="py-2 pr-4">Media Server</td>
+                        <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">💬 Bazarr</td>
+                        <td class="py-2 pr-4">Subtitles</td>
+                        <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">🎧 AudioBookshelf</td>
+                        <td class="py-2 pr-4">Audiobooks</td>
+                        <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">📖 LazyLibrarian</td>
+                        <td class="py-2 pr-4">Books</td>
+                        <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">🎯 huntarr.io</td>
+                        <td class="py-2 pr-4">Orchestration</td>
+                        <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 pr-4">🔞 Whisparr</td>
+                        <td class="py-2 pr-4">Adult Content</td>
+                        <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4">📚 Readarr</td>
+                        <td class="py-2 pr-4">Books</td>
+                        <td class="py-2"><span class="text-red-400">Deprecated</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- LLM Providers -->
+    <div class="card mb-6">
+        <h2 class="text-xl font-bold text-white mb-4">LLM Providers</h2>
+        <p class="text-gray-400 text-sm mb-4">
+            Arrmate needs an LLM (Large Language Model) to understand your natural language commands. You can choose from:
+        </p>
+        <div class="space-y-3">
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white">Ollama (Local)</h3>
+                <p class="text-sm text-gray-400 mt-1">
+                    Run models locally on your own hardware. Free, private, no internet required.
+                    Recommended model: <code class="bg-gray-900 px-1.5 py-0.5 rounded text-gray-300">qwen2.5:7b</code> (5GB VRAM)
+                </p>
+            </div>
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white">OpenAI</h3>
+                <p class="text-sm text-gray-400 mt-1">
+                    Use OpenAI's API (GPT-4, etc). Requires an API key and internet connection.
+                </p>
+            </div>
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white">Anthropic</h3>
+                <p class="text-sm text-gray-400 mt-1">
+                    Use Anthropic's API (Claude). Requires an API key and internet connection.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="card mb-6">
+        <h2 class="text-xl font-bold text-white mb-4">Troubleshooting</h2>
+        <div class="space-y-4">
+            <div>
+                <h3 class="font-semibold text-yellow-400 mb-1">Services show as "Offline"</h3>
+                <ul class="text-sm text-gray-400 list-disc list-inside space-y-1 ml-1">
+                    <li>Verify the service URL and API key in your <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">.env</code> file</li>
+                    <li>If using Docker, use the container/service name as hostname (e.g. <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">http://sonarr:8989</code>)</li>
+                    <li>Make sure the service is running and reachable from the Arrmate container</li>
+                    <li>Check that the API key is correct in the service's Settings &rarr; General page</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-yellow-400 mb-1">Commands fail or return errors</h3>
+                <ul class="text-sm text-gray-400 list-disc list-inside space-y-1 ml-1">
+                    <li>Ensure your LLM provider is configured and running</li>
+                    <li>If using Ollama, make sure you've pulled the model: <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">docker compose exec ollama ollama pull qwen2.5:7b</code></li>
+                    <li>Check the Arrmate logs: <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">docker compose logs -f arrmate</code></li>
+                    <li>Try simpler commands first (e.g. "list my TV shows") to verify connectivity</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-yellow-400 mb-1">Library page shows no items</h3>
+                <ul class="text-sm text-gray-400 list-disc list-inside space-y-1 ml-1">
+                    <li>Make sure the corresponding service (Sonarr for TV, Radarr for movies) is configured and online</li>
+                    <li>Check the <a href="/web/services" class="text-primary-400 hover:text-primary-300 underline">Services</a> page to confirm the service is available</li>
+                    <li>The library is fetched directly from your service's API &mdash; if the service has no items, the library will be empty</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-yellow-400 mb-1">Search returns no results</h3>
+                <ul class="text-sm text-gray-400 list-disc list-inside space-y-1 ml-1">
+                    <li>Search uses the same indexer sources as your Sonarr/Radarr</li>
+                    <li>Make sure your service has indexers configured in its Settings</li>
+                    <li>Try a broader search term</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-yellow-400 mb-1">Authentication / login issues</h3>
+                <ul class="text-sm text-gray-400 list-disc list-inside space-y-1 ml-1">
+                    <li>Authentication is optional and disabled by default &mdash; go to <a href="/web/settings" class="text-primary-400 hover:text-primary-300 underline">Settings</a> to set it up</li>
+                    <li>If you get locked out, delete the <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">auth.json</code> file from the data directory (default: <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">/data</code>) and restart</li>
+                    <li>Sessions expire after 24 hours &mdash; you'll need to sign in again</li>
+                    <li>For persistent sessions across restarts, set <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">SECRET_KEY</code> in your <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">.env</code> file</li>
+                    <li>API requests use HTTP Basic Auth when authentication is enabled</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-yellow-400 mb-1">Docker / GPU issues</h3>
+                <ul class="text-sm text-gray-400 list-disc list-inside space-y-1 ml-1">
+                    <li>For NVIDIA GPU: set <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">COMPOSE_FILE=docker-compose.yml:docker-compose.ollama-nvidia.yml</code> in your <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">.env</code></li>
+                    <li>For AMD GPU: set <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">COMPOSE_FILE=docker-compose.yml:docker-compose.ollama-amd.yml</code></li>
+                    <li>For CPU only: use the default <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">docker-compose.yml</code></li>
+                    <li>External Ollama: set <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">OLLAMA_BASE_URL</code> to your Ollama host and remove the ollama service from compose</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Reference -->
+    <div class="card mb-6">
+        <h2 class="text-xl font-bold text-white mb-4">API</h2>
+        <p class="text-gray-400 text-sm mb-3">
+            Arrmate also provides a REST API for programmatic access. Useful for integrations, scripts, or building your own UI.
+            When authentication is enabled, API requests require HTTP Basic Auth.
+        </p>
+        <div class="space-y-2 text-sm">
+            <div class="flex items-start space-x-2">
+                <code class="bg-gray-800 px-2 py-0.5 rounded text-green-400 flex-shrink-0">GET</code>
+                <div>
+                    <code class="text-gray-300">/api/v1/services</code>
+                    <span class="text-gray-500 ml-2">&mdash; List all services and their status</span>
+                </div>
+            </div>
+            <div class="flex items-start space-x-2">
+                <code class="bg-gray-800 px-2 py-0.5 rounded text-blue-400 flex-shrink-0">POST</code>
+                <div>
+                    <code class="text-gray-300">/api/v1/execute</code>
+                    <span class="text-gray-500 ml-2">&mdash; Execute a natural language command</span>
+                </div>
+            </div>
+            <div class="flex items-start space-x-2">
+                <code class="bg-gray-800 px-2 py-0.5 rounded text-green-400 flex-shrink-0">GET</code>
+                <div>
+                    <code class="text-gray-300">/api/v1/config</code>
+                    <span class="text-gray-500 ml-2">&mdash; View current configuration</span>
+                </div>
+            </div>
+            <div class="flex items-start space-x-2">
+                <code class="bg-gray-800 px-2 py-0.5 rounded text-green-400 flex-shrink-0">GET</code>
+                <div>
+                    <code class="text-gray-300">/health</code>
+                    <span class="text-gray-500 ml-2">&mdash; Health check</span>
+                </div>
+            </div>
+            <div class="flex items-start space-x-2">
+                <code class="bg-gray-800 px-2 py-0.5 rounded text-green-400 flex-shrink-0">GET</code>
+                <div>
+                    <code class="text-gray-300">/docs</code>
+                    <span class="text-gray-500 ml-2">&mdash; Interactive API documentation (Swagger UI)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Links & Resources -->
+    <div class="card mb-6 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 border-indigo-700/50">
+        <h2 class="text-xl font-bold text-indigo-300 mb-4">Links & Resources</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a href="https://github.com/techbutton/arrmate" target="_blank" rel="noopener noreferrer"
+               class="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-indigo-600/50 transition-colors">
+                <svg class="w-6 h-6 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                <div>
+                    <p class="font-semibold text-white">GitHub Repository</p>
+                    <p class="text-xs text-gray-400">Source code, issues, and releases</p>
+                </div>
+            </a>
+
+            <a href="https://github.com/techbutton/arrmate/issues" target="_blank" rel="noopener noreferrer"
+               class="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-indigo-600/50 transition-colors">
+                <svg class="w-6 h-6 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div>
+                    <p class="font-semibold text-white">Report an Issue</p>
+                    <p class="text-xs text-gray-400">Bug reports and feature requests</p>
+                </div>
+            </a>
+
+            <a href="https://hub.docker.com/r/techbutton/arrmate" target="_blank" rel="noopener noreferrer"
+               class="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-indigo-600/50 transition-colors">
+                <svg class="w-6 h-6 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.186m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.186.186 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.186.186 0 00-.185-.186H5.136a.186.186 0 00-.186.185v1.888c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.186.186 0 00-.184-.186H2.216a.186.186 0 00-.186.185v1.888c0 .102.084.185.186.185m11.824 2.715h2.118a.186.186 0 00.186-.185v-1.888a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m3.056-7.863c-.349-.085-.696-.127-1.039-.127-3.195 0-4.47 2.636-4.596 4.9H1.756a.753.753 0 00-.754.755v5.14c0 .416.338.754.754.754h19.652a.754.754 0 00.754-.754v-5.14a.754.754 0 00-.754-.755h-1.56c.073-.308.11-.622.11-.94 0-2.14-1.609-3.834-3.61-3.834"/>
+                </svg>
+                <div>
+                    <p class="font-semibold text-white">Docker Hub</p>
+                    <p class="text-xs text-gray-400">Pre-built Docker images</p>
+                </div>
+            </a>
+
+            <a href="https://github.com/techbutton/arrmate#readme" target="_blank" rel="noopener noreferrer"
+               class="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-indigo-600/50 transition-colors">
+                <svg class="w-6 h-6 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <div>
+                    <p class="font-semibold text-white">Documentation</p>
+                    <p class="text-xs text-gray-400">Setup guides and service reference</p>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Useful Commands -->
+    <div class="card">
+        <h2 class="text-xl font-bold text-white mb-4">Useful Docker Commands</h2>
+        <div class="space-y-2 text-sm">
+            <div class="p-2 bg-gray-800 rounded border border-gray-700">
+                <code class="text-gray-300">docker compose logs -f arrmate</code>
+                <span class="text-gray-500 ml-2">&mdash; View Arrmate logs</span>
+            </div>
+            <div class="p-2 bg-gray-800 rounded border border-gray-700">
+                <code class="text-gray-300">docker compose restart arrmate</code>
+                <span class="text-gray-500 ml-2">&mdash; Restart Arrmate</span>
+            </div>
+            <div class="p-2 bg-gray-800 rounded border border-gray-700">
+                <code class="text-gray-300">docker compose ps</code>
+                <span class="text-gray-500 ml-2">&mdash; Check service status</span>
+            </div>
+            <div class="p-2 bg-gray-800 rounded border border-gray-700">
+                <code class="text-gray-300">docker compose exec ollama ollama pull qwen2.5:7b</code>
+                <span class="text-gray-500 ml-2">&mdash; Pull Ollama model</span>
+            </div>
+            <div class="p-2 bg-gray-800 rounded border border-gray-700">
+                <code class="text-gray-300">docker compose down && docker compose up -d</code>
+                <span class="text-gray-500 ml-2">&mdash; Full restart</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

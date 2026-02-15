@@ -8,6 +8,7 @@
 | [Service Reference](services.md) | All supported services — status, API details, configuration |
 | [Docker Deployment](docker.md) | Full Docker setup guide |
 | [Web UI Guide](web-ui.md) | Using the Arrmate web interface |
+| [Authentication](authentication.md) | Optional login protection for your instance |
 
 ## For Contributors / Maintainers
 

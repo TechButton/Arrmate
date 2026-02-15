@@ -5,52 +5,35 @@
 {% block content %}
 <div class="max-w-7xl mx-auto">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Media Library</h1>
-        <p class="text-gray-600 dark:text-gray-400">Browse your TV shows and movies</p>
+        <h1 class="text-3xl font-bold text-white mb-2">Media Library</h1>
+        <p class="text-gray-400">Browse your TV shows and movies</p>
     </div>
-    
+
     <!-- Tabs -->
     <div class="card mb-6">
-        <div class="flex gap-2 border-b border-gray-200 dark:border-gray-700">
-            <button
-                hx-get="/web/library?media_type=tv"
-                hx-push-url="true"
-                hx-target="body"
-                hx-swap="innerHTML"
-                class="px-6 py-3 font-medium border-b-2 transition-colors {% if media_type == 'tv' %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white{% endif %}"
+        <div class="flex gap-2 border-b border-gray-700">
+            <a href="/web/library?media_type=tv"
+                class="px-6 py-3 font-medium border-b-2 transition-colors {% if media_type == 'tv' %}border-primary-500 text-primary-400{% else %}border-transparent text-gray-400 hover:text-white{% endif %}"
                 style="min-height: 44px;">
                 📺 TV Shows
-            </button>
-            <button
-                hx-get="/web/library?media_type=movie"
-                hx-push-url="true"
-                hx-target="body"
-                hx-swap="innerHTML"
-                class="px-6 py-3 font-medium border-b-2 transition-colors {% if media_type == 'movie' %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white{% endif %}"
+            </a>
+            <a href="/web/library?media_type=movie"
+                class="px-6 py-3 font-medium border-b-2 transition-colors {% if media_type == 'movie' %}border-primary-500 text-primary-400{% else %}border-transparent text-gray-400 hover:text-white{% endif %}"
                 style="min-height: 44px;">
                 🎬 Movies
-            </button>
+            </a>
         </div>
     </div>
-    
-    <!-- Search/Filter -->
-    <div class="card mb-6">
-        <input
-            type="text"
-            placeholder="Search {{ media_type }}..."
-            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            hx-get="/web/library/items?media_type={{ media_type }}"
-            hx-trigger="keyup changed delay:500ms"
-            hx-target="#library-items"
-            hx-swap="innerHTML">
-    </div>
-    
-    <!-- Library Items -->
-    <div id="library-items">
-        {% set items = [] %}
-        {% set has_more = False %}
-        {% set page = 1 %}
-        {% include "partials/library_list.html" %}
+
+    <!-- Library Items (loaded via HTMX on page load) -->
+    <div id="library-items"
+         hx-get="/web/library/items?media_type={{ media_type }}"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="p-12 text-center">
+            <div class="inline-block w-8 h-8 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-400">Loading library...</p>
+        </div>
     </div>
 </div>
 {% endblock %}

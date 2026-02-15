@@ -9,6 +9,7 @@ Your AI companion for Sonarr, Radarr, and Lidarr - manage your media library wit
 - 🐳 **Docker Ready** - Deploy in minutes with your existing services
 - 🤖 **Multiple LLM Providers** - Ollama (local), OpenAI, or Anthropic
 - 📺 **Multi-Service Support** - Sonarr (TV), Radarr (Movies), Lidarr (Music), and more
+- 🔒 **Optional Authentication** - Protect your instance with username/password login
 
 ## Supported Services
 
@@ -89,6 +90,30 @@ RADARR_API_KEY=your-api-key
 
 > **Tip:** Use Docker service/container names as hostnames (e.g. `http://sonarr:8989`) when services run on the same Docker host. See [.env.example](.env.example) for all options including GPU acceleration and Traefik.
 
+### Authentication (Optional)
+
+Arrmate's web UI and API are open by default. To add login protection:
+
+1. Open **Settings** in the web UI (`/web/settings`)
+2. Create a username and password
+3. Authentication is now active — all pages and API routes require login
+
+You can disable or delete credentials at any time from the Settings page.
+
+```bash
+# Optional .env settings for auth
+SECRET_KEY=your-secret-key-here    # For persistent sessions across restarts (auto-generated if empty)
+AUTH_DATA_DIR=/data                # Where auth.json is stored (default: /data)
+```
+
+When authentication is enabled, API requests require HTTP Basic Auth:
+
+```bash
+curl -u username:password http://localhost:8000/api/v1/services
+```
+
+> **Locked out?** Delete the `auth.json` file from your data directory and restart.
+
 ## Usage Examples
 
 Natural language commands:
@@ -109,6 +134,7 @@ upgrade all episodes of The Office
 | [Service Reference](docs/services.md) | All users — supported services, API details, config |
 | [Docker Deployment](docs/docker.md) | Self-hosted Docker users |
 | [Web UI Guide](docs/web-ui.md) | Web interface users |
+| [Authentication](docs/authentication.md) | Users wanting login protection |
 | [Docker Hub Publishing](docs/dev/docker-hub.md) | Contributors / maintainers |
 | [Publishing Guide](docs/dev/publishing.md) | Contributors / maintainers |
 
