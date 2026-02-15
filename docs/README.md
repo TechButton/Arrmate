@@ -9,6 +9,7 @@
 | [Docker Deployment](docker.md) | Full Docker setup guide |
 | [Web UI Guide](web-ui.md) | Using the Arrmate web interface |
 | [Authentication](authentication.md) | Optional login protection for your instance |
+| [SimpleHomelab Traefik](simplehomelab-traefik.md) | Integration with SimpleHomelab Docker-Traefik stack |
 
 ## For Contributors / Maintainers
 

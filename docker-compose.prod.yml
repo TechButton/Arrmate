@@ -69,6 +69,12 @@ services:
       - HUNTARR_API_KEY=${HUNTARR_API_KEY:-}
       - PLEX_URL=${PLEX_URL:-}
       - PLEX_TOKEN=${PLEX_TOKEN:-}
+
+      # ── Authentication (optional) ─────────────────────────────
+      - SECRET_KEY=${SECRET_KEY:-}
+      - AUTH_DATA_DIR=/data
+    volumes:
+      - arrmate-data:/data
     networks:
       - arrmate-net
       # If using Traefik, also add the Traefik network:
@@ -131,5 +137,7 @@ networks:
 # Volumes
 # ─────────────────────────────────────────────────────────────────
 volumes:
+  arrmate-data:
+    driver: local
   ollama-data:
     driver: local

@@ -30,23 +30,38 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
 
-      # Sonarr configuration
-      - SONARR_URL=${SONARR_URL:-http://sonarr:8989}
-      - SONARR_API_KEY=${SONARR_API_KEY}
+      # ── Media Services ──────────────────────────────────────────
+      - SONARR_URL=${SONARR_URL:-}
+      - SONARR_API_KEY=${SONARR_API_KEY:-}
+      - RADARR_URL=${RADARR_URL:-}
+      - RADARR_API_KEY=${RADARR_API_KEY:-}
+      - LIDARR_URL=${LIDARR_URL:-}
+      - LIDARR_API_KEY=${LIDARR_API_KEY:-}
+      - WHISPARR_URL=${WHISPARR_URL:-}
+      - WHISPARR_API_KEY=${WHISPARR_API_KEY:-}
+      - BAZARR_URL=${BAZARR_URL:-}
+      - BAZARR_API_KEY=${BAZARR_API_KEY:-}
+      - AUDIOBOOKSHELF_URL=${AUDIOBOOKSHELF_URL:-}
+      - AUDIOBOOKSHELF_API_KEY=${AUDIOBOOKSHELF_API_KEY:-}
+      - LAZYLIBRARIAN_URL=${LAZYLIBRARIAN_URL:-}
+      - LAZYLIBRARIAN_API_KEY=${LAZYLIBRARIAN_API_KEY:-}
+      - READARR_URL=${READARR_URL:-}
+      - READARR_API_KEY=${READARR_API_KEY:-}
+      - HUNTARR_URL=${HUNTARR_URL:-}
+      - HUNTARR_API_KEY=${HUNTARR_API_KEY:-}
+      - PLEX_URL=${PLEX_URL:-}
+      - PLEX_TOKEN=${PLEX_TOKEN:-}
 
-      # Radarr configuration
-      - RADARR_URL=${RADARR_URL:-http://radarr:7878}
-      - RADARR_API_KEY=${RADARR_API_KEY}
-
-      # Lidarr configuration
-      - LIDARR_URL=${LIDARR_URL:-http://lidarr:8686}
-      - LIDARR_API_KEY=${LIDARR_API_KEY}
+      # ── Authentication (optional) ─────────────────────────────
+      - SECRET_KEY=${SECRET_KEY:-}
+      - AUTH_DATA_DIR=/data
 
       # Service discovery
       - ENABLE_SERVICE_DISCOVERY=true
     networks:
       - media-network
     volumes:
+      - arrmate-data:/data
       - ./config:/app/config
     depends_on:
       - ollama
@@ -79,4 +94,5 @@ networks:
     name: media-network
 
 volumes:
+  arrmate-data:
   ollama-data:

@@ -135,6 +135,7 @@ upgrade all episodes of The Office
 | [Docker Deployment](docs/docker.md) | Self-hosted Docker users |
 | [Web UI Guide](docs/web-ui.md) | Web interface users |
 | [Authentication](docs/authentication.md) | Users wanting login protection |
+| [SimpleHomelab Traefik](docs/simplehomelab-traefik.md) | Users with SimpleHomelab Docker-Traefik stack |
 | [Docker Hub Publishing](docs/dev/docker-hub.md) | Contributors / maintainers |
 | [Publishing Guide](docs/dev/publishing.md) | Contributors / maintainers |
 

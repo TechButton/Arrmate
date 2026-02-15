@@ -42,6 +42,12 @@ services:
       - BAZARR_API_KEY=${BAZARR_API_KEY:-}
       - PLEX_URL=${PLEX_URL:-}
       - PLEX_TOKEN=${PLEX_TOKEN:-}
+
+      # ── Authentication (optional) ─────────────────────────────
+      - SECRET_KEY=${SECRET_KEY:-}
+      - AUTH_DATA_DIR=/data
+    volumes:
+      - arrmate-data:/data
     networks:
       - arrmate-net
     depends_on:
@@ -133,6 +139,7 @@ networks:
     name: arrmate-net
 
 volumes:
+  arrmate-data:
   ollama-data:
   sonarr-config:
   sonarr-tv:

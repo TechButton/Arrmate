@@ -22,9 +22,10 @@ COPY pyproject.toml /app/
 # Install the package
 RUN pip install -e .
 
-# Create non-root user
+# Create non-root user and data directory
 RUN useradd -m -u 1000 arrmate && \
-    chown -R arrmate:arrmate /app
+    mkdir -p /data && \
+    chown -R arrmate:arrmate /app /data
 
 USER arrmate
 
