@@ -29,7 +29,7 @@ class Executor:
         """
         try:
             # Get the appropriate client
-            client = get_client_for_media_type(intent.media_type.value)
+            client = get_client_for_media_type(intent.media_type)
 
             try:
                 # Route to appropriate handler based on action
@@ -70,15 +70,15 @@ class Executor:
         Returns:
             Execution result
         """
-        if intent.media_type.value == "tv":
+        if intent.media_type == "tv":
             return await self._remove_tv_content(intent, client)
-        elif intent.media_type.value == "movie":
+        elif intent.media_type == "movie":
             return await self._remove_movie(intent, client)
-        elif intent.media_type.value == "music":
+        elif intent.media_type == "music":
             return await self._remove_music_content(intent, client)
-        elif intent.media_type.value in ("audiobook", "book"):
+        elif intent.media_type in ("audiobook", "book"):
             return await self._remove_book_content(intent, client)
-        elif intent.media_type.value == "adult":
+        elif intent.media_type == "adult":
             return await self._remove_adult_content(intent, client)
         else:
             return ExecutionResult(
@@ -292,35 +292,35 @@ class Executor:
             Execution result
         """
         # For items already in library, trigger a search
-        if intent.series_id and intent.media_type.value == "tv":
+        if intent.series_id and intent.media_type == "tv":
             result = await client.trigger_series_search(intent.series_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
                 data=result,
             )
-        elif intent.item_id and intent.media_type.value == "movie":
+        elif intent.item_id and intent.media_type == "movie":
             result = await client.trigger_movie_search(intent.item_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
                 data=result,
             )
-        elif intent.item_id and intent.media_type.value == "music":
+        elif intent.item_id and intent.media_type == "music":
             result = await client.trigger_artist_search(intent.item_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
                 data=result,
             )
-        elif intent.item_id and intent.media_type.value in ("audiobook", "book"):
+        elif intent.item_id and intent.media_type in ("audiobook", "book"):
             result = await client.trigger_author_search(intent.item_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
                 data=result,
             )
-        elif intent.item_id and intent.media_type.value == "adult":
+        elif intent.item_id and intent.media_type == "adult":
             result = await client.trigger_movie_search(intent.item_id)
             return ExecutionResult(
                 success=True,
@@ -362,7 +362,7 @@ class Executor:
         profile_id = profiles[0]["id"]
         root_folder = root_folders[0]["path"]
 
-        if intent.media_type.value == "tv":
+        if intent.media_type == "tv":
             # Search for the show first
             results = await client.search(intent.title)
             if not results:
@@ -386,7 +386,7 @@ class Executor:
                 data=added,
             )
 
-        elif intent.media_type.value == "movie":
+        elif intent.media_type == "movie":
             # Search for the movie first
             results = await client.search(intent.title)
             if not results:
@@ -428,7 +428,7 @@ class Executor:
         Returns:
             Execution result
         """
-        if intent.media_type.value == "tv":
+        if intent.media_type == "tv":
             items = await client.get_all_series()
             titles = [item["title"] for item in items]
             return ExecutionResult(
@@ -436,7 +436,7 @@ class Executor:
                 message=f"Found {len(items)} TV show(s)",
                 data={"titles": titles, "count": len(items)},
             )
-        elif intent.media_type.value == "movie":
+        elif intent.media_type == "movie":
             items = await client.get_all_movies()
             titles = [item["title"] for item in items]
             return ExecutionResult(
@@ -444,7 +444,7 @@ class Executor:
                 message=f"Found {len(items)} movie(s)",
                 data={"titles": titles, "count": len(items)},
             )
-        elif intent.media_type.value == "music":
+        elif intent.media_type == "music":
             items = await client.get_all_artists()
             titles = [item.get("artistName", item.get("title", "Unknown")) for item in items]
             return ExecutionResult(
@@ -452,7 +452,7 @@ class Executor:
                 message=f"Found {len(items)} artist(s)",
                 data={"titles": titles, "count": len(items)},
             )
-        elif intent.media_type.value in ("audiobook", "book"):
+        elif intent.media_type in ("audiobook", "book"):
             logger.warning("Using deprecated Readarr client for listing")
             items = await client.get_all_authors()
             titles = [item.get("authorName", item.get("title", "Unknown")) for item in items]
@@ -461,7 +461,7 @@ class Executor:
                 message=f"Found {len(items)} author(s)",
                 data={"titles": titles, "count": len(items)},
             )
-        elif intent.media_type.value == "adult":
+        elif intent.media_type == "adult":
             items = await client.get_all_movies()
             titles = [item["title"] for item in items]
             return ExecutionResult(
