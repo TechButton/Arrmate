@@ -304,7 +304,7 @@ Add new features by:
 
 ## Version
 
-Current version: **0.2.5**
+Current version: **0.2.6**
 
 This web UI was implemented as a major feature update, bumping from v0.1.0 to v0.2.0.
 

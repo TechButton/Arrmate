@@ -202,7 +202,7 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/dev/publ
 
 ## Version
 
-Current: **0.2.5**
+Current: **0.2.6**
 
 ## License
 

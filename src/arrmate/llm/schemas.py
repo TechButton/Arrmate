@@ -148,6 +148,11 @@ Standard *arr examples:
 - "show me all my TV shows" → action=list, media_type=tv
 - "search for an all English version" → action=search, media_type=tv, criteria={{language: "English"}}
 - "delete The Office and all its files" → action=delete, media_type=tv, title="The Office"
+- "redownload Ghosts season 1 episode 1" → action=search, media_type=tv, title="Ghosts", season=1, episodes=[1]
+- "re-download a new version of The Wire S02E05" → action=search, media_type=tv, title="The Wire", season=2, episodes=[5]
+- "get a better copy of Inception" → action=search, media_type=movie, title="Inception"
+- "upgrade The Matrix to 4K" → action=upgrade, media_type=movie, title="The Matrix", criteria={{quality: "4K"}}
+- "check for new versions of Firefly" → action=search, media_type=tv, title="Firefly"
 
 Plex examples:
 - "what's playing on Plex" → action=list, media_type=tv, criteria={{service: "plex", operation: "sessions"}}

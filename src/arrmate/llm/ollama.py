@@ -70,20 +70,59 @@ class OllamaProvider(BaseLLMProvider):
             message = response.get("message", {})
             tool_calls = message.get("tool_calls", [])
 
-            if not tool_calls:
-                raise ValueError("LLM did not use the parse_media_command function")
+            if tool_calls:
+                # Get the first tool call (should be parse_media_command)
+                tool_call = tool_calls[0]
+                function_args = tool_call.get("function", {}).get("arguments", {})
 
-            # Get the first tool call (should be parse_media_command)
-            tool_call = tool_calls[0]
-            function_args = tool_call.get("function", {}).get("arguments", {})
+                if function_args:
+                    return function_args
 
-            if not function_args:
-                raise ValueError("No arguments returned from tool call")
+            # Fallback: try to extract JSON from the text response
+            content = message.get("content", "")
+            if content:
+                extracted = self._extract_json_from_text(content)
+                if extracted:
+                    return extracted
 
-            return function_args
+            raise ValueError(
+                "LLM did not use the parse_media_command function and no "
+                "structured data could be extracted from the response"
+            )
 
         except Exception as e:
             raise ValueError(f"Failed to parse command with Ollama: {str(e)}") from e
+
+    def _extract_json_from_text(self, text: str) -> Optional[Dict[str, Any]]:
+        """Try to extract structured command data from a text response.
+
+        Some models respond with JSON in the text instead of using tool calls.
+        This attempts to find and parse that JSON.
+        """
+        import re
+
+        # Try to find JSON object in the text
+        # Look for ```json ... ``` blocks first
+        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if json_match:
+            try:
+                data = json.loads(json_match.group(1))
+                if "action" in data and "media_type" in data:
+                    return data
+            except json.JSONDecodeError:
+                pass
+
+        # Try to find a bare JSON object
+        json_match = re.search(r"\{[^{}]*\"action\"[^{}]*\}", text, re.DOTALL)
+        if json_match:
+            try:
+                data = json.loads(json_match.group(0))
+                if "action" in data and "media_type" in data:
+                    return data
+            except json.JSONDecodeError:
+                pass
+
+        return None
 
     async def generate_response(
         self, prompt: str, context: Optional[Dict[str, Any]] = None

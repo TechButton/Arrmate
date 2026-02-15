@@ -8,7 +8,7 @@ Arrmate is a natural language interface for managing media services (Sonarr, Rad
 - **Web framework**: FastAPI + HTMX + Tailwind CSS + Alpine.js
 - **Templates**: Jinja2 (server-rendered)
 - **Package manager**: pip / setuptools (pyproject.toml)
-- **Version**: 0.2.5
+- **Version**: 0.2.6
 
 ## Project Structure
 
