@@ -1,0 +1,32 @@
+# Arrmate — docker-compose.ollama-amd.yml
+#
+# AMD GPU (ROCm) override for Ollama.
+# Merges with the base compose file via COMPOSE_FILE in .env:
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.ollama-amd.yml
+#   (or use docker-compose.prod.yml as the base)
+#
+# REQUIREMENTS:
+#   - AMD GPU with ROCm support (RX 5000 series or newer recommended)
+#   - ROCm drivers installed on the host
+#     https://rocm.docs.amd.com/en/latest/deploy/linux/index.html
+#   - Host kernel with HSA/KFD support (/dev/kfd must exist)
+#
+# SUPPORTED GPUS:
+#   gfx906 (Vega20/Radeon VII), gfx908 (Arcturus/MI100),
+#   gfx90a (Aldebaran/MI200), gfx1030 (Navi21/RX 6800+),
+#   gfx1100 (Navi31/RX 7900 series)
+#
+# VERIFY GPU ACCESS:
+#   docker run --rm --device /dev/kfd --device /dev/dri \
+#     rocm/rocm-terminal rocminfo | grep gfx
+
+services:
+  ollama:
+    image: ollama/ollama:rocm   # ROCm-specific image tag
+    devices:
+      - /dev/kfd               # Kernel Fusion Driver (required for ROCm)
+      - /dev/dri               # Direct Rendering Infrastructure
+    group_add:
+      - video                  # Required to access GPU render nodes
+      - render
