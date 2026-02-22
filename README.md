@@ -1,220 +1,141 @@
-# Arrmate 🤝
+# Arrmate
 
-Your AI companion for Sonarr, Radarr, and Lidarr - manage your media library with natural language.
+Arrmate is a natural language interface for your media server stack. Type plain English — it figures out what you mean and calls the right API.
 
-## Features
+```
+"remove episode 1 and 2 of Angel season 1"
+"add Breaking Bad to my library"
+"convert all my movies to H265"
+"rate The Matrix 5 stars"
+"backup Plex database"
+```
 
-- 🗣️ **Natural Language Interface** - Control your media with plain English
-- 🌐 **Mobile-Friendly Web UI** - Built with HTMX and Tailwind CSS
-- 🐳 **Docker Ready** - Deploy in minutes with your existing services
-- 🤖 **Multiple LLM Providers** - Ollama (local), OpenAI, or Anthropic
-- 📺 **Multi-Service Support** - Sonarr (TV), Radarr (Movies), Lidarr (Music), and more
-- 🔒 **Optional Authentication** - Protect your instance with username/password login
+Works with Sonarr, Radarr, Lidarr, Bazarr, Plex, SABnzbd, qBittorrent, and more. Uses your choice of local (Ollama) or cloud LLM.
 
 ## Supported Services
 
-### Primary Media Services
-| Service | Status | API | Media Type | Features |
-|---------|--------|-----|------------|----------|
-| **Sonarr v3** | ✅ Complete | v3 | TV Shows | Full Support |
-| **Radarr v3** | ✅ Complete | v3 | Movies | Full Support |
-| **Lidarr v3** | 🔜 Implemented | v3 | Music | Testing Required |
-| **Whisparr v3** | 🔜 Implemented | v3 | Adult Content | Testing Required |
+| Service | Type | What you can do |
+|---------|------|-----------------|
+| Sonarr | TV | Search, add, remove, upgrade, monitor/unmonitor shows and episodes |
+| Radarr | Movies | Search, add, remove, upgrade, monitor/unmonitor movies |
+| Lidarr | Music | Search, add, remove artists and albums |
+| Plex | Media server | History, continue watching, on deck, recently added, rate items, Butler maintenance, terminate sessions |
+| Bazarr | Subtitles | Download and sync subtitles by language |
+| AudioBookshelf | Audiobooks | Browse and search libraries |
+| LazyLibrarian | Books | Search and manage book libraries |
+| huntarr.io | Stats | Dashboard metrics across all services |
+| SABnzbd | Downloads | Queue status, speed control, pause/resume |
+| NZBget | Downloads | Queue status, speed control, pause/resume |
+| qBittorrent | Torrents | Queue status, speed limits, pause/resume |
+| Transmission | Torrents | Queue status, speed limits, pause/resume |
 
-### Book & Audiobook Services
-| Service | Status | API | Media Type | Notes |
-|---------|--------|-----|------------|-------|
-| **AudioBookshelf** | 🔜 Implemented | REST | Audiobooks/Podcasts | Modern player with apps |
-| **LazyLibrarian** | 🔜 Implemented | Custom | Books/Audiobooks | Automated downloading |
-| **Readarr** | ⚠️ Deprecated | v1 | Books/Audiobooks | Project Retired |
+Services are optional — anything not configured simply doesn't appear in the UI.
 
-### Companion & Orchestration
-| Service | Status | API | Purpose | Notes |
-|---------|--------|-----|---------|-------|
-| **Bazarr** | 🔜 Implemented | Custom | Subtitles | Sonarr/Radarr companion |
-| **huntarr.io** | 🔜 Implemented | REST | Orchestration | Multi-service automation |
-| **Plex** | 🔜 Implemented | REST | Media Server | Testing Required |
-
-**Legend:** ✅ Complete | 🔜 Testing Required | ⚠️ Deprecated
-
-See [docs/services.md](docs/services.md) for detailed service documentation, features, and configuration.
-
-## Quick Start with Docker
-
-The easiest way to run Arrmate is with Docker alongside your existing *arr services.
-
-### Prerequisites
-
-- Docker and Docker Compose installed
-- Running instances of Sonarr, Radarr, or Lidarr
-- LLM provider (Ollama, OpenAI, or Anthropic)
-
-### Installation
+## Quick Start
 
 ```bash
-# 1. Create docker-compose.yml
-curl -O https://raw.githubusercontent.com/techbutton/arrmate/main/docker-compose.yml
-
-# 2. Create .env file
+# Pull the compose file and create your env
+curl -O https://raw.githubusercontent.com/techbutton/arrmate/main/docker-compose.prod.yml
 curl -O https://raw.githubusercontent.com/techbutton/arrmate/main/.env.example
-mv .env.example .env
-
-# 3. Edit .env with your settings
-nano .env
-# Add your Sonarr/Radarr URLs and API keys
-# Configure your LLM provider
-
-# 4. Start Arrmate
-docker compose up -d
-
-# 5. Access the web UI
-# http://localhost:8000/web/
+cp .env.example .env
 ```
 
-### Environment Variables
-
-Required in `.env`:
+Edit `.env` with your service URLs and API keys, then:
 
 ```bash
-# LLM Provider (choose one)
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Open `http://localhost:8000` — that's it.
+
+### Minimum config
+
+```bash
+# Pick one LLM provider:
 LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://ollama:11434   # use container name on same Docker host
-OLLAMA_MODEL=qwen2.5:7b              # recommended model for tool calling
+OLLAMA_BASE_URL=http://ollama:11434
+OLLAMA_MODEL=qwen2.5:7b
 
-# Your *arr Services (comment out any you don't use — they won't appear in UI)
+# Add whichever services you run (others stay hidden):
 SONARR_URL=http://sonarr:8989
-SONARR_API_KEY=your-api-key
+SONARR_API_KEY=your-key
 RADARR_URL=http://radarr:7878
-RADARR_API_KEY=your-api-key
+RADARR_API_KEY=your-key
 ```
 
-> **Tip:** Use Docker service/container names as hostnames (e.g. `http://sonarr:8989`) when services run on the same Docker host. See [.env.example](.env.example) for all options including GPU acceleration and Traefik.
+Use Docker container names as hostnames when services are on the same Docker network. See [.env.example](.env.example) for the full list including Plex, download managers, and GPU acceleration.
 
-### Authentication (Optional)
+## LLM Providers
 
-Arrmate's web UI and API are open by default. To add login protection:
+| Provider | Set in .env | Notes |
+|----------|-------------|-------|
+| Ollama | `LLM_PROVIDER=ollama` | Runs locally, free. `qwen2.5:7b` recommended. |
+| OpenAI | `LLM_PROVIDER=openai` | Requires `OPENAI_API_KEY`. Defaults to `gpt-4o`. |
+| Anthropic | `LLM_PROVIDER=anthropic` | Requires `ANTHROPIC_API_KEY`. Defaults to `claude-3-5-sonnet`. |
 
-1. Open **Settings** in the web UI (`/web/settings`)
-2. Create a username and password
-3. Authentication is now active — all pages and API routes require login
+## H.265 Transcoding
 
-You can disable or delete credentials at any time from the Settings page.
+Arrmate can scan your Sonarr/Radarr libraries for files not already in H.265 and run ffmpeg on them in the background:
 
-```bash
-# Optional .env settings for auth
-SECRET_KEY=your-secret-key-here    # For persistent sessions across restarts (auto-generated if empty)
-AUTH_DATA_DIR=/data                # Where auth.json is stored (default: /data)
+```
+"convert all my movies to H265"
+"transcode Breaking Bad to save space"
 ```
 
-When authentication is enabled, API requests require HTTP Basic Auth:
+Track progress at `/web/transcode`. Requires media files to be accessible inside the container — see the volume mount comments in the compose file.
+
+## Authentication
+
+Off by default. Enable it from the Settings page — pick a username and password, and all routes (web and API) require login from that point on. Sessions persist across restarts when `SECRET_KEY` is set in your env.
+
+Locked out? Delete `auth.json` from your data directory and restart.
+
+## API
+
+The REST API lives at `/api/v1/`. Interactive docs: `http://localhost:8000/docs`.
 
 ```bash
+# Execute a command
+curl -X POST http://localhost:8000/api/v1/execute \
+  -H "Content-Type: application/json" \
+  -d '{"command": "list my TV shows"}'
+
+# With auth
 curl -u username:password http://localhost:8000/api/v1/services
-```
-
-> **Locked out?** Delete the `auth.json` file from your data directory and restart.
-
-## Usage Examples
-
-Natural language commands:
-
-```
-list my TV shows
-add Breaking Bad to my library
-remove episode 1 of Angel season 1
-search for 4K version of Blade Runner
-upgrade all episodes of The Office
 ```
 
 ## Documentation
 
-| Doc | Audience |
-|-----|----------|
-| [Quick Start](docs/quickstart.md) | New users |
-| [Service Reference](docs/services.md) | All users — supported services, API details, config |
-| [Docker Deployment](docs/docker.md) | Self-hosted Docker users |
-| [Web UI Guide](docs/web-ui.md) | Web interface users |
-| [Authentication](docs/authentication.md) | Users wanting login protection |
-| [SimpleHomelab Traefik](docs/simplehomelab-traefik.md) | Users with SimpleHomelab Docker-Traefik stack |
-| [Docker Hub Publishing](docs/dev/docker-hub.md) | Contributors / maintainers |
-| [Publishing Guide](docs/dev/publishing.md) | Contributors / maintainers |
+- [Quick Start](docs/quickstart.md)
+- [Docker Deployment](docs/docker.md)
+- [Service Reference](docs/services.md)
+- [Web UI](docs/web-ui.md)
+- [Authentication](docs/authentication.md)
+- [SimpleHomelab / Traefik](docs/simplehomelab-traefik.md)
 
 ## Development
 
-### Local Setup
-
 ```bash
-# Clone the repository
 git clone https://github.com/techbutton/arrmate.git
 cd arrmate
-
-# Install dependencies
-pip install -e .
-
-# Configure services
+pip install -e ".[dev]"
 cp .env.example .env
-nano .env
-
-# Run the server
+# edit .env
 python -m arrmate.interfaces.api.app
 ```
 
-### With Full Stack (for testing)
+Full local stack with Sonarr + Radarr + Ollama included:
 
 ```bash
-# Use the full stack docker-compose
 docker compose -f docker-compose.full.yml up -d
-
-# Includes: Arrmate + Ollama + Sonarr + Radarr
 ```
 
-## Requirements
+## Links
 
-- Python 3.11+
-- LLM Provider (Ollama/OpenAI/Anthropic)
-- Sonarr/Radarr/Lidarr instances
-
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│          Your Infrastructure            │
-│  ┌──────────┐  ┌──────────┐            │
-│  │  Sonarr  │  │  Radarr  │  ...       │
-│  └────┬─────┘  └────┬─────┘            │
-│       │             │                   │
-│       └──────┬──────┘                   │
-│              │                          │
-│        ┌─────▼──────┐                   │
-│        │  Arrmate   │ ← You add this   │
-│        │   :8000    │                   │
-│        └─────┬──────┘                   │
-│              │                          │
-│        ┌─────▼──────┐                   │
-│        │   LLM      │ (Ollama/etc)     │
-│        └────────────┘                   │
-└─────────────────────────────────────────┘
-```
-
-## Contributing
-
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/dev/publishing.md](docs/dev/publishing.md) for the release process.
-
-## Version
-
-Current: **0.2.6**
+- [Docker Hub](https://hub.docker.com/r/techbutton/arrmate)
+- [GitHub](https://github.com/techbutton/arrmate)
+- [Issues](https://github.com/techbutton/arrmate/issues)
 
 ## License
 
 MIT
-
-## Contributors
-
-- Arrmate Contributors
-- Claude Sonnet 4.5
-
-## Links
-
-- 🐳 [Docker Hub](https://hub.docker.com/r/techbutton/arrmate)
-- 🐙 [GitHub](https://github.com/techbutton/arrmate)
-- 📚 [Documentation](https://github.com/techbutton/arrmate#readme)

@@ -1,285 +1,107 @@
-# Arrmate Docker Deployment
+# Docker Deployment
 
-Complete Docker setup with Arrmate, Ollama, Sonarr, and Radarr.
+## Pre-built image (recommended)
 
-## Quick Start
-
-```bash
-# 1. Run the setup script
-./docker-setup.sh
-
-# 2. Pull the Ollama model
-docker compose exec ollama ollama pull llama3.2
-
-# 3. Configure Sonarr and Radarr
-# - Visit http://localhost:8989 (Sonarr)
-# - Visit http://localhost:7878 (Radarr)
-# - Complete setup wizards
-# - Get API keys from Settings > General
-
-# 4. Update .env with API keys
-# Edit .env and add your SONARR_API_KEY and RADARR_API_KEY
-
-# 5. Restart Arrmate
-docker compose restart arrmate
-
-# 6. Access the Web UI
-# http://localhost:8000/web/
-```
-
-## Services Included
-
-| Service | Port | Description | URL |
-|---------|------|-------------|-----|
-| Arrmate | 8000 | Main web UI & API | http://localhost:8000/web/ |
-| Sonarr | 8989 | TV show management | http://localhost:8989 |
-| Radarr | 7878 | Movie management | http://localhost:7878 |
-| Ollama | 11434 | LLM provider | http://localhost:11434 |
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    arrmate-network                      │
-│                                                         │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐         │
-│  │  Sonarr  │    │  Radarr  │    │  Ollama  │         │
-│  │  :8989   │    │  :7878   │    │  :11434  │         │
-│  └────┬─────┘    └────┬─────┘    └────┬─────┘         │
-│       │               │               │                │
-│       └───────────────┴───────────────┘                │
-│                       │                                │
-│                 ┌─────▼──────┐                         │
-│                 │  Arrmate   │                         │
-│                 │   :8000    │                         │
-│                 └────────────┘                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-## Volume Mounts
-
-Data is persisted in Docker volumes:
-
-- `ollama-data` - Ollama models and configuration
-- `sonarr-config` - Sonarr configuration
-- `sonarr-tv` - TV show storage
-- `sonarr-downloads` - Download location for Sonarr
-- `radarr-config` - Radarr configuration
-- `radarr-movies` - Movie storage
-- `radarr-downloads` - Download location for Radarr
-
-## Configuration
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and configure:
+Use `docker-compose.prod.yml` to pull from Docker Hub:
 
 ```bash
+curl -O https://raw.githubusercontent.com/techbutton/arrmate/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/techbutton/arrmate/main/.env.example
 cp .env.example .env
-nano .env
+# edit .env
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-Key variables:
-- `SONARR_API_KEY` - Get from Sonarr Settings > General
-- `RADARR_API_KEY` - Get from Radarr Settings > General
-- `OLLAMA_MODEL` - Default: llama3.2
+This pulls `techbutton/arrmate:latest` and starts Ollama alongside it. If you're using an external Ollama instance, OpenAI, or Anthropic, comment out the `ollama` service block.
 
-### Initial Setup Steps
+## Build from source
 
-1. **Start Services**
-   ```bash
-   docker compose up -d
-   ```
+Use `docker-compose.yml` to build locally:
 
-2. **Configure Sonarr** (http://localhost:8989)
-   - Complete setup wizard
-   - Go to Settings > General
-   - Copy API Key
-   - Add to `.env` as `SONARR_API_KEY`
-
-3. **Configure Radarr** (http://localhost:7878)
-   - Complete setup wizard
-   - Go to Settings > General
-   - Copy API Key
-   - Add to `.env` as `RADARR_API_KEY`
-
-4. **Pull Ollama Model**
-   ```bash
-   docker compose exec ollama ollama pull llama3.2
-   ```
-
-5. **Restart Arrmate**
-   ```bash
-   docker compose restart arrmate
-   ```
-
-6. **Test the Web UI**
-   - Visit http://localhost:8000/web/
-   - Check Services page to verify all are online
-   - Try a command like "list my TV shows"
-
-## Management Commands
-
-### View Logs
 ```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f arrmate
-docker compose logs -f sonarr
-docker compose logs -f radarr
-docker compose logs -f ollama
-```
-
-### Restart Services
-```bash
-# All services
-docker compose restart
-
-# Specific service
-docker compose restart arrmate
-```
-
-### Stop Services
-```bash
-docker compose down
-```
-
-### Update Services
-```bash
-# Pull latest images
-docker compose pull
-
-# Rebuild Arrmate
-docker compose build arrmate
-
-# Restart with new images
+git clone https://github.com/techbutton/arrmate.git
+cd arrmate
+cp .env.example .env
+# edit .env
 docker compose up -d
 ```
 
-### Access Container Shell
+## Full stack (testing)
+
+`docker-compose.full.yml` includes Sonarr and Radarr alongside Arrmate and Ollama — useful for testing without an existing media stack:
+
 ```bash
-docker compose exec arrmate bash
-docker compose exec sonarr bash
-docker compose exec radarr bash
-docker compose exec ollama bash
+docker compose -f docker-compose.full.yml up -d
 ```
 
-## Ollama Management
+After it starts, configure Sonarr (`http://localhost:8989`) and Radarr (`http://localhost:7878`) through their setup wizards, grab the API keys from Settings → General, add them to `.env`, then `docker compose restart arrmate`.
 
-### Pull Different Models
+## Ollama models
+
+`qwen2.5:7b` is a solid default for tool-calling accuracy:
+
 ```bash
-# Llama 3.2 (default, ~2GB)
-docker compose exec ollama ollama pull llama3.2
-
-# Llama 3.1 (larger, better performance)
-docker compose exec ollama ollama pull llama3.1
-
-# Mistral (alternative)
-docker compose exec ollama ollama pull mistral
+docker compose exec ollama ollama pull qwen2.5:7b
 ```
 
-### List Downloaded Models
+To switch models, update `OLLAMA_MODEL` in `.env` and restart Arrmate. The model only needs to be pulled once — it's stored in the `ollama-data` volume.
+
+## GPU acceleration
+
+NVIDIA:
 ```bash
-docker compose exec ollama ollama list
+docker compose -f docker-compose.prod.yml -f docker-compose.ollama-nvidia.yml up -d
 ```
 
-### Remove a Model
+AMD:
 ```bash
-docker compose exec ollama ollama rm llama3.2
+docker compose -f docker-compose.prod.yml -f docker-compose.ollama-amd.yml up -d
 ```
 
-### Change Model in Arrmate
-Edit `.env`:
-```bash
-OLLAMA_MODEL=llama3.1
+## Connecting to existing services
+
+If Sonarr/Radarr are on a different Docker network, add that network to the Arrmate service in your compose file:
+
+```yaml
+services:
+  arrmate:
+    networks:
+      - arrmate-net
+      - your-existing-network
+
+networks:
+  your-existing-network:
+    external: true
 ```
 
-Then restart:
+Or just use IP addresses in `SONARR_URL` / `RADARR_URL` instead of container names.
+
+## H.265 transcoding
+
+For the transcode feature to work, media files need to be accessible inside the container at the same paths Sonarr/Radarr report. Uncomment and edit the volume mounts in the compose file:
+
+```yaml
+volumes:
+  - /your/movies:/movies
+  - /your/tv:/tv
+```
+
+## Traefik
+
+Labels are included in `docker-compose.prod.yml` as comments. Uncomment them and set `TRAEFIK_DOMAIN`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERTRESOLVER`, and `TRAEFIK_NETWORK` in `.env`. See [simplehomelab-traefik.md](simplehomelab-traefik.md) for a drop-in config.
+
+## Useful commands
+
 ```bash
+# Logs
+docker compose logs -f arrmate
+
+# Restart after config change
 docker compose restart arrmate
+
+# Update to latest image
+docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
+
+# Shell access
+docker compose exec arrmate bash
 ```
-
-## Troubleshooting
-
-### Services Won't Start
-```bash
-# Check status
-docker compose ps
-
-# Check logs for errors
-docker compose logs
-
-# Verify Docker is running
-docker info
-```
-
-### Can't Connect to Services
-```bash
-# Ensure all services are healthy
-docker compose ps
-
-# Check network
-docker network ls
-docker network inspect arrmate-network
-
-# Test connectivity
-docker compose exec arrmate curl http://sonarr:8989/ping
-docker compose exec arrmate curl http://radarr:7878/ping
-docker compose exec arrmate curl http://ollama:11434/api/tags
-```
-
-### Arrmate Can't Reach Services
-1. Check API keys are correct in `.env`
-2. Verify services are running: `docker compose ps`
-3. Check Arrmate logs: `docker compose logs arrmate`
-4. Test from inside container:
-   ```bash
-   docker compose exec arrmate bash
-   curl http://sonarr:8989/api/v3/system/status?apikey=YOUR_KEY
-   ```
-
-### Reset Everything
-```bash
-# Stop and remove containers, volumes
-docker compose down -v
-
-# Remove images
-docker compose down --rmi all
-
-# Start fresh
-./docker-setup.sh
-```
-
-## Production Deployment
-
-For production use:
-
-1. **Use External Volumes** for media storage
-2. **Set Strong API Keys**
-3. **Enable HTTPS** (use reverse proxy like Traefik/Nginx)
-4. **Backup Volumes** regularly
-5. **Monitor Resources** (CPU, RAM, disk)
-6. **Update Regularly** for security patches
-
-## Security Notes
-
-- API keys are sensitive - keep `.env` secure
-- Don't expose ports publicly without authentication
-- Use strong passwords for all services
-- Consider using Docker secrets for sensitive data
-- Regular security updates recommended
-
-## Performance Tips
-
-- Ollama benefits from GPU acceleration (add GPU passthrough)
-- Increase RAM if running larger models
-- Use SSD storage for better performance
-- Monitor container resource usage with `docker stats`
-
-## Support
-
-- Main documentation: `README.md`
-- Web UI guide: `WEB_UI_GUIDE.md`
-- Issues: https://github.com/techbutton/arrmate/issues
