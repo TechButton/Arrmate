@@ -1,0 +1,73 @@
+{% if error %}
+<div class="text-red-400 text-sm p-4 bg-red-900/20 rounded-lg border border-red-700/30">{{ error }}</div>
+{% elif not items %}
+<div class="text-center py-16 text-gray-500">
+    <div class="text-4xl mb-3">📋</div>
+    <p>No watch history found.</p>
+</div>
+{% else %}
+<div class="card overflow-hidden p-0">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-700 text-left text-xs text-gray-400 uppercase tracking-wider">
+                <th class="px-4 py-3">Title</th>
+                <th class="px-4 py-3 hidden sm:table-cell">Episode</th>
+                <th class="px-4 py-3 hidden md:table-cell">Type</th>
+                <th class="px-4 py-3 text-right">Watched</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-700/50">
+            {% for item in items %}
+            <tr class="hover:bg-gray-700/30 transition-colors group">
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                        {% if item.thumb %}
+                        <img src="{{ item.thumb }}"
+                             alt=""
+                             class="w-8 h-12 object-cover rounded flex-shrink-0 bg-gray-900"
+                             onerror="this.style.display='none'">
+                        {% endif %}
+                        <div class="min-w-0">
+                            <p class="text-white font-medium truncate" title="{{ item.title }}">{{ item.title }}</p>
+                            {% if item.subtitle %}
+                            <p class="text-gray-400 text-xs truncate">{{ item.subtitle }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 hidden sm:table-cell text-gray-400 text-xs">{{ item.subtitle }}</td>
+                <td class="px-4 py-3 hidden md:table-cell">
+                    <span class="text-xs">
+                        {% if item.type == "movie" %}🎬 Movie
+                        {% elif item.type == "episode" %}📺 Episode
+                        {% elif item.type == "track" %}🎵 Track
+                        {% else %}{{ item.type }}{% endif %}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
+                    {% if item.viewed_at %}
+                    <span title="{{ item.viewed_at }}">
+                        {{ item.viewed_at | int | timestamp_to_relative if item.viewed_at else '' }}
+                    </span>
+                    {% endif %}
+                    {% if item.rating_key %}
+                    <div class="hidden group-hover:flex justify-end gap-1 mt-1">
+                        <button hx-post="/web/plex/detect/{{ item.rating_key }}/intro"
+                                hx-target="#toast-container" hx-swap="beforeend"
+                                class="px-1.5 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
+                            Intros
+                        </button>
+                        <button hx-post="/web/plex/detect/{{ item.rating_key }}/credits"
+                                hx-target="#toast-container" hx-swap="beforeend"
+                                class="px-1.5 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
+                            Credits
+                        </button>
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}

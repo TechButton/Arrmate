@@ -42,7 +42,7 @@ class CommandResponse(BaseModel):
 app = FastAPI(
     title="Arrmate API",
     description="Natural language interface for media management",
-    version="0.4.0",
+    version="0.5.0",
 )
 
 # Mount static files

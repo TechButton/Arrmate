@@ -10,7 +10,9 @@ from ..clients.lidarr import LidarrClient
 from ..clients.radarr import RadarrClient
 from ..clients.readarr import ReadarrClient
 from ..clients.sonarr import SonarrClient
+from ..clients.plex import PlexClient
 from ..clients.transcoder import create_job, ffmpeg_available, run_transcode_job, scan_for_transcode
+from ..config.settings import settings
 from .models import ActionType, ExecutionResult, Intent
 
 logger = logging.getLogger(__name__)
@@ -29,9 +31,13 @@ class Executor:
             ExecutionResult with success status and details
         """
         try:
-            # Transcode is handled separately — it manages its own clients
+            # These actions manage their own clients (bypass Arr routing)
             if intent.action == ActionType.TRANSCODE:
                 return await self._execute_transcode(intent)
+            if intent.action == ActionType.RATE:
+                return await self._execute_rate(intent)
+            if intent.action == ActionType.BUTLER:
+                return await self._execute_butler(intent)
 
             # Get the appropriate client
             client = get_client_for_media_type(intent.media_type)
@@ -520,6 +526,70 @@ class Executor:
                 "title_filter": title,
             },
         )
+
+
+    async def _execute_rate(self, intent: Intent) -> ExecutionResult:
+        """Rate a Plex item using natural language (e.g. 'rate The Matrix 5 stars').
+
+        Searches Plex for the title and applies the star rating.
+        """
+        if not settings.plex_url or not settings.plex_token:
+            return ExecutionResult(success=False, message="Plex is not configured")
+
+        if not intent.title:
+            return ExecutionResult(success=False, message="No title specified for rating")
+
+        stars = float((intent.criteria or {}).get("rating", 5))
+        client = PlexClient(settings.plex_url, settings.plex_token)
+        try:
+            hubs = await client.search(intent.title, limit=5)
+            rating_key = None
+            for hub in hubs:
+                for item in hub.get("Metadata", []):
+                    if intent.title.lower() in item.get("title", "").lower():
+                        rating_key = item.get("ratingKey")
+                        break
+                if rating_key:
+                    break
+
+            if not rating_key:
+                return ExecutionResult(
+                    success=False,
+                    message=f"Could not find '{intent.title}' in Plex",
+                )
+
+            ok = await client.rate_item(rating_key, stars)
+            if ok:
+                return ExecutionResult(
+                    success=True,
+                    message=f"Rated '{intent.title}' {int(stars)} star(s) in Plex",
+                )
+            return ExecutionResult(
+                success=False, message=f"Failed to rate '{intent.title}' in Plex"
+            )
+        finally:
+            await client.close()
+
+    async def _execute_butler(self, intent: Intent) -> ExecutionResult:
+        """Run a Plex Butler maintenance task (e.g. 'clean plex database')."""
+        if not settings.plex_url or not settings.plex_token:
+            return ExecutionResult(success=False, message="Plex is not configured")
+
+        task = (intent.criteria or {}).get("task", "CleanOldBundles")
+        client = PlexClient(settings.plex_url, settings.plex_token)
+        try:
+            ok = await client.run_butler_task(task)
+            if ok:
+                return ExecutionResult(
+                    success=True,
+                    message=f"Started Plex maintenance task: {task}",
+                    data={"task": task},
+                )
+            return ExecutionResult(
+                success=False, message=f"Failed to start Plex task: {task}"
+            )
+        finally:
+            await client.close()
 
 
 def _fmt_bytes(n: int) -> str:

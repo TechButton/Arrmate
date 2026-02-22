@@ -210,7 +210,7 @@ async def help_page(request: Request):
         "pages/help.html",
         {
             "request": request,
-            "version": "0.4.0",
+            "version": "0.5.0",
         },
     )
 
@@ -694,6 +694,408 @@ async def transcode_cancel(request: Request, job_id: str):
     )
 
 
+# ===== Plex Hub =====
+
+# Common Butler tasks with friendly labels
+BUTLER_TASKS = [
+    {"name": "CleanOldBundles", "label": "Clean Old Bundles", "desc": "Remove unused bundle data"},
+    {"name": "CleanOldCacheFiles", "label": "Clean Cache Files", "desc": "Delete stale cached files"},
+    {"name": "BackupDatabase", "label": "Backup Database", "desc": "Back up the Plex database"},
+    {"name": "DeepMediaAnalysis", "label": "Deep Media Analysis", "desc": "Re-analyse loudness & bitrate"},
+    {"name": "RefreshLocalMedia", "label": "Refresh Local Media", "desc": "Scan for local metadata/artwork"},
+    {"name": "SearchForSubtitles", "label": "Search for Subtitles", "desc": "Find missing subtitle files"},
+    {"name": "GenerateAutoTags", "label": "Generate Auto Tags", "desc": "Auto-tag music files"},
+    {"name": "UpgradeMediaAnalysis", "label": "Upgrade Media Analysis", "desc": "Update media analysis data"},
+    {"name": "GenerateChapterImageThumbnails", "label": "Chapter Thumbnails", "desc": "Generate chapter image thumbnails"},
+]
+
+
+def _plex_client() -> PlexClient | None:
+    """Return a PlexClient if Plex is configured, else None."""
+    if settings.plex_url and settings.plex_token:
+        return PlexClient(settings.plex_url, settings.plex_token)
+    return None
+
+
+def _plex_thumb_url(path: str) -> str:
+    """Build a proxied Plex thumbnail URL (keeps token server-side)."""
+    import urllib.parse
+    return f"/web/plex/thumb?path={urllib.parse.quote(path, safe='')}"
+
+
+@router.get("/plex", response_class=HTMLResponse)
+async def plex_page(request: Request):
+    """Plex hub page with history, continue watching, on deck, recently added, butler."""
+    plex = _plex_client()
+    configured = plex is not None
+    accounts = []
+    if plex:
+        try:
+            accounts = await plex.get_accounts()
+        except Exception:
+            pass
+        finally:
+            await plex.close()
+    return templates.TemplateResponse(
+        "pages/plex.html",
+        {"request": request, "configured": configured, "accounts": accounts, "butler_tasks": BUTLER_TASKS},
+    )
+
+
+@router.get("/plex/thumb", response_class=HTMLResponse)
+async def plex_thumb(path: str = Query(...)):
+    """Proxy a Plex thumbnail image (keeps token server-side)."""
+    import httpx as _httpx
+    from fastapi.responses import Response as _Response
+
+    if not settings.plex_url or not settings.plex_token:
+        return _Response(status_code=404)
+    url = f"{settings.plex_url.rstrip('/')}{path}"
+    try:
+        async with _httpx.AsyncClient(timeout=10) as hx:
+            resp = await hx.get(
+                url,
+                headers={
+                    "X-Plex-Token": settings.plex_token,
+                    "Accept": "image/jpeg,image/*",
+                },
+            )
+            if resp.status_code == 200:
+                ct = resp.headers.get("content-type", "image/jpeg")
+                return _Response(content=resp.content, media_type=ct)
+    except Exception:
+        pass
+    return _Response(status_code=404)
+
+
+@router.get("/plex/history", response_class=HTMLResponse)
+async def plex_history(
+    request: Request,
+    account_id: int = Query(default=0),
+    limit: int = Query(default=50, le=200),
+):
+    """HTMX partial: watch history, optionally filtered by user account."""
+    items = []
+    error = None
+    plex = _plex_client()
+    if plex:
+        try:
+            raw = await plex.get_history(
+                account_id=account_id if account_id else None,
+                limit=limit,
+            )
+            for item in raw:
+                media_type = item.get("type", "")
+                if media_type == "episode":
+                    title = f"{item.get('grandparentTitle', '')} — {item.get('title', '')}"
+                    subtitle = f"S{item.get('parentIndex', 0):02d}E{item.get('index', 0):02d}"
+                else:
+                    title = item.get("title", "Unknown")
+                    subtitle = str(item.get("year", "")) if item.get("year") else ""
+                viewed_at = item.get("viewedAt", 0)
+                thumb = _plex_thumb_url(item.get("thumb", "")) if item.get("thumb") else None
+                items.append({
+                    "title": title,
+                    "subtitle": subtitle,
+                    "type": media_type,
+                    "viewed_at": viewed_at,
+                    "thumb": thumb,
+                    "rating_key": item.get("ratingKey"),
+                })
+        except Exception as e:
+            error = str(e)
+        finally:
+            await plex.close()
+    else:
+        error = "Plex is not configured"
+    return templates.TemplateResponse(
+        "partials/plex_history.html",
+        {"request": request, "items": items, "error": error},
+    )
+
+
+@router.get("/plex/continue", response_class=HTMLResponse)
+async def plex_continue_watching(request: Request):
+    """HTMX partial: continue watching list."""
+    items = []
+    error = None
+    plex = _plex_client()
+    if plex:
+        try:
+            raw = await plex.get_continue_watching()
+            for item in raw:
+                duration = item.get("duration", 0)
+                offset = item.get("viewOffset", 0)
+                pct = int(offset / duration * 100) if duration else 0
+                media_type = item.get("type", "")
+                if media_type == "episode":
+                    title = item.get("grandparentTitle", item.get("title", "Unknown"))
+                    subtitle = f"S{item.get('parentIndex', 0):02d}E{item.get('index', 0):02d} — {item.get('title', '')}"
+                else:
+                    title = item.get("title", "Unknown")
+                    subtitle = str(item.get("year", "")) if item.get("year") else ""
+                thumb = item.get("thumb") or item.get("grandparentThumb")
+                items.append({
+                    "title": title,
+                    "subtitle": subtitle,
+                    "type": media_type,
+                    "pct": pct,
+                    "thumb": _plex_thumb_url(thumb) if thumb else None,
+                    "rating_key": item.get("ratingKey"),
+                    "year": item.get("year"),
+                })
+        except Exception as e:
+            error = str(e)
+        finally:
+            await plex.close()
+    else:
+        error = "Plex is not configured"
+    return templates.TemplateResponse(
+        "partials/plex_continue.html",
+        {"request": request, "items": items, "error": error},
+    )
+
+
+@router.get("/plex/ondeck", response_class=HTMLResponse)
+async def plex_on_deck(request: Request):
+    """HTMX partial: on deck items (next episodes)."""
+    items = []
+    error = None
+    plex = _plex_client()
+    if plex:
+        try:
+            raw = await plex.get_on_deck()
+            for item in raw:
+                media_type = item.get("type", "")
+                if media_type == "episode":
+                    title = item.get("grandparentTitle", item.get("title", "Unknown"))
+                    subtitle = f"S{item.get('parentIndex', 0):02d}E{item.get('index', 0):02d} — {item.get('title', '')}"
+                else:
+                    title = item.get("title", "Unknown")
+                    subtitle = ""
+                thumb = item.get("thumb") or item.get("grandparentThumb")
+                items.append({
+                    "title": title,
+                    "subtitle": subtitle,
+                    "type": media_type,
+                    "thumb": _plex_thumb_url(thumb) if thumb else None,
+                    "rating_key": item.get("ratingKey"),
+                    "year": item.get("year"),
+                    "summary": item.get("summary", "")[:120],
+                })
+        except Exception as e:
+            error = str(e)
+        finally:
+            await plex.close()
+    else:
+        error = "Plex is not configured"
+    return templates.TemplateResponse(
+        "partials/plex_ondeck.html",
+        {"request": request, "items": items, "error": error},
+    )
+
+
+@router.get("/plex/recent", response_class=HTMLResponse)
+async def plex_recently_added(
+    request: Request,
+    limit: int = Query(default=25, le=100),
+):
+    """HTMX partial: recently added items."""
+    items = []
+    error = None
+    plex = _plex_client()
+    if plex:
+        try:
+            raw = await plex.get_recently_added(limit=limit)
+            for item in raw:
+                media_type = item.get("type", "")
+                if media_type == "episode":
+                    title = item.get("grandparentTitle", item.get("title", "Unknown"))
+                    subtitle = f"S{item.get('parentIndex', 0):02d}E{item.get('index', 0):02d} — {item.get('title', '')}"
+                elif media_type == "season":
+                    title = item.get("parentTitle", item.get("title", "Unknown"))
+                    subtitle = item.get("title", "")
+                else:
+                    title = item.get("title", "Unknown")
+                    subtitle = str(item.get("year", "")) if item.get("year") else ""
+                thumb = item.get("thumb") or item.get("grandparentThumb")
+                items.append({
+                    "title": title,
+                    "subtitle": subtitle,
+                    "type": media_type,
+                    "thumb": _plex_thumb_url(thumb) if thumb else None,
+                    "rating_key": item.get("ratingKey"),
+                    "year": item.get("year"),
+                    "added_at": item.get("addedAt", 0),
+                })
+        except Exception as e:
+            error = str(e)
+        finally:
+            await plex.close()
+    else:
+        error = "Plex is not configured"
+    return templates.TemplateResponse(
+        "partials/plex_recent.html",
+        {"request": request, "items": items, "error": error},
+    )
+
+
+@router.get("/plex/butler", response_class=HTMLResponse)
+async def plex_butler(request: Request):
+    """HTMX partial: Butler task list with run buttons."""
+    tasks = []
+    error = None
+    plex = _plex_client()
+    if plex:
+        try:
+            api_tasks = await plex.get_butler_tasks()
+            api_map = {t.get("name"): t for t in api_tasks}
+            for bt in BUTLER_TASKS:
+                api = api_map.get(bt["name"], {})
+                tasks.append({
+                    "name": bt["name"],
+                    "label": bt["label"],
+                    "desc": bt["desc"],
+                    "running": api.get("running", False),
+                    "enabled": api.get("enabled", True),
+                })
+        except Exception as e:
+            error = str(e)
+        finally:
+            await plex.close()
+    else:
+        error = "Plex is not configured"
+    return templates.TemplateResponse(
+        "partials/plex_butler.html",
+        {"request": request, "tasks": tasks, "error": error},
+    )
+
+
+@router.post("/plex/butler/{task_name}", response_class=HTMLResponse)
+async def run_plex_butler_task(request: Request, task_name: str):
+    """Run a Plex Butler maintenance task."""
+    plex = _plex_client()
+    if not plex:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        ok = await plex.run_butler_task(task_name)
+        label = next((t["label"] for t in BUTLER_TASKS if t["name"] == task_name), task_name)
+        msg_type = "success" if ok else "error"
+        msg = f"Started: {label}" if ok else f"Failed to start: {label}"
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": msg_type, "message": msg},
+        )
+    finally:
+        await plex.close()
+
+
+@router.delete("/plex/session/{session_key}", response_class=HTMLResponse)
+async def terminate_plex_session(
+    request: Request,
+    session_key: str,
+    reason: str = Query(default="Session terminated by Arrmate"),
+):
+    """Terminate an active Plex streaming session."""
+    plex = _plex_client()
+    if not plex:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        ok = await plex.terminate_session(session_key, reason)
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "error",
+                "message": "Session terminated" if ok else "Failed to terminate session",
+            },
+            headers={"HX-Trigger": "plex-session-terminated"},
+        )
+    finally:
+        await plex.close()
+
+
+@router.post("/plex/rate", response_class=HTMLResponse)
+async def rate_plex_item(
+    request: Request,
+    rating_key: str = Form(...),
+    stars: float = Form(...),
+    title: str = Form(default=""),
+):
+    """Rate a Plex item (1-5 stars) from the UI."""
+    plex = _plex_client()
+    if not plex:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        ok = await plex.rate_item(rating_key, stars)
+        label = title or rating_key
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "error",
+                "message": f"Rated '{label}' {int(stars)} ★" if ok else f"Failed to rate '{label}'",
+            },
+        )
+    finally:
+        await plex.close()
+
+
+@router.post("/plex/detect/{rating_key}/intro", response_class=HTMLResponse)
+async def plex_detect_intro(request: Request, rating_key: str):
+    """Trigger Plex intro detection for an item."""
+    plex = _plex_client()
+    if not plex:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        ok = await plex.detect_intro(rating_key)
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "error",
+                "message": "Intro detection queued" if ok else "Failed to queue intro detection",
+            },
+        )
+    finally:
+        await plex.close()
+
+
+@router.post("/plex/detect/{rating_key}/credits", response_class=HTMLResponse)
+async def plex_detect_credits(request: Request, rating_key: str):
+    """Trigger Plex credit detection for an item."""
+    plex = _plex_client()
+    if not plex:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        ok = await plex.detect_credits(rating_key)
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "error",
+                "message": "Credit detection queued" if ok else "Failed to queue credit detection",
+            },
+        )
+    finally:
+        await plex.close()
+
+
 # ===== Plex Now Playing =====
 
 
@@ -723,6 +1125,7 @@ async def plex_now_playing(request: Request):
                     "state": s.get("Player", {}).get("state", "playing"),
                     "pct": pct,
                     "type": media_type,
+                    "session_key": s.get("sessionKey", ""),
                 })
         except Exception:
             pass

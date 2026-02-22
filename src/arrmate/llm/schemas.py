@@ -22,6 +22,8 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                     "download_subtitle",
                     "sync_subtitles",
                     "transcode",
+                    "rate",
+                    "butler",
                 ],
                 "description": (
                     "The action to perform: "
@@ -33,7 +35,9 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                     "'info' = get details about a specific item, "
                     "'download_subtitle' = download missing subtitles via Bazarr, "
                     "'sync_subtitles' = sync existing subtitles via Bazarr, "
-                    "'transcode' = convert media files to H265/HEVC to save disk space"
+                    "'transcode' = convert media files to H265/HEVC to save disk space, "
+                    "'rate' = rate a Plex item (1-5 stars), "
+                    "'butler' = run a Plex Butler maintenance task"
                 ),
             },
             "media_type": {
@@ -110,6 +114,27 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                             "Used with action='transcode'."
                         ),
                     },
+                    "rating": {
+                        "type": "number",
+                        "description": (
+                            "Star rating from 1 to 5. Used with action='rate'. "
+                            "Extract the number from phrases like '5 stars', '4/5', 'four stars'."
+                        ),
+                    },
+                    "task": {
+                        "type": "string",
+                        "description": (
+                            "Butler task name. Used with action='butler'. "
+                            "Options: CleanOldBundles, CleanOldCacheFiles, BackupDatabase, "
+                            "DeepMediaAnalysis, RefreshLocalMedia, SearchForSubtitles, "
+                            "GenerateAutoTags, UpgradeMediaAnalysis. "
+                            "Map 'clean' or 'cleanup' → CleanOldBundles, "
+                            "'database' or 'backup' → BackupDatabase, "
+                            "'deep analysis' → DeepMediaAnalysis, "
+                            "'subtitles' → SearchForSubtitles, "
+                            "'refresh' → RefreshLocalMedia."
+                        ),
+                    },
                 },
                 "additionalProperties": True,
             },
@@ -142,7 +167,7 @@ def get_system_prompt(available_services: Optional[List[str]] = None) -> str:
 Your job is to parse commands about managing TV shows, movies, music, audiobooks, books, and other media across multiple services.
 
 Key guidelines:
-- Extract the ACTION (remove/delete, search, add, upgrade, list, info, download_subtitle, sync_subtitles, transcode)
+- Extract the ACTION (remove/delete, search, add, upgrade, list, info, download_subtitle, sync_subtitles, transcode, rate, butler)
 - Identify the MEDIA TYPE (tv, movie, music, audiobook, book)
 - Extract the TITLE exactly as mentioned
 - For TV shows, extract SEASON and EPISODE numbers if mentioned
@@ -185,6 +210,19 @@ Transcode examples:
 - "shrink my movie library using H265" → action=transcode, media_type=movie, criteria={{codec: "h265"}}
 - "re-encode Inception to H265" → action=transcode, media_type=movie, title="Inception", criteria={{codec: "h265"}}
 - "check transcode status" → action=list, media_type=tv, criteria={{service: "transcoder", operation: "status"}}
+
+Rate examples (Plex):
+- "rate The Matrix 5 stars" → action=rate, media_type=movie, title="The Matrix", criteria={{rating: 5}}
+- "give Breaking Bad 4 stars" → action=rate, media_type=tv, title="Breaking Bad", criteria={{rating: 4}}
+- "rate Inception 4 out of 5" → action=rate, media_type=movie, title="Inception", criteria={{rating: 4}}
+
+Butler / maintenance examples (Plex):
+- "clean Plex" → action=butler, media_type=tv, criteria={{task: "CleanOldBundles"}}
+- "clean up old Plex bundles" → action=butler, media_type=tv, criteria={{task: "CleanOldBundles"}}
+- "backup Plex database" → action=butler, media_type=tv, criteria={{task: "BackupDatabase"}}
+- "run deep media analysis on Plex" → action=butler, media_type=tv, criteria={{task: "DeepMediaAnalysis"}}
+- "search for missing Plex subtitles" → action=butler, media_type=tv, criteria={{task: "SearchForSubtitles"}}
+- "run Plex maintenance" → action=butler, media_type=tv, criteria={{task: "CleanOldBundles"}}
 
 Audiobook / book examples:
 - "list my audiobooks" → action=list, media_type=audiobook

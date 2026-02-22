@@ -29,6 +29,8 @@ class ActionType(str, Enum):
     DOWNLOAD_SUBTITLE = "download_subtitle"
     SYNC_SUBTITLES = "sync_subtitles"
     TRANSCODE = "transcode"
+    RATE = "rate"
+    BUTLER = "butler"
 
 
 class Intent(BaseModel):

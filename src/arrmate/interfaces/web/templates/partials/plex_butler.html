@@ -1,0 +1,47 @@
+{% if error %}
+<div class="text-red-400 text-sm p-4 bg-red-900/20 rounded-lg border border-red-700/30">{{ error }}</div>
+{% elif not tasks %}
+<div class="text-center py-16 text-gray-500">
+    <div class="text-4xl mb-3">🔧</div>
+    <p>Could not load Butler tasks from Plex.</p>
+</div>
+{% else %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for task in tasks %}
+    <div class="card flex items-start gap-4" x-data="{ running: {{ 'true' if task.running else 'false' }} }">
+        <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-primary-900/30 border border-primary-700/30 flex items-center justify-center">
+            <svg class="w-5 h-5 text-primary-400" :class="running ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+                <p class="text-sm font-medium text-white">{{ task.label }}</p>
+                {% if task.running %}
+                <span class="text-xs text-primary-400 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 bg-primary-400 rounded-full animate-pulse"></span> Running
+                </span>
+                {% endif %}
+            </div>
+            <p class="text-xs text-gray-400 mb-3">{{ task.desc }}</p>
+            <button hx-post="/web/plex/butler/{{ task.name }}"
+                    hx-target="#toast-container"
+                    hx-swap="beforeend"
+                    @htmx:after-request="running = false"
+                    :disabled="running"
+                    class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
+                           bg-primary-600 hover:bg-primary-500 disabled:bg-gray-700 disabled:text-gray-500 text-white">
+                <span x-show="!running">Run Now</span>
+                <span x-show="running">Running…</span>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<p class="text-xs text-gray-500 mt-4">
+    Butler tasks also run on Plex's automatic schedule. Running manually triggers them immediately.
+    You can also trigger them via natural language: <em>"clean Plex"</em>, <em>"backup Plex database"</em>.
+</p>
+{% endif %}

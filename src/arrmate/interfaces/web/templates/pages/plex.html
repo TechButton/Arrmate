@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Plex — Arrmate{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-6 flex items-start justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-1">Plex</h1>
+            <p class="text-gray-400">History, activity, and maintenance for your Plex Media Server</p>
+        </div>
+        {% if not configured %}
+        <div class="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-4 py-3 text-yellow-300 text-sm">
+            Plex is not configured. Add <code class="font-mono bg-gray-800 px-1 rounded">PLEX_URL</code> and <code class="font-mono bg-gray-800 px-1 rounded">PLEX_TOKEN</code> to your environment.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tab bar -->
+    <div x-data="{ tab: 'continue' }" class="space-y-6">
+        <div class="flex flex-wrap gap-1 border-b border-gray-700 pb-0">
+            {% set tabs = [
+                ('continue', '▶ Continue Watching'),
+                ('ondeck',   '⏭ On Deck'),
+                ('recent',   '✨ Recently Added'),
+                ('history',  '📋 Watch History'),
+                ('butler',   '🔧 Maintenance'),
+            ] %}
+            {% for id, label in tabs %}
+            <button @click="tab = '{{ id }}'"
+                    :class="tab === '{{ id }}'
+                        ? 'border-b-2 border-primary-500 text-white bg-gray-800'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                    class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors -mb-px">
+                {{ label }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <!-- Continue Watching -->
+        <div x-show="tab === 'continue'" x-cloak>
+            <div id="plex-continue"
+                 hx-get="/web/plex/continue"
+                 hx-trigger="load once"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-16 text-gray-500">
+                    <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+
+        <!-- On Deck -->
+        <div x-show="tab === 'ondeck'" x-cloak>
+            <div id="plex-ondeck"
+                 hx-get="/web/plex/ondeck"
+                 hx-trigger="intersect once"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-16 text-gray-500">
+                    <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+
+        <!-- Recently Added -->
+        <div x-show="tab === 'recent'" x-cloak>
+            <div id="plex-recent"
+                 hx-get="/web/plex/recent"
+                 hx-trigger="intersect once"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-16 text-gray-500">
+                    <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+
+        <!-- Watch History -->
+        <div x-show="tab === 'history'" x-cloak>
+            <div class="card mb-4" x-data="{ accountId: 0 }">
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Filter by user</label>
+                        <select x-model="accountId"
+                                @change="htmx.trigger('#plex-history', 'refresh')"
+                                class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm">
+                            <option value="0">All users</option>
+                            {% for acct in accounts %}
+                            <option value="{{ acct.id }}">{{ acct.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button @click="htmx.trigger('#plex-history', 'refresh')"
+                            class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                        Refresh
+                    </button>
+                    <div class="ml-auto">
+                        <label class="block text-xs text-gray-400 mb-1">Limit</label>
+                        <select x-model="accountId"
+                                class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm">
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div id="plex-history"
+                 hx-get="/web/plex/history"
+                 hx-trigger="intersect once, refresh"
+                 hx-include="[name='account_id']"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-16 text-gray-500">
+                    <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+
+        <!-- Butler / Maintenance -->
+        <div x-show="tab === 'butler'" x-cloak>
+            <div id="plex-butler"
+                 hx-get="/web/plex/butler"
+                 hx-trigger="intersect once"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-16 text-gray-500">
+                    <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

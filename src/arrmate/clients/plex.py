@@ -215,6 +215,176 @@ class PlexClient(BaseExternalService):
         data = await self._get("/status/sessions")
         return data.get("MediaContainer", {}).get("Metadata", [])
 
+    async def get_accounts(self) -> List[Dict[str, Any]]:
+        """Get list of server accounts/users.
+
+        Returns:
+            List of account dicts with id, name, thumb fields
+        """
+        try:
+            data = await self._get("/accounts")
+            return data.get("MediaContainer", {}).get("Account", [])
+        except Exception:
+            return []
+
+    async def get_history(
+        self, account_id: Optional[int] = None, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get playback history, optionally filtered by user account.
+
+        Args:
+            account_id: Filter by Plex account ID (from get_accounts). None = all users.
+            limit: Maximum number of history items to return.
+
+        Returns:
+            List of history item dicts with viewedAt, title, type, user info
+        """
+        params: dict = {"X-Plex-Container-Size": limit}
+        if account_id:
+            params["accountID"] = account_id
+        data = await self._get("/status/sessions/history/all", params=params)
+        return data.get("MediaContainer", {}).get("Metadata", [])
+
+    async def get_continue_watching(self) -> List[Dict[str, Any]]:
+        """Get items currently in progress (continue watching hub).
+
+        Returns:
+            List of in-progress media items with viewOffset
+        """
+        try:
+            data = await self._get("/hubs/home/continueWatching")
+            hubs = data.get("MediaContainer", {}).get("Hub", [])
+            for hub in hubs:
+                items = hub.get("Metadata", [])
+                if items:
+                    return items
+            return []
+        except Exception:
+            return []
+
+    async def get_on_deck(self) -> List[Dict[str, Any]]:
+        """Get on-deck items (next episodes to watch for in-progress shows).
+
+        Returns:
+            List of on-deck media items
+        """
+        data = await self._get("/library/onDeck")
+        return data.get("MediaContainer", {}).get("Metadata", [])
+
+    async def get_recently_added(self, limit: int = 25) -> List[Dict[str, Any]]:
+        """Get recently added items across all libraries.
+
+        Args:
+            limit: Maximum number of items to return.
+
+        Returns:
+            List of recently added media items
+        """
+        params: dict = {"X-Plex-Container-Size": limit}
+        data = await self._get("/library/recentlyAdded", params=params)
+        return data.get("MediaContainer", {}).get("Metadata", [])
+
+    async def terminate_session(
+        self, session_key: str, reason: str = "Terminated by Arrmate"
+    ) -> bool:
+        """Terminate an active streaming session.
+
+        Args:
+            session_key: The sessionKey from get_sessions()
+            reason: Message shown to the user on their player
+
+        Returns:
+            True if termination was accepted
+        """
+        try:
+            url = f"{self.base_url}/status/sessions/{session_key}/terminate"
+            response = await self.client.delete(url, params={"reason": reason})
+            return response.status_code in (200, 204)
+        except Exception:
+            return False
+
+    async def rate_item(self, rating_key: str, stars: float) -> bool:
+        """Rate a media item.
+
+        Args:
+            rating_key: Plex ratingKey identifier
+            stars: Rating from 1-5 (converted to Plex's 2-10 internal scale)
+
+        Returns:
+            True if rating was accepted
+        """
+        try:
+            params = {
+                "key": rating_key,
+                "identifier": "com.plexapp.plugins.library",
+                "rating": int(max(1, min(5, stars)) * 2),
+            }
+            url = f"{self.base_url}/:/rate"
+            response = await self.client.put(url, params=params)
+            return response.status_code in (200, 204)
+        except Exception:
+            return False
+
+    async def get_butler_tasks(self) -> List[Dict[str, Any]]:
+        """Get available Butler maintenance tasks and their status.
+
+        Returns:
+            List of ButlerTask dicts with name, description, scheduleRandomized
+        """
+        try:
+            data = await self._get("/butler")
+            return data.get("MediaContainer", {}).get("ButlerTask", [])
+        except Exception:
+            return []
+
+    async def run_butler_task(self, task_name: str) -> bool:
+        """Run a specific Butler maintenance task immediately.
+
+        Args:
+            task_name: Task name (e.g. CleanOldBundles, BackupDatabase)
+
+        Returns:
+            True if the task was started
+        """
+        try:
+            url = f"{self.base_url}/butler/{task_name}"
+            response = await self.client.post(url)
+            return response.status_code in (200, 204)
+        except Exception:
+            return False
+
+    async def detect_intro(self, rating_key: str) -> bool:
+        """Trigger intro detection for an item (show, season, or episode).
+
+        Args:
+            rating_key: Plex ratingKey — can be a series, season, or episode
+
+        Returns:
+            True if detection was queued
+        """
+        try:
+            url = f"{self.base_url}/library/metadata/{rating_key}/detect/intro"
+            response = await self.client.put(url)
+            return response.status_code in (200, 204)
+        except Exception:
+            return False
+
+    async def detect_credits(self, rating_key: str) -> bool:
+        """Trigger credit/end-card detection for an item.
+
+        Args:
+            rating_key: Plex ratingKey — can be a series, season, or episode
+
+        Returns:
+            True if detection was queued
+        """
+        try:
+            url = f"{self.base_url}/library/metadata/{rating_key}/detect/creditDetect"
+            response = await self.client.put(url)
+            return response.status_code in (200, 204)
+        except Exception:
+            return False
+
     async def mark_watched(self, rating_key: str) -> bool:
         """Mark a media item as watched.
 

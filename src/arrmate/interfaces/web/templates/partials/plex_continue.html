@@ -1,0 +1,77 @@
+{% if error %}
+<div class="text-red-400 text-sm p-4 bg-red-900/20 rounded-lg border border-red-700/30">{{ error }}</div>
+{% elif not items %}
+<div class="text-center py-16 text-gray-500">
+    <div class="text-4xl mb-3">▶</div>
+    <p>Nothing in progress — start watching something in Plex!</p>
+</div>
+{% else %}
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    {% for item in items %}
+    <div class="group relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-primary-500/50 transition-all">
+        <!-- Thumbnail -->
+        <div class="relative aspect-[2/3] bg-gray-900 overflow-hidden">
+            {% if item.thumb %}
+            <img src="{{ item.thumb }}"
+                 alt="{{ item.title }}"
+                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+            {% endif %}
+            <div class="absolute inset-0 {% if item.thumb %}hidden{% else %}flex{% endif %} items-center justify-center text-4xl bg-gray-900">
+                {% if item.type == "movie" %}🎬{% elif item.type == "episode" %}📺{% else %}▶{% endif %}
+            </div>
+            <!-- Progress bar overlay -->
+            {% if item.pct > 0 %}
+            <div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
+                <div class="h-1 bg-primary-500" style="width: {{ item.pct }}%"></div>
+            </div>
+            <div class="absolute bottom-2 right-2 bg-black/70 text-xs text-gray-300 px-1.5 py-0.5 rounded">
+                {{ item.pct }}%
+            </div>
+            {% endif %}
+            <!-- Hover overlay with actions -->
+            <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                {% if item.rating_key %}
+                <!-- Rate -->
+                <div x-data="{ stars: 0 }" class="flex gap-0.5">
+                    {% for i in range(1, 6) %}
+                    <button @click="stars = {{ i }}"
+                            :class="stars >= {{ i }} ? 'text-yellow-400' : 'text-gray-500'"
+                            hx-post="/web/plex/rate"
+                            hx-vals='{"rating_key": "{{ item.rating_key }}", "stars": {{ i }}, "title": "{{ item.title|replace('"', '\\"') }}"}'
+                            hx-target="#toast-container"
+                            hx-swap="beforeend"
+                            class="text-lg hover:text-yellow-300 transition-colors">★</button>
+                    {% endfor %}
+                </div>
+                <!-- Detect intros/credits -->
+                <div class="flex gap-1">
+                    <button hx-post="/web/plex/detect/{{ item.rating_key }}/intro"
+                            hx-target="#toast-container"
+                            hx-swap="beforeend"
+                            title="Detect intros"
+                            class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
+                        Intros
+                    </button>
+                    <button hx-post="/web/plex/detect/{{ item.rating_key }}/credits"
+                            hx-target="#toast-container"
+                            hx-swap="beforeend"
+                            title="Detect credits"
+                            class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
+                        Credits
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <!-- Info strip -->
+        <div class="p-2">
+            <p class="text-xs font-medium text-white truncate" title="{{ item.title }}">{{ item.title }}</p>
+            {% if item.subtitle %}
+            <p class="text-xs text-gray-400 truncate" title="{{ item.subtitle }}">{{ item.subtitle }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
