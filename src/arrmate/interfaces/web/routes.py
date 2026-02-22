@@ -24,6 +24,7 @@ from ...config.settings import settings
 from ...core.command_parser import CommandParser
 from ...core.executor import Executor
 from ...core.intent_engine import IntentEngine
+from ...core.models import ActionType
 
 logger = logging.getLogger(__name__)
 
@@ -337,8 +338,11 @@ async def parse_command(request: Request, command: str = Form(...)):
 
 
 @router.post("/command/execute", response_class=HTMLResponse)
-async def execute_command(request: Request, command: str = Form(...)):
-    """Execute command and return result HTML with toast."""
+async def execute_command(request: Request, command: str = Form(...), mode: str = Form(default="")):
+    """Execute command and return result HTML with toast.
+
+    mode: optional override — "transcode" to run FFmpeg instead of Sonarr/Radarr search.
+    """
     try:
         # Parse
         cmd_parser = await get_parser()
@@ -347,6 +351,10 @@ async def execute_command(request: Request, command: str = Form(...)):
         # Enrich
         intent_engine = get_engine()
         enriched = await intent_engine.enrich(intent)
+
+        # If the user explicitly chose transcode mode, override the action
+        if mode == "transcode":
+            enriched.action = ActionType.TRANSCODE
 
         # Validate
         errors = intent_engine.validate(enriched)

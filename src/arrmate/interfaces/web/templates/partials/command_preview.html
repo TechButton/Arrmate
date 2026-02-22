@@ -70,10 +70,36 @@
         {% endif %}
     </div>
 
+    {% if intent.action == "upgrade" %}
+    <div class="mt-4 p-3 bg-yellow-900/20 rounded-lg border border-yellow-800/30">
+        <p class="text-sm text-yellow-300 mb-3">How would you like to upgrade this?</p>
+        <div class="flex gap-3 flex-wrap">
+            <button
+                hx-post="/web/command/execute"
+                hx-include="#command-input"
+                hx-vals='{"mode": "search"}'
+                hx-target="#result-area"
+                hx-swap="innerHTML"
+                class="btn-primary text-sm px-4 py-2">
+                🔍 Search Sonarr/Radarr for better version
+            </button>
+            <button
+                hx-post="/web/command/execute"
+                hx-include="#command-input"
+                hx-vals='{"mode": "transcode"}'
+                hx-target="#result-area"
+                hx-swap="innerHTML"
+                class="btn-secondary text-sm px-4 py-2">
+                🎬 Transcode to H.265 with FFmpeg
+            </button>
+        </div>
+    </div>
+    {% else %}
     <div class="mt-4 p-3 bg-blue-900/20 rounded-lg border border-blue-800/30">
         <p class="text-sm text-blue-300">
             Command parsed successfully. Click "Execute Command" to run it.
         </p>
     </div>
+    {% endif %}
 </div>
 {% endif %}

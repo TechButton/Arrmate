@@ -48,6 +48,8 @@ class Executor:
                     return await self._execute_remove(intent, client)
                 elif intent.action == ActionType.SEARCH:
                     return await self._execute_search(intent, client)
+                elif intent.action == ActionType.UPGRADE:
+                    return await self._execute_upgrade(intent, client)
                 elif intent.action == ActionType.ADD:
                     return await self._execute_add(intent, client)
                 elif intent.action == ActionType.LIST:
@@ -262,6 +264,69 @@ class Executor:
             success=True,
             message=f"Removed author '{intent.title}' and all files",
         )
+
+    async def _execute_upgrade(
+        self, intent: Intent, client: BaseMediaClient
+    ) -> ExecutionResult:
+        """Execute an upgrade action — search Sonarr/Radarr for a better version.
+
+        Routes to episode-, season-, or series-level search depending on specificity.
+        """
+        if intent.media_type == "tv" and intent.series_id:
+            if intent.episodes and intent.season is not None:
+                # Specific episode(s): fetch Sonarr episode IDs and run EpisodeSearch
+                all_episodes = await client.get_episodes(
+                    intent.series_id, season_number=intent.season
+                )
+                episode_ids = [
+                    ep["id"]
+                    for ep in all_episodes
+                    if ep.get("episodeNumber") in intent.episodes
+                ]
+                if not episode_ids:
+                    ep_str = ", ".join(str(e) for e in intent.episodes)
+                    return ExecutionResult(
+                        success=False,
+                        message=(
+                            f"Could not find episode(s) {ep_str} in "
+                            f"Season {intent.season} of '{intent.title}'"
+                        ),
+                    )
+                result = await client.trigger_episode_search(episode_ids)
+                ep_str = ", ".join(str(e) for e in intent.episodes)
+                return ExecutionResult(
+                    success=True,
+                    message=f"Triggered search for '{intent.title}' S{intent.season:02d}E{ep_str}",
+                    data=result,
+                )
+            elif intent.season is not None:
+                # Whole season
+                result = await client.trigger_season_search(intent.series_id, intent.season)
+                return ExecutionResult(
+                    success=True,
+                    message=f"Triggered search for '{intent.title}' Season {intent.season}",
+                    data=result,
+                )
+            else:
+                # Whole series
+                result = await client.trigger_series_search(intent.series_id)
+                return ExecutionResult(
+                    success=True,
+                    message=f"Triggered search for '{intent.title}'",
+                    data=result,
+                )
+        elif intent.media_type == "movie" and intent.item_id:
+            result = await client.trigger_movie_search(intent.item_id)
+            return ExecutionResult(
+                success=True,
+                message=f"Triggered search for '{intent.title}'",
+                data=result,
+            )
+        else:
+            return ExecutionResult(
+                success=False,
+                message=f"Could not find '{intent.title}' in library to upgrade",
+            )
 
     async def _execute_search(
         self, intent: Intent, client: BaseMediaClient
