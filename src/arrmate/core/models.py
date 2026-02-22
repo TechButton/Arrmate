@@ -29,6 +29,7 @@ class ActionType(str, Enum):
     DELETE = "delete"
     DOWNLOAD_SUBTITLE = "download_subtitle"
     SYNC_SUBTITLES = "sync_subtitles"
+    TRANSCODE = "transcode"
 
 
 class Intent(BaseModel):

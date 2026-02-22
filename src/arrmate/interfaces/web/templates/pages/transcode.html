@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Transcode — Arrmate{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">H.265 Transcoder</h1>
+        <p class="text-gray-400">
+            Convert your media library to H.265/HEVC to reduce file sizes by 30–50%.
+            Use the <a href="/web/command" class="text-primary-400 hover:underline">Command</a>
+            page to start a transcode job with natural language.
+        </p>
+    </div>
+
+    <!-- How to use -->
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold text-white mb-3">How to start a transcode job</h2>
+        <p class="text-sm text-gray-400 mb-3">Go to the Command page and type something like:</p>
+        <div class="space-y-2">
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700 font-mono text-sm text-green-400">
+                convert all my movies to H265
+            </div>
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700 font-mono text-sm text-green-400">
+                transcode Breaking Bad to H265 to save space
+            </div>
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700 font-mono text-sm text-green-400">
+                convert all TV shows to HEVC
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">
+            Requires ffmpeg installed and your media directories mounted into the Arrmate container
+            at the same paths that Sonarr/Radarr report. See docker-compose.yml for volume examples.
+        </p>
+    </div>
+
+    <!-- Live job status (auto-refreshes while jobs are running) -->
+    <div id="transcode-status"
+         hx-get="/web/transcode/status"
+         hx-trigger="load, every 5s"
+         hx-swap="innerHTML">
+        <div class="p-12 text-center">
+            <div class="inline-block w-8 h-8 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-400">Loading job status...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

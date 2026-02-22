@@ -73,8 +73,16 @@ services:
       # ── Authentication (optional) ─────────────────────────────
       - SECRET_KEY=${SECRET_KEY:-}
       - AUTH_DATA_DIR=/data
+
+      # ── Transcoding (optional) ────────────────────────────────
+      - TRANSCODE_CRF=${TRANSCODE_CRF:-28}
+      - TRANSCODE_PRESET=${TRANSCODE_PRESET:-medium}
     volumes:
       - arrmate-data:/data
+      # ── H.265 Transcoding (optional) ─────────────────────────
+      # Mount media dirs at the same paths Sonarr/Radarr report:
+      # - /your/movies:/movies
+      # - /your/tv:/tv
     networks:
       - arrmate-net
       # If using Traefik, also add the Traefik network:

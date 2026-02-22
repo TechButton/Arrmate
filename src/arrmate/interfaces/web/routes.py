@@ -16,6 +16,7 @@ from ...auth.session import (
     set_session_cookie,
 )
 from ...clients.discovery import discover_services, get_client_for_media_type
+from ...clients.transcoder import cancel_job, get_all_jobs, get_job
 from ...core.command_parser import CommandParser
 from ...core.executor import Executor
 from ...core.intent_engine import IntentEngine
@@ -205,7 +206,7 @@ async def help_page(request: Request):
         "pages/help.html",
         {
             "request": request,
-            "version": "0.2.6",
+            "version": "0.3.0",
         },
     )
 
@@ -621,6 +622,42 @@ async def add_to_library(
                 "message": f"Failed to add '{title}': {str(e)}",
             },
         )
+
+
+@router.get("/transcode", response_class=HTMLResponse)
+async def transcode_page(request: Request):
+    """Transcode job status page."""
+    jobs = get_all_jobs()
+    return templates.TemplateResponse(
+        "pages/transcode.html",
+        {"request": request, "jobs": jobs},
+    )
+
+
+@router.get("/transcode/status", response_class=HTMLResponse)
+async def transcode_status(request: Request):
+    """HTMX partial: live job status panel (auto-refreshes while jobs are running)."""
+    jobs = get_all_jobs()
+    return templates.TemplateResponse(
+        "partials/transcode_status.html",
+        {"request": request, "jobs": jobs},
+    )
+
+
+@router.post("/transcode/cancel/{job_id}", response_class=HTMLResponse)
+async def transcode_cancel(request: Request, job_id: str):
+    """Cancel a running transcode job."""
+    ok = cancel_job(job_id)
+    jobs = get_all_jobs()
+    return templates.TemplateResponse(
+        "partials/transcode_status.html",
+        {
+            "request": request,
+            "jobs": jobs,
+            "toast_message": f"Job {job_id} cancellation requested." if ok else f"Job {job_id} not found.",
+            "toast_type": "success" if ok else "error",
+        },
+    )
 
 
 def _format_size(size_bytes: int) -> str:

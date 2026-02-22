@@ -21,6 +21,7 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                     "delete",
                     "download_subtitle",
                     "sync_subtitles",
+                    "transcode",
                 ],
                 "description": (
                     "The action to perform: "
@@ -31,7 +32,8 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                     "'list' = list items (library contents, Plex sessions, libraries, etc.), "
                     "'info' = get details about a specific item, "
                     "'download_subtitle' = download missing subtitles via Bazarr, "
-                    "'sync_subtitles' = sync existing subtitles via Bazarr"
+                    "'sync_subtitles' = sync existing subtitles via Bazarr, "
+                    "'transcode' = convert media files to H265/HEVC to save disk space"
                 ),
             },
             "media_type": {
@@ -101,6 +103,13 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                             "Bazarr operations: 'missing' (list items with missing subtitles)."
                         ),
                     },
+                    "codec": {
+                        "type": "string",
+                        "description": (
+                            "Target codec for transcoding. Always 'h265' for H.265/HEVC. "
+                            "Used with action='transcode'."
+                        ),
+                    },
                 },
                 "additionalProperties": True,
             },
@@ -133,7 +142,7 @@ def get_system_prompt(available_services: Optional[List[str]] = None) -> str:
 Your job is to parse commands about managing TV shows, movies, music, audiobooks, books, and other media across multiple services.
 
 Key guidelines:
-- Extract the ACTION (remove/delete, search, add, upgrade, list, info, download_subtitle, sync_subtitles)
+- Extract the ACTION (remove/delete, search, add, upgrade, list, info, download_subtitle, sync_subtitles, transcode)
 - Identify the MEDIA TYPE (tv, movie, music, audiobook, book, adult)
 - Extract the TITLE exactly as mentioned
 - For TV shows, extract SEASON and EPISODE numbers if mentioned
@@ -168,6 +177,14 @@ Subtitle examples (Bazarr):
 - "get English subtitles for Inception" → action=download_subtitle, media_type=movie, title="Inception", criteria={{language: "English"}}
 - "sync subtitles for Breaking Bad season 3" → action=sync_subtitles, media_type=tv, title="Breaking Bad", season=3
 - "what shows are missing subtitles" → action=list, media_type=tv, criteria={{service: "bazarr", operation: "missing"}}
+
+Transcode examples:
+- "convert all my movies to H265" → action=transcode, media_type=movie, criteria={{codec: "h265"}}
+- "transcode Breaking Bad to H265 to save space" → action=transcode, media_type=tv, title="Breaking Bad", criteria={{codec: "h265"}}
+- "convert all TV shows to HEVC" → action=transcode, media_type=tv, criteria={{codec: "h265"}}
+- "shrink my movie library using H265" → action=transcode, media_type=movie, criteria={{codec: "h265"}}
+- "re-encode Inception to H265" → action=transcode, media_type=movie, title="Inception", criteria={{codec: "h265"}}
+- "check transcode status" → action=list, media_type=tv, criteria={{service: "transcoder", operation: "status"}}
 
 Audiobook / book examples:
 - "list my audiobooks" → action=list, media_type=audiobook

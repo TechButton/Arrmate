@@ -77,8 +77,19 @@ services:
       # ── Authentication (optional) ─────────────────────────────
       - SECRET_KEY=${SECRET_KEY:-}
       - AUTH_DATA_DIR=/data
+
+      # ── Transcoding (optional) ────────────────────────────────
+      # CRF: 18=high quality (large), 28=default, 32=smaller/lower quality
+      - TRANSCODE_CRF=${TRANSCODE_CRF:-28}
+      # Preset: ultrafast/fast/medium/slow/veryslow
+      - TRANSCODE_PRESET=${TRANSCODE_PRESET:-medium}
     volumes:
       - arrmate-data:/data
+      # ── H.265 Transcoding (optional) ─────────────────────────────────────────
+      # Mount your media directories at the SAME paths that Sonarr/Radarr report
+      # so ffmpeg can access the files. Adjust to match your setup:
+      # - /your/movies:/movies
+      # - /your/tv:/tv
     networks:
       - arrmate-net
       # If using Traefik, also add the Traefik network:

@@ -1,0 +1,156 @@
+{% if not jobs %}
+<div class="card text-center py-12">
+    <p class="text-4xl mb-4">🎬</p>
+    <p class="text-gray-400">No transcode jobs yet.</p>
+    <p class="text-sm text-gray-500 mt-2">
+        Use the <a href="/web/command" class="text-primary-400 hover:underline">Command</a>
+        page to start one.
+    </p>
+</div>
+{% else %}
+<div class="space-y-4">
+    {% for job in jobs %}
+    {% set pct = ((job.completed + job.failed) / job.total * 100) | int if job.total > 0 else 0 %}
+    {% set is_active = job.status in ("pending", "running") %}
+    <div class="card {% if job.status == 'completed' %}border-green-700/40{% elif job.status == 'failed' %}border-red-700/40{% elif job.status == 'cancelled' %}border-yellow-700/40{% else %}border-primary-700/40{% endif %}">
+
+        <!-- Header row -->
+        <div class="flex items-start justify-between mb-3">
+            <div>
+                <span class="text-lg mr-2">
+                    {% if job.status == "completed" %}✅
+                    {% elif job.status == "cancelled" %}🚫
+                    {% elif job.status == "running" %}⚙️
+                    {% else %}🕐{% endif %}
+                </span>
+                <span class="font-semibold text-white">
+                    Job {{ job.id }}
+                    {% if job.title %}<span class="text-gray-400 font-normal"> — {{ job.title }}</span>{% endif %}
+                </span>
+                <span class="ml-2 px-2 py-0.5 text-xs rounded-full
+                    {% if job.status == 'running' %}bg-primary-900 text-primary-300
+                    {% elif job.status == 'completed' %}bg-green-900 text-green-300
+                    {% elif job.status == 'cancelled' %}bg-yellow-900 text-yellow-300
+                    {% else %}bg-gray-700 text-gray-300{% endif %}">
+                    {{ job.status }}
+                </span>
+            </div>
+            <div class="text-right text-xs text-gray-500">
+                <div>{{ job.media_type }}</div>
+                <div>{{ job.created_at[:16] | replace("T", " ") }} UTC</div>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="w-full bg-gray-700 rounded-full h-3 mb-3">
+            <div class="h-3 rounded-full transition-all duration-500
+                {% if job.status == 'completed' %}bg-green-500
+                {% elif job.status == 'cancelled' %}bg-yellow-500
+                {% else %}bg-primary-500{% endif %}"
+                style="width: {{ pct }}%"></div>
+        </div>
+
+        <!-- Stats row -->
+        <div class="flex flex-wrap gap-4 text-sm mb-3">
+            <div>
+                <span class="text-gray-400">Queued:</span>
+                <span class="text-white font-medium ml-1">{{ job.total }}</span>
+            </div>
+            <div>
+                <span class="text-gray-400">Done:</span>
+                <span class="text-green-400 font-medium ml-1">{{ job.completed }}</span>
+            </div>
+            {% if job.failed > 0 %}
+            <div>
+                <span class="text-gray-400">Failed:</span>
+                <span class="text-red-400 font-medium ml-1">{{ job.failed }}</span>
+            </div>
+            {% endif %}
+            {% if job.saved_bytes > 0 %}
+            <div>
+                <span class="text-gray-400">Space saved:</span>
+                <span class="text-primary-400 font-medium ml-1">
+                    {% set sb = job.saved_bytes %}
+                    {% if sb > 1073741824 %}{{ "%.1f"|format(sb / 1073741824) }} GB
+                    {% elif sb > 1048576 %}{{ "%.1f"|format(sb / 1048576) }} MB
+                    {% elif sb > 1024 %}{{ "%.1f"|format(sb / 1024) }} KB
+                    {% else %}{{ sb }} B{% endif %}
+                </span>
+            </div>
+            {% endif %}
+            <div class="ml-auto text-gray-400">{{ pct }}%</div>
+        </div>
+
+        <!-- Current file -->
+        {% if job.current_file %}
+        <div class="p-2 bg-gray-800 rounded text-xs text-gray-400 truncate mb-3">
+            <span class="text-gray-500">Processing:</span> {{ job.current_file }}
+        </div>
+        {% endif %}
+
+        <!-- Cancel button for active jobs -->
+        {% if is_active %}
+        <div class="flex justify-end">
+            <button hx-post="/web/transcode/cancel/{{ job.id }}"
+                    hx-target="#transcode-status"
+                    hx-swap="innerHTML"
+                    class="px-3 py-1.5 text-sm bg-red-900/50 hover:bg-red-800/60 text-red-300 rounded-lg border border-red-700/50 transition-colors">
+                Cancel
+            </button>
+        </div>
+        {% endif %}
+
+        <!-- Errors (collapsible) -->
+        {% if job.errors %}
+        <details class="mt-3">
+            <summary class="text-sm text-red-400 cursor-pointer hover:text-red-300">
+                {{ job.errors | length }} error(s)
+            </summary>
+            <div class="mt-2 p-3 bg-gray-800 rounded-lg border border-red-900/40 max-h-40 overflow-y-auto">
+                {% for err in job.errors %}
+                <div class="text-xs text-red-300 mb-1">{{ err }}</div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+
+        <!-- Completed files (collapsible, only when done) -->
+        {% if job.completed_files and job.status == "completed" %}
+        <details class="mt-3">
+            <summary class="text-sm text-green-400 cursor-pointer hover:text-green-300">
+                {{ job.completed_files | length }} file(s) transcoded
+            </summary>
+            <div class="mt-2 p-3 bg-gray-800 rounded-lg border border-green-900/40 max-h-48 overflow-y-auto">
+                {% for f in job.completed_files %}
+                <div class="text-xs text-gray-300 mb-2">
+                    <div class="font-medium">{{ f.title }}</div>
+                    <div class="text-gray-500">
+                        {{ f.original_size }} → {{ f.new_size }}
+                        <span class="text-green-400">(saved {{ f.saved }})</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if toast_message %}
+<div id="toast-container" hx-swap-oob="beforeend">
+    <div x-data="{ show: true }"
+         x-init="setTimeout(() => show = false, 4000)"
+         x-show="show"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border
+             {% if toast_type == 'error' %}bg-red-900/80 border-red-700 text-red-200
+             {% else %}bg-green-900/80 border-green-700 text-green-200{% endif %}">
+        <span>{{ "❌" if toast_type == "error" else "✅" }}</span>
+        <span class="text-sm">{{ toast_message }}</span>
+    </div>
+</div>
+{% endif %}

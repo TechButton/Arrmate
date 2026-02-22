@@ -27,6 +27,10 @@ class IntentEngine:
         Raises:
             ValueError: If required information cannot be resolved
         """
+        # Transcode actions handle their own file discovery — skip enrichment
+        if intent.action == "transcode":
+            return intent
+
         # Get the appropriate client for this media type
         client = get_client_for_media_type(intent.media_type)
 

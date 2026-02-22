@@ -133,6 +133,16 @@ class Settings(BaseSettings):
         default=True, description="Enable automatic service discovery"
     )
 
+    # Transcoding settings
+    transcode_crf: int = Field(
+        default=28,
+        description="CRF quality for H265 encoding (18=high quality/large, 28=default, 32=small/lower quality)",
+    )
+    transcode_preset: str = Field(
+        default="medium",
+        description="ffmpeg encoding preset (ultrafast/fast/medium/slow/veryslow — slower = smaller file)",
+    )
+
 
 # Global settings instance
 settings = Settings()

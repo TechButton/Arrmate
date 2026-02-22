@@ -1,5 +1,6 @@
 """Intent execution orchestrator."""
 
+import asyncio
 import logging
 from typing import List
 
@@ -9,6 +10,7 @@ from ..clients.lidarr import LidarrClient
 from ..clients.radarr import RadarrClient
 from ..clients.readarr import ReadarrClient
 from ..clients.sonarr import SonarrClient
+from ..clients.transcoder import create_job, ffmpeg_available, run_transcode_job, scan_for_transcode
 from ..clients.whisparr import WhisparrClient
 from .models import ActionType, ExecutionResult, Intent
 
@@ -28,6 +30,10 @@ class Executor:
             ExecutionResult with success status and details
         """
         try:
+            # Transcode is handled separately — it manages its own clients
+            if intent.action == ActionType.TRANSCODE:
+                return await self._execute_transcode(intent)
+
             # Get the appropriate client
             client = get_client_for_media_type(intent.media_type)
 
@@ -500,3 +506,68 @@ class Executor:
             message=f"Details for '{intent.title}'",
             data=item,
         )
+
+    async def _execute_transcode(self, intent: Intent) -> ExecutionResult:
+        """Scan library for non-H265 files and start a background transcode job.
+
+        Args:
+            intent: Intent with media_type and optional title filter
+
+        Returns:
+            Execution result with job ID and file count
+        """
+        if not ffmpeg_available():
+            return ExecutionResult(
+                success=False,
+                message="ffmpeg is not installed. Add ffmpeg to your Dockerfile or install it on the host.",
+            )
+
+        media_type = intent.media_type or "movie"
+        title = intent.title
+
+        try:
+            files = await scan_for_transcode(media_type=media_type, title=title)
+        except Exception as exc:
+            return ExecutionResult(
+                success=False,
+                message=f"Failed to scan library: {exc}",
+                errors=[str(exc)],
+            )
+
+        if not files:
+            scope = f"'{title}'" if title else f"all {media_type} files"
+            return ExecutionResult(
+                success=True,
+                message=f"No files need transcoding for {scope} — everything is already H.265!",
+            )
+
+        job_id = create_job(files, media_type=media_type, title=title)
+        asyncio.create_task(run_transcode_job(job_id, files))
+
+        scope = f"'{title}'" if title else f"your {media_type} library"
+        total_size = sum(f.get("size", 0) for f in files)
+        size_str = _fmt_bytes(total_size)
+
+        return ExecutionResult(
+            success=True,
+            message=(
+                f"Started H.265 transcode job for {scope}: "
+                f"{len(files)} file(s) queued (~{size_str} total). "
+                f"Job ID: {job_id}. Track progress at /web/transcode"
+            ),
+            data={
+                "job_id": job_id,
+                "files_queued": len(files),
+                "total_size": size_str,
+                "media_type": media_type,
+                "title_filter": title,
+            },
+        )
+
+
+def _fmt_bytes(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(n) < 1024:
+            return f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} PB"
