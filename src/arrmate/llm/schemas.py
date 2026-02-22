@@ -38,11 +38,11 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
             },
             "media_type": {
                 "type": "string",
-                "enum": ["tv", "movie", "music", "audiobook", "book", "adult"],
+                "enum": ["tv", "movie", "music", "audiobook", "book"],
                 "description": (
                     "Type of media: 'tv'=TV shows/series, 'movie'=films, "
                     "'music'=songs/artists/albums, 'audiobook'=audio books, "
-                    "'book'=ebooks/written books, 'adult'=adult content. "
+                    "'book'=ebooks/written books. "
                     "For Plex or cross-service commands with no clear type, default to 'tv'."
                 ),
             },
@@ -143,7 +143,7 @@ Your job is to parse commands about managing TV shows, movies, music, audiobooks
 
 Key guidelines:
 - Extract the ACTION (remove/delete, search, add, upgrade, list, info, download_subtitle, sync_subtitles, transcode)
-- Identify the MEDIA TYPE (tv, movie, music, audiobook, book, adult)
+- Identify the MEDIA TYPE (tv, movie, music, audiobook, book)
 - Extract the TITLE exactly as mentioned
 - For TV shows, extract SEASON and EPISODE numbers if mentioned
 - Extract any CRITERIA (language, quality, year, service, operation)
@@ -211,7 +211,6 @@ def _build_service_context(available_services: Optional[List[str]]) -> str:
         "sonarr": "TV show management — search, add, remove, list",
         "radarr": "Movie management — search, add, remove, list",
         "lidarr": "Music management — artists, albums, tracks",
-        "whisparr": "Adult content management",
         "bazarr": "Subtitle download and sync for TV shows and movies",
         "audiobookshelf": "Audiobook and podcast player — browse, search, progress",
         "lazylibrarian": "Book and audiobook management with automated downloading",

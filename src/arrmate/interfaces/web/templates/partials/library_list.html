@@ -1,30 +1,151 @@
-<div class="media-grid">
-    {% for item in items %}
-        {% include "components/media_item.html" %}
-    {% endfor %}
-
-    {% if not items %}
-    <div class="col-span-full p-12 text-center">
-        <span class="text-6xl mb-4 block opacity-60">📭</span>
-        <p class="text-xl text-gray-400 mb-2">No items found</p>
-        <p class="text-sm text-gray-500">
-            {% if media_type == 'tv' %}
-                No TV shows in your library yet. Add some using the Command or Search page.
-            {% else %}
-                No movies in your library yet. Add some using the Command or Search page.
-            {% endif %}
-        </p>
-        <a href="/web/search" class="btn-primary mt-4 inline-block">Search & Add &rarr;</a>
-    </div>
-    {% endif %}
+{% if not items %}
+<div class="col-span-full p-12 text-center">
+    <span class="text-6xl mb-4 block opacity-60">📭</span>
+    <p class="text-xl text-gray-400 mb-2">No items found</p>
+    <p class="text-sm text-gray-500">
+        {% if media_type == 'tv' %}No TV shows yet. Add some using Command or Search.
+        {% else %}No movies yet. Add some using Command or Search.{% endif %}
+    </p>
+    <a href="/web/search" class="btn-primary mt-4 inline-block">Search &amp; Add &rarr;</a>
 </div>
+{% else %}
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+{% for item in items %}
+<div class="group relative rounded-xl overflow-hidden bg-gray-800 border border-gray-700 hover:border-primary-500/60 transition-all duration-200 flex flex-col"
+     x-data="{ open: false }">
+
+    <!-- Poster -->
+    <div class="relative aspect-[2/3] bg-gray-700 flex-shrink-0">
+        {% if item.poster_url %}
+        <img src="{{ item.poster_url }}"
+             alt="{{ item.title }}"
+             loading="lazy"
+             class="w-full h-full object-cover"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+        <div class="hidden w-full h-full items-center justify-center text-5xl">
+            {% if item.media_type == 'tv' %}📺{% else %}🎬{% endif %}
+        </div>
+        {% else %}
+        <div class="w-full h-full flex items-center justify-center text-5xl opacity-40">
+            {% if item.media_type == 'tv' %}📺{% else %}🎬{% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Monitoring badge -->
+        <div class="absolute top-1.5 right-1.5">
+            <span class="px-1.5 py-0.5 text-xs rounded font-medium
+                {% if item.monitored %}bg-primary-600/90 text-white{% else %}bg-gray-600/90 text-gray-300{% endif %}">
+                {% if item.monitored %}●{% else %}○{% endif %}
+            </span>
+        </div>
+
+        <!-- Has file / missing badge -->
+        {% if item.media_type == 'movie' and not item.has_file %}
+        <div class="absolute top-1.5 left-1.5">
+            <span class="px-1.5 py-0.5 text-xs rounded bg-yellow-700/90 text-yellow-200 font-medium">Missing</span>
+        </div>
+        {% endif %}
+
+        <!-- Hover overlay with actions -->
+        <div class="absolute inset-0 bg-gray-900/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+            <!-- Upgrade -->
+            <button hx-post="/web/library/upgrade"
+                    hx-vals='{"item_id": "{{ item.id }}", "media_type": "{{ item.media_type }}", "title": "{{ item.title | replace('"', '&quot;') }}"}'
+                    hx-target="#toast-container"
+                    hx-swap="beforeend"
+                    class="w-full py-1.5 px-2 text-xs bg-primary-700/90 hover:bg-primary-600 text-white rounded-lg transition-colors"
+                    title="Search for upgrade">
+                🔍 Upgrade
+            </button>
+
+            <!-- Monitor toggle -->
+            <button hx-post="/web/library/monitor"
+                    hx-vals='{"item_id": "{{ item.id }}", "media_type": "{{ item.media_type }}", "monitored": "{{ not item.monitored | lower }}"}'
+                    hx-target="#toast-container"
+                    hx-swap="beforeend"
+                    hx-on::after-request="this.closest('[x-data]').dispatchEvent(new Event('monitor-toggled'))"
+                    class="w-full py-1.5 px-2 text-xs rounded-lg transition-colors
+                        {% if item.monitored %}bg-gray-600/90 hover:bg-yellow-700/90 text-gray-200{% else %}bg-gray-600/90 hover:bg-primary-700/90 text-gray-200{% endif %}"
+                    title="{{ 'Unmonitor' if item.monitored else 'Monitor' }}">
+                {% if item.monitored %}○ Unmonitor{% else %}● Monitor{% endif %}
+            </button>
+
+            {% if item.media_type == 'tv' %}
+            <!-- More seasons (trigger full series search) -->
+            <button hx-post="/web/library/upgrade"
+                    hx-vals='{"item_id": "{{ item.id }}", "media_type": "tv", "title": "{{ item.title | replace('"', '&quot;') }}"}'
+                    hx-target="#toast-container"
+                    hx-swap="beforeend"
+                    class="w-full py-1.5 px-2 text-xs bg-green-800/90 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    title="Search for new seasons">
+                + More Seasons
+            </button>
+            {% endif %}
+
+            <!-- Remove -->
+            <button @click="open = true"
+                    class="w-full py-1.5 px-2 text-xs bg-red-900/80 hover:bg-red-800 text-red-200 rounded-lg transition-colors">
+                🗑 Remove
+            </button>
+        </div>
+    </div>
+
+    <!-- Info -->
+    <div class="p-2 flex-1 flex flex-col gap-0.5">
+        <p class="text-xs font-medium text-white leading-tight line-clamp-2" title="{{ item.title }}">
+            {{ item.title }}
+        </p>
+        <div class="flex items-center gap-1 flex-wrap mt-0.5">
+            {% if item.year %}
+            <span class="text-xs text-gray-500">{{ item.year }}</span>
+            {% endif %}
+            {% if item.rating %}
+            <span class="text-xs text-yellow-400">★ {{ "%.1f" | format(item.rating | float) }}</span>
+            {% endif %}
+        </div>
+        {% if item.media_type == 'tv' %}
+        <div class="text-xs text-gray-500">
+            {% if item.season_count %}{{ item.season_count }}S{% endif %}
+            {% if item.episode_count %} · {{ item.episode_count }} eps{% endif %}
+        </div>
+        {% endif %}
+        {% if item.size %}
+        <div class="text-xs text-gray-600">{{ item.size }}</div>
+        {% endif %}
+    </div>
+
+    <!-- Remove confirmation modal -->
+    <div x-show="open"
+         x-cloak
+         class="absolute inset-0 bg-gray-900/95 flex flex-col items-center justify-center p-3 rounded-xl z-10">
+        <p class="text-xs text-white text-center mb-3">Remove <strong>{{ item.title }}</strong> and delete all files?</p>
+        <div class="flex gap-2 w-full">
+            <button @click="open = false"
+                    class="flex-1 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg">
+                Cancel
+            </button>
+            <button hx-post="/web/library/remove"
+                    hx-vals='{"item_id": "{{ item.id }}", "media_type": "{{ item.media_type }}", "title": "{{ item.title | replace('"', '&quot;') }}"}'
+                    hx-target="#toast-container"
+                    hx-swap="beforeend"
+                    @click="open = false"
+                    class="flex-1 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded-lg">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
 
 <!-- Infinite Scroll Trigger -->
 {% if has_more %}
-<div class="infinite-scroll-trigger"
+<div class="mt-4 text-center"
      hx-get="/web/library/items?media_type={{ media_type }}&page={{ page + 1 }}"
      hx-trigger="revealed"
-     hx-swap="afterend">
-    <div class="text-gray-500">Loading more...</div>
+     hx-swap="beforeend"
+     hx-target="previous div">
+    <div class="text-gray-500 text-sm py-4">Loading more...</div>
 </div>
 {% endif %}

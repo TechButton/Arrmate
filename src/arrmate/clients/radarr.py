@@ -149,3 +149,25 @@ class RadarrClient(BaseMediaClient):
             List of root folders
         """
         return await self._get("api/v3/rootfolder")
+
+    async def set_movie_monitored(self, movie_id: int, monitored: bool) -> Dict[str, Any]:
+        """Update the monitored status of a movie.
+
+        Args:
+            movie_id: Movie ID
+            monitored: True to monitor, False to unmonitor
+
+        Returns:
+            Updated movie dict
+        """
+        movie = await self._get(f"api/v3/movie/{movie_id}")
+        movie["monitored"] = monitored
+        return await self._put(f"api/v3/movie/{movie_id}", data=movie)
+
+    async def get_all_movies_with_files(self) -> List[Dict[str, Any]]:
+        """Get all movies including nested movieFile with mediaInfo.
+
+        Returns:
+            List of movies with file details
+        """
+        return await self._get("api/v3/movie")

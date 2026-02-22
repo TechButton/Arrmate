@@ -73,6 +73,21 @@ class BaseMediaClient(ABC):
         response.raise_for_status()
         return response.json()
 
+    async def _put(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Any:
+        """Make a PUT request.
+
+        Args:
+            endpoint: API endpoint
+            data: Request body
+
+        Returns:
+            Response JSON data
+        """
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        response = await self.client.put(url, json=data)
+        response.raise_for_status()
+        return response.json() if response.text else None
+
     async def _delete(self, endpoint: str) -> Any:
         """Make a DELETE request.
 

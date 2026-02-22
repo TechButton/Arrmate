@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Downloads — Arrmate{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">Download Managers</h1>
+        <p class="text-gray-400">Monitor and control your NZB and torrent download clients</p>
+    </div>
+
+    <!-- Speed control panel -->
+    <div class="card mb-6" x-data="{ manager: 'sabnzbd', kbps: 0 }">
+        <h2 class="text-sm font-semibold text-gray-300 mb-3">Quick Speed Control</h2>
+        <div class="flex flex-wrap gap-3 items-end">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Client</label>
+                <select x-model="manager"
+                        class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm">
+                    <option value="sabnzbd">SABnzbd</option>
+                    <option value="nzbget">NZBget</option>
+                    <option value="qbittorrent">qBittorrent</option>
+                    <option value="transmission">Transmission</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Speed (KB/s, 0 = unlimited)</label>
+                <input type="number" x-model="kbps" min="0" step="1000"
+                       class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm w-36">
+            </div>
+            <button hx-post="/web/downloads/speed"
+                    :hx-vals="JSON.stringify({manager: manager, kbps: kbps})"
+                    hx-target="#toast-container"
+                    hx-swap="beforeend"
+                    class="btn-primary text-sm"
+                    style="min-height: 40px;">
+                Set Speed
+            </button>
+            <div class="flex gap-2">
+                {% for label, val in [("Unlimited", 0), ("5 MB/s", 5120), ("10 MB/s", 10240), ("25 MB/s", 25600)] %}
+                <button @click="kbps = {{ val }}"
+                        class="px-3 py-2 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Live queue status -->
+    <div id="download-status"
+         hx-get="/web/downloads/status"
+         hx-trigger="load, every 10s"
+         hx-swap="innerHTML">
+        <div class="p-12 text-center">
+            <div class="inline-block w-8 h-8 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-400">Connecting to download managers...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -10,19 +10,46 @@
     </div>
 
     <!-- Command Input Form -->
-    <div class="card mb-6">
+    <div class="card mb-6" x-data="voiceInput()">
         <form id="command-form">
             <label for="command-input" class="block text-sm font-medium text-gray-300 mb-2">
                 Enter your command
             </label>
-            <textarea
-                id="command-input"
-                name="command"
-                rows="4"
-                class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500 resize-none"
-                placeholder="Example: remove episode 1 of Angel season 1&#10;Example: add Breaking Bad to my library&#10;Example: search for 4K version of Blade Runner"
-                style="min-height: 120px;"
-            ></textarea>
+
+            <div class="relative">
+                <textarea
+                    id="command-input"
+                    name="command"
+                    x-ref="textarea"
+                    rows="4"
+                    class="w-full px-4 py-3 pr-14 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500 resize-none"
+                    placeholder="Example: remove episode 1 of Angel season 1&#10;Example: add Breaking Bad to my library&#10;Example: convert all my movies to H265"
+                    style="min-height: 120px;"
+                ></textarea>
+
+                <!-- Mic button -->
+                <button type="button"
+                        @click="toggleVoice()"
+                        :title="listening ? 'Stop listening' : 'Speak your command'"
+                        :class="listening ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+                        class="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+                        x-show="speechSupported">
+                    <svg x-show="!listening" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                    <svg x-show="listening" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="6" y="6" width="12" height="12" rx="2"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Voice status -->
+            <p x-show="listening" class="text-xs text-red-400 mt-1 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block"></span>
+                Listening… speak your command
+            </p>
+            <p x-show="voiceError" x-text="voiceError" class="text-xs text-yellow-400 mt-1"></p>
 
             <div class="flex gap-3 mt-4">
                 <button
@@ -59,24 +86,75 @@
     <!-- Example Commands -->
     <div class="card mt-8">
         <h2 class="text-lg font-semibold text-white mb-4">Example Commands</h2>
-        <div class="space-y-3">
-            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
-                <code class="text-sm text-gray-200">list my TV shows</code>
-                <p class="text-xs text-gray-400 mt-1">View all TV shows in your library</p>
+        <div class="grid sm:grid-cols-2 gap-3">
+            {% for cmd, desc in [
+                ("list my TV shows", "View all TV shows in your library"),
+                ("remove episode 1 of Angel season 1", "Delete a specific episode"),
+                ("add Breaking Bad to my library", "Add a new TV show"),
+                ("search for 4K version of Blade Runner", "Find high-quality versions"),
+                ("convert all my movies to H265", "Save space with H.265 encoding"),
+                ("transcode Breaking Bad to HEVC", "Transcode a specific show"),
+                ("download missing subtitles for The Wire", "Get subtitles via Bazarr"),
+                ("what's playing on Plex", "See active Plex streams"),
+            ] %}
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700 cursor-pointer hover:border-primary-500/50 transition-colors"
+                 onclick="document.getElementById('command-input').value = '{{ cmd }}'">
+                <code class="text-sm text-gray-200">{{ cmd }}</code>
+                <p class="text-xs text-gray-400 mt-1">{{ desc }}</p>
             </div>
-            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
-                <code class="text-sm text-gray-200">remove episode 1 of Angel season 1</code>
-                <p class="text-xs text-gray-400 mt-1">Delete a specific episode</p>
-            </div>
-            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
-                <code class="text-sm text-gray-200">add Breaking Bad to my library</code>
-                <p class="text-xs text-gray-400 mt-1">Add a new TV show</p>
-            </div>
-            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
-                <code class="text-sm text-gray-200">search for 4K version of Blade Runner</code>
-                <p class="text-xs text-gray-400 mt-1">Find high-quality versions</p>
-            </div>
+            {% endfor %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function voiceInput() {
+    return {
+        listening: false,
+        speechSupported: 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window,
+        voiceError: '',
+        recognition: null,
+
+        init() {
+            if (!this.speechSupported) return;
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            this.recognition = new SR();
+            this.recognition.continuous = false;
+            this.recognition.interimResults = false;
+            this.recognition.lang = 'en-US';
+
+            this.recognition.onresult = (e) => {
+                const transcript = e.results[0][0].transcript;
+                this.$refs.textarea.value = transcript;
+                this.listening = false;
+                this.voiceError = '';
+            };
+            this.recognition.onerror = (e) => {
+                this.listening = false;
+                if (e.error !== 'no-speech') {
+                    this.voiceError = 'Voice error: ' + e.error + '. Try Chrome or Edge for best support.';
+                }
+            };
+            this.recognition.onend = () => { this.listening = false; };
+        },
+
+        toggleVoice() {
+            if (this.listening) {
+                this.recognition.stop();
+                this.listening = false;
+            } else {
+                this.voiceError = '';
+                try {
+                    this.recognition.start();
+                    this.listening = true;
+                } catch(e) {
+                    this.voiceError = 'Could not start microphone. Try again.';
+                }
+            }
+        }
+    };
+}
+</script>
 {% endblock %}

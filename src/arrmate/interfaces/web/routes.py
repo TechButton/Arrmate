@@ -16,7 +16,11 @@ from ...auth.session import (
     set_session_cookie,
 )
 from ...clients.discovery import discover_services, get_client_for_media_type
+from ...clients.plex import PlexClient
+from ...clients.radarr import RadarrClient
+from ...clients.sonarr import SonarrClient
 from ...clients.transcoder import cancel_job, get_all_jobs, get_job
+from ...config.settings import settings
 from ...core.command_parser import CommandParser
 from ...core.executor import Executor
 from ...core.intent_engine import IntentEngine
@@ -206,7 +210,7 @@ async def help_page(request: Request):
         "pages/help.html",
         {
             "request": request,
-            "version": "0.3.0",
+            "version": "0.4.0",
         },
     )
 
@@ -425,24 +429,54 @@ async def library_items(
             if media_type == "tv":
                 raw_items = await client.get_all_series()
                 for item in raw_items:
+                    item_id = item.get("id")
+                    # Use remoteUrl from images array for poster (public TVDB/TMDB URL)
+                    poster_url = None
+                    for img in item.get("images", []):
+                        if img.get("coverType") == "poster":
+                            poster_url = img.get("remoteUrl") or f"/web/library/poster/sonarr/{item_id}"
+                            break
+                    if not poster_url and item_id:
+                        poster_url = f"/web/library/poster/sonarr/{item_id}"
+                    stats = item.get("statistics", {})
                     items.append({
+                        "id": item_id,
                         "title": item.get("title", "Unknown"),
                         "media_type": "tv",
                         "monitored": item.get("monitored", False),
                         "status": item.get("status", ""),
-                        "season_count": item.get("seasonCount") or item.get("statistics", {}).get("seasonCount"),
-                        "episode_count": item.get("statistics", {}).get("episodeFileCount") or item.get("episodeCount"),
+                        "season_count": item.get("seasonCount") or stats.get("seasonCount"),
+                        "episode_count": stats.get("episodeFileCount") or item.get("episodeCount"),
+                        "year": item.get("year"),
+                        "poster_url": poster_url,
+                        "size": _format_size(stats.get("sizeOnDisk", 0)),
+                        "rating": item.get("ratings", {}).get("value"),
+                        "genres": item.get("genres", [])[:3],
                     })
             elif media_type == "movie":
                 raw_items = await client.get_all_movies()
                 for item in raw_items:
+                    item_id = item.get("id")
+                    poster_url = None
+                    for img in item.get("images", []):
+                        if img.get("coverType") == "poster":
+                            poster_url = img.get("remoteUrl") or f"/web/library/poster/radarr/{item_id}"
+                            break
+                    if not poster_url and item_id:
+                        poster_url = f"/web/library/poster/radarr/{item_id}"
                     items.append({
+                        "id": item_id,
                         "title": item.get("title", "Unknown"),
                         "media_type": "movie",
                         "monitored": item.get("monitored", False),
                         "status": item.get("status", ""),
                         "year": item.get("year"),
                         "size": _format_size(item.get("sizeOnDisk", 0)),
+                        "poster_url": poster_url,
+                        "rating": item.get("ratings", {}).get("imdb", {}).get("value")
+                                  or item.get("ratings", {}).get("value"),
+                        "genres": item.get("genres", [])[:3],
+                        "has_file": item.get("hasFile", False),
                     })
         finally:
             await client.close()
@@ -658,6 +692,306 @@ async def transcode_cancel(request: Request, job_id: str):
             "toast_type": "success" if ok else "error",
         },
     )
+
+
+# ===== Plex Now Playing =====
+
+
+@router.get("/plex/nowplaying", response_class=HTMLResponse)
+async def plex_now_playing(request: Request):
+    """HTMX partial: current Plex sessions for the navbar strip."""
+    sessions = []
+    if settings.plex_url and settings.plex_token:
+        client = PlexClient(settings.plex_url, settings.plex_token)
+        try:
+            raw = await client.get_sessions()
+            for s in raw:
+                media_type = s.get("type", "")
+                if media_type == "episode":
+                    title = f"{s.get('grandparentTitle', '')} S{s.get('parentIndex', 0):02d}E{s.get('index', 0):02d}"
+                elif media_type == "movie":
+                    title = s.get("title", "Unknown")
+                else:
+                    title = s.get("title", "Unknown")
+                duration = s.get("duration", 0)
+                offset = s.get("viewOffset", 0)
+                pct = int(offset / duration * 100) if duration else 0
+                sessions.append({
+                    "title": title,
+                    "user": s.get("User", {}).get("title", ""),
+                    "player": s.get("Player", {}).get("title", ""),
+                    "state": s.get("Player", {}).get("state", "playing"),
+                    "pct": pct,
+                    "type": media_type,
+                })
+        except Exception:
+            pass
+        finally:
+            await client.close()
+    return templates.TemplateResponse(
+        "partials/plex_nowplaying.html",
+        {"request": request, "sessions": sessions},
+    )
+
+
+# ===== Library action routes =====
+
+
+@router.post("/library/monitor", response_class=HTMLResponse)
+async def toggle_monitor(
+    request: Request,
+    item_id: int = Form(...),
+    media_type: str = Form(...),
+    monitored: str = Form(...),
+):
+    """Toggle monitoring status for a movie or TV series."""
+    new_state = monitored.lower() == "true"
+    label = "Monitored" if new_state else "Unmonitored"
+    try:
+        if media_type == "movie":
+            client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            try:
+                await client.set_movie_monitored(item_id, new_state)
+            finally:
+                await client.close()
+        elif media_type == "tv":
+            client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            try:
+                await client.set_series_monitored(item_id, new_state)
+            finally:
+                await client.close()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "success", "message": f"Set to {label}"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+@router.post("/library/upgrade", response_class=HTMLResponse)
+async def upgrade_item(
+    request: Request,
+    item_id: int = Form(...),
+    media_type: str = Form(...),
+    title: str = Form(...),
+):
+    """Trigger a quality upgrade search for a library item."""
+    try:
+        if media_type == "movie":
+            client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            try:
+                await client.trigger_movie_search(item_id)
+            finally:
+                await client.close()
+            msg = f"Triggered upgrade search for '{title}'"
+        elif media_type == "tv":
+            client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            try:
+                await client.trigger_series_search(item_id)
+            finally:
+                await client.close()
+            msg = f"Triggered search for '{title}'"
+        else:
+            msg = "Unsupported media type"
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "success", "message": msg},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+@router.post("/library/remove", response_class=HTMLResponse)
+async def remove_item(
+    request: Request,
+    item_id: int = Form(...),
+    media_type: str = Form(...),
+    title: str = Form(...),
+):
+    """Remove a movie or TV series and delete its files."""
+    try:
+        if media_type == "movie":
+            client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            try:
+                await client.delete_item(item_id, delete_files=True)
+            finally:
+                await client.close()
+        elif media_type == "tv":
+            client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            try:
+                await client.delete_item(item_id, delete_files=True)
+            finally:
+                await client.close()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "success",
+             "message": f"Removed '{title}' and all files"},
+            headers={"HX-Trigger": "library-updated"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+@router.get("/library/poster/{service}/{item_id}", response_class=HTMLResponse)
+async def library_poster(service: str, item_id: int):
+    """Proxy poster images from Sonarr/Radarr (keeps API key server-side)."""
+    import httpx as _httpx
+    from fastapi.responses import Response as _Response
+
+    if service == "sonarr" and settings.sonarr_url and settings.sonarr_api_key:
+        url = f"{settings.sonarr_url.rstrip('/')}/api/v3/mediacover/{item_id}/poster.jpg"
+        headers = {"X-Api-Key": settings.sonarr_api_key}
+    elif service == "radarr" and settings.radarr_url and settings.radarr_api_key:
+        url = f"{settings.radarr_url.rstrip('/')}/api/v3/mediacover/{item_id}/poster.jpg"
+        headers = {"X-Api-Key": settings.radarr_api_key}
+    else:
+        return _Response(status_code=404)
+
+    try:
+        async with _httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                return _Response(content=resp.content, media_type="image/jpeg")
+    except Exception:
+        pass
+    return _Response(status_code=404)
+
+
+# ===== Downloads page =====
+
+
+@router.get("/downloads", response_class=HTMLResponse)
+async def downloads_page(request: Request):
+    """Download manager overview page."""
+    return templates.TemplateResponse("pages/downloads.html", {"request": request})
+
+
+@router.get("/downloads/status", response_class=HTMLResponse)
+async def downloads_status(request: Request):
+    """HTMX partial: live download queue from all configured managers."""
+    from ...clients.sabnzbd import SABnzbdClient
+    from ...clients.nzbget import NZBgetClient
+    from ...clients.qbittorrent import QBittorrentClient
+    from ...clients.transmission import TransmissionClient
+
+    managers = []
+
+    if settings.sabnzbd_url and settings.sabnzbd_api_key:
+        client = SABnzbdClient(settings.sabnzbd_url, settings.sabnzbd_api_key)
+        try:
+            status = await client.get_status()
+            queue = await client.get_queue()
+            managers.append({
+                "name": "SABnzbd", "type": "sabnzbd", "status": status, "queue": queue,
+            })
+        except Exception as e:
+            managers.append({"name": "SABnzbd", "type": "sabnzbd", "error": str(e)})
+        finally:
+            await client.close()
+
+    if settings.nzbget_url and settings.nzbget_username:
+        client = NZBgetClient(
+            settings.nzbget_url, settings.nzbget_username, settings.nzbget_password or ""
+        )
+        try:
+            status = await client.get_status()
+            queue = await client.get_queue()
+            managers.append({"name": "NZBget", "type": "nzbget", "status": status, "queue": queue})
+        except Exception as e:
+            managers.append({"name": "NZBget", "type": "nzbget", "error": str(e)})
+        finally:
+            await client.close()
+
+    if settings.qbittorrent_url and settings.qbittorrent_username:
+        client = QBittorrentClient(
+            settings.qbittorrent_url,
+            settings.qbittorrent_username,
+            settings.qbittorrent_password or "",
+        )
+        try:
+            info = await client.get_transfer_info()
+            torrents = await client.get_torrents()
+            managers.append({
+                "name": "qBittorrent", "type": "qbittorrent",
+                "status": info, "queue": torrents,
+            })
+        except Exception as e:
+            managers.append({"name": "qBittorrent", "type": "qbittorrent", "error": str(e)})
+        finally:
+            await client.close()
+
+    if settings.transmission_url:
+        client = TransmissionClient(
+            settings.transmission_url,
+            settings.transmission_username or "",
+            settings.transmission_password or "",
+        )
+        try:
+            session = await client.get_session()
+            torrents = await client.get_torrents()
+            managers.append({
+                "name": "Transmission", "type": "transmission",
+                "status": session, "queue": torrents,
+            })
+        except Exception as e:
+            managers.append({"name": "Transmission", "type": "transmission", "error": str(e)})
+        finally:
+            await client.close()
+
+    return templates.TemplateResponse(
+        "partials/downloads_status.html",
+        {"request": request, "managers": managers},
+    )
+
+
+@router.post("/downloads/speed", response_class=HTMLResponse)
+async def set_download_speed(
+    request: Request,
+    manager: str = Form(...),
+    kbps: int = Form(...),
+):
+    """Set download speed limit for a download manager."""
+    from ...clients.sabnzbd import SABnzbdClient
+    from ...clients.nzbget import NZBgetClient
+    from ...clients.qbittorrent import QBittorrentClient
+    from ...clients.transmission import TransmissionClient
+
+    try:
+        if manager == "sabnzbd" and settings.sabnzbd_url:
+            c = SABnzbdClient(settings.sabnzbd_url, settings.sabnzbd_api_key)
+            await c.set_speed_limit(kbps)
+            await c.close()
+        elif manager == "nzbget" and settings.nzbget_url:
+            c = NZBgetClient(settings.nzbget_url, settings.nzbget_username or "", settings.nzbget_password or "")
+            await c.set_speed_limit(kbps)
+            await c.close()
+        elif manager == "qbittorrent" and settings.qbittorrent_url:
+            c = QBittorrentClient(settings.qbittorrent_url, settings.qbittorrent_username or "", settings.qbittorrent_password or "")
+            await c.set_download_limit(kbps * 1024)
+            await c.close()
+        elif manager == "transmission" and settings.transmission_url:
+            c = TransmissionClient(settings.transmission_url, settings.transmission_username or "", settings.transmission_password or "")
+            await c.set_speed_limit_down(kbps)
+            await c.close()
+        label = "unlimited" if kbps == 0 else f"{kbps} KB/s"
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "success", "message": f"Speed limit set to {label}"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
 
 
 def _format_size(size_bytes: int) -> str:

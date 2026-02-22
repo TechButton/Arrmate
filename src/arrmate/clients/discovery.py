@@ -19,8 +19,6 @@ from .plex import PlexClient
 from .radarr import RadarrClient
 from .readarr import ReadarrClient
 from .sonarr import SonarrClient
-from .whisparr import WhisparrClient
-
 logger = logging.getLogger(__name__)
 
 # Default ports for services
@@ -29,7 +27,6 @@ DEFAULT_PORTS = {
     "radarr": 7878,
     "lidarr": 8686,
     "readarr": 8787,
-    "whisparr": 6969,
     "bazarr": 6767,
     "audiobookshelf": 13378,
     "lazylibrarian": 5299,
@@ -66,7 +63,6 @@ def _get_implementation_status(service_name: str) -> ImplementationStatus:
         "radarr": ImplementationStatus.COMPLETE,
         "lidarr": ImplementationStatus.PARTIAL,
         "readarr": ImplementationStatus.DEPRECATED,
-        "whisparr": ImplementationStatus.PARTIAL,
         "bazarr": ImplementationStatus.PARTIAL,
         "audiobookshelf": ImplementationStatus.PARTIAL,
         "lazylibrarian": ImplementationStatus.PARTIAL,
@@ -90,7 +86,6 @@ def _get_api_version(service_name: str) -> str:
         "radarr": "v3",
         "lidarr": "v3",
         "readarr": "v1",
-        "whisparr": "v3",
         "bazarr": "custom",
         "audiobookshelf": "REST",
         "lazylibrarian": "custom",
@@ -114,7 +109,6 @@ def _get_media_type(service_name: str) -> str:
         "radarr": "Movies",
         "lidarr": "Music",
         "readarr": "Books/Audiobooks",
-        "whisparr": "Adult Content",
         "bazarr": "Subtitles",
         "audiobookshelf": "Audiobooks/Podcasts",
         "lazylibrarian": "Books/Audiobooks",
@@ -144,7 +138,7 @@ def _get_capabilities(service_name: str) -> ServiceCapability:
         )
 
     # Standard capabilities for v3 services
-    if service_name in ["lidarr", "whisparr"]:
+    if service_name in ["lidarr"]:
         return ServiceCapability(
             can_search=True,
             can_add=True,
@@ -379,44 +373,6 @@ async def discover_services() -> Dict[str, EnhancedServiceInfo]:
                 media_type=_get_media_type("readarr"),
                 is_deprecated=True,
                 deprecation_message="Readarr project is retired. Support limited to existing instances.",
-            )
-        finally:
-            await client.close()
-
-    # Whisparr
-    if settings.whisparr_url and settings.whisparr_api_key:
-        client = WhisparrClient(settings.whisparr_url, settings.whisparr_api_key)
-        try:
-            available = await client.test_connection()
-            version = None
-            if available:
-                status = await client.get_system_status()
-                version = status.get("version")
-
-            services["whisparr"] = EnhancedServiceInfo(
-                name="whisparr",
-                url=settings.whisparr_url,
-                api_key=_mask_api_key(settings.whisparr_api_key),
-                available=available,
-                version=version,
-                implementation_status=_get_implementation_status("whisparr"),
-                api_version=_get_api_version("whisparr"),
-                capabilities=_get_capabilities("whisparr"),
-                media_type=_get_media_type("whisparr"),
-                is_deprecated=False,
-            )
-        except Exception as e:
-            logger.error(f"Error discovering Whisparr: {e}")
-            services["whisparr"] = EnhancedServiceInfo(
-                name="whisparr",
-                url=settings.whisparr_url,
-                api_key=_mask_api_key(settings.whisparr_api_key),
-                available=False,
-                implementation_status=_get_implementation_status("whisparr"),
-                api_version=_get_api_version("whisparr"),
-                capabilities=_get_capabilities("whisparr"),
-                media_type=_get_media_type("whisparr"),
-                is_deprecated=False,
             )
         finally:
             await client.close()
@@ -672,13 +628,6 @@ def get_client_for_media_type(media_type: str) -> Optional[object]:
             "Consider alternatives like Calibre-Web or LazyLibrarian."
         )
         return ReadarrClient(settings.readarr_url, settings.readarr_api_key)
-
-    elif media_type == "adult":
-        if not settings.whisparr_url or not settings.whisparr_api_key:
-            raise ValueError(
-                "Whisparr is not configured. Set WHISPARR_URL and WHISPARR_API_KEY."
-            )
-        return WhisparrClient(settings.whisparr_url, settings.whisparr_api_key)
 
     else:
         raise ValueError(f"Unsupported media type: {media_type}")

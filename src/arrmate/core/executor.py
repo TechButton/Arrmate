@@ -11,7 +11,6 @@ from ..clients.radarr import RadarrClient
 from ..clients.readarr import ReadarrClient
 from ..clients.sonarr import SonarrClient
 from ..clients.transcoder import create_job, ffmpeg_available, run_transcode_job, scan_for_transcode
-from ..clients.whisparr import WhisparrClient
 from .models import ActionType, ExecutionResult, Intent
 
 logger = logging.getLogger(__name__)
@@ -84,8 +83,6 @@ class Executor:
             return await self._remove_music_content(intent, client)
         elif intent.media_type in ("audiobook", "book"):
             return await self._remove_book_content(intent, client)
-        elif intent.media_type == "adult":
-            return await self._remove_adult_content(intent, client)
         else:
             return ExecutionResult(
                 success=False,
@@ -260,31 +257,6 @@ class Executor:
             message=f"Removed author '{intent.title}' and all files",
         )
 
-    async def _remove_adult_content(
-        self, intent: Intent, client: WhisparrClient
-    ) -> ExecutionResult:
-        """Remove adult content.
-
-        Args:
-            intent: Intent with item info
-            client: Whisparr client
-
-        Returns:
-            Execution result
-        """
-        if not intent.item_id:
-            return ExecutionResult(
-                success=False,
-                message=f"Could not find item '{intent.title}' in library",
-            )
-
-        await client.delete_item(intent.item_id, delete_files=True)
-
-        return ExecutionResult(
-            success=True,
-            message=f"Removed '{intent.title}' and all files",
-        )
-
     async def _execute_search(
         self, intent: Intent, client: BaseMediaClient
     ) -> ExecutionResult:
@@ -321,13 +293,6 @@ class Executor:
             )
         elif intent.item_id and intent.media_type in ("audiobook", "book"):
             result = await client.trigger_author_search(intent.item_id)
-            return ExecutionResult(
-                success=True,
-                message=f"Triggered search for '{intent.title}'",
-                data=result,
-            )
-        elif intent.item_id and intent.media_type == "adult":
-            result = await client.trigger_movie_search(intent.item_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
@@ -465,14 +430,6 @@ class Executor:
             return ExecutionResult(
                 success=True,
                 message=f"Found {len(items)} author(s)",
-                data={"titles": titles, "count": len(items)},
-            )
-        elif intent.media_type == "adult":
-            items = await client.get_all_movies()
-            titles = [item["title"] for item in items]
-            return ExecutionResult(
-                success=True,
-                message=f"Found {len(items)} item(s)",
                 data={"titles": titles, "count": len(items)},
             )
         else:

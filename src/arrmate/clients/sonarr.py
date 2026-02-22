@@ -197,3 +197,32 @@ class SonarrClient(BaseMediaClient):
             List of root folders
         """
         return await self._get("api/v3/rootfolder")
+
+    async def set_series_monitored(self, series_id: int, monitored: bool) -> Dict[str, Any]:
+        """Update the monitored status of a series.
+
+        Args:
+            series_id: Series ID
+            monitored: True to monitor, False to unmonitor
+
+        Returns:
+            Updated series dict
+        """
+        series = await self._get(f"api/v3/series/{series_id}")
+        series["monitored"] = monitored
+        return await self._put(f"api/v3/series/{series_id}", data=series)
+
+    async def trigger_season_search(self, series_id: int, season_number: int) -> Dict[str, Any]:
+        """Trigger a search for all episodes in a season.
+
+        Args:
+            series_id: Series ID
+            season_number: Season number
+
+        Returns:
+            Command response
+        """
+        return await self._post(
+            "api/v3/command",
+            data={"name": "SeasonSearch", "seriesId": series_id, "seasonNumber": season_number},
+        )

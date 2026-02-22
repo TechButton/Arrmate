@@ -75,12 +75,6 @@ class Settings(BaseSettings):
     )
     readarr_api_key: Optional[str] = Field(default=None, description="Readarr API key")
 
-    # Whisparr settings
-    whisparr_url: Optional[str] = Field(
-        default=None, description="Whisparr base URL (e.g., http://whisparr:6969)"
-    )
-    whisparr_api_key: Optional[str] = Field(default=None, description="Whisparr API key")
-
     # Bazarr settings
     bazarr_url: Optional[str] = Field(
         default=None, description="Bazarr base URL (e.g., http://bazarr:6767)"
@@ -131,6 +125,37 @@ class Settings(BaseSettings):
     )
     enable_service_discovery: bool = Field(
         default=True, description="Enable automatic service discovery"
+    )
+
+    # SABnzbd settings
+    sabnzbd_url: Optional[str] = Field(
+        default=None, description="SABnzbd base URL (e.g., http://sabnzbd:8080)"
+    )
+    sabnzbd_api_key: Optional[str] = Field(default=None, description="SABnzbd API key")
+
+    # NZBget settings
+    nzbget_url: Optional[str] = Field(
+        default=None, description="NZBget base URL (e.g., http://nzbget:6789)"
+    )
+    nzbget_username: Optional[str] = Field(default=None, description="NZBget username")
+    nzbget_password: Optional[str] = Field(default=None, description="NZBget password")
+
+    # qBittorrent settings
+    qbittorrent_url: Optional[str] = Field(
+        default=None, description="qBittorrent Web UI URL (e.g., http://qbittorrent:8080)"
+    )
+    qbittorrent_username: Optional[str] = Field(default=None, description="qBittorrent username")
+    qbittorrent_password: Optional[str] = Field(default=None, description="qBittorrent password")
+
+    # Transmission settings
+    transmission_url: Optional[str] = Field(
+        default=None, description="Transmission Web UI URL (e.g., http://transmission:9091)"
+    )
+    transmission_username: Optional[str] = Field(
+        default=None, description="Transmission username (leave blank if no auth)"
+    )
+    transmission_password: Optional[str] = Field(
+        default=None, description="Transmission password"
     )
 
     # Transcoding settings

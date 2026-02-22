@@ -49,8 +49,16 @@
     <!-- Navigation -->
     {% include "components/navbar.html" %}
 
-    <!-- Main Content -->
-    <main class="pt-16 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <!-- Plex Now Playing Strip (polls every 30s, hidden when empty) -->
+    <div id="plex-nowplaying"
+         hx-get="/web/plex/nowplaying"
+         hx-trigger="load, every 30s"
+         hx-swap="innerHTML"
+         class="fixed top-16 left-0 right-0 z-30">
+    </div>
+
+    <!-- Main Content — extra top padding added by JS when now-playing strip is visible -->
+    <main id="main-content" class="pt-16 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {% block content %}{% endblock %}
     </main>
 

@@ -14,7 +14,6 @@ class MediaType(str, Enum):
     MUSIC = "music"
     AUDIOBOOK = "audiobook"
     BOOK = "book"
-    ADULT = "adult"
 
 
 class ActionType(str, Enum):
