@@ -1,3 +1,5 @@
+{% set can_control = current_user and current_user.role in ('admin', 'power_user') %}
+
 {% if not managers %}
 <div class="card text-center py-12">
     <p class="text-4xl mb-4">⬇️</p>
@@ -90,12 +92,14 @@
                     <th class="text-right py-2 px-2 text-xs text-gray-400 font-medium w-24">Size</th>
                     <th class="text-left py-2 px-2 text-xs text-gray-400 font-medium w-40">Progress</th>
                     <th class="text-right py-2 px-2 text-xs text-gray-400 font-medium w-20">Status</th>
+                    {% if can_control %}<th class="text-right py-2 px-2 text-xs text-gray-400 font-medium w-40">Actions</th>{% endif %}
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
             {% if mgr.type == "sabnzbd" %}
                 {% set slots = mgr.queue.get("queue", {}).get("slots", []) %}
                 {% for item in slots[:20] %}
+                {% set item_id = item.get("nzo_id", "") %}
                 <tr class="hover:bg-gray-800/50">
                     <td class="py-2 px-2 text-gray-200 max-w-0 w-full">
                         <div class="truncate" title="{{ item.get('filename', '') }}">{{ item.get("filename", "—") }}</div>
@@ -111,12 +115,64 @@
                         </div>
                     </td>
                     <td class="py-2 px-2 text-right text-xs text-gray-400 whitespace-nowrap">{{ item.get("status", "—") }}</td>
+                    {% if can_control %}
+                    <td class="py-2 px-2">
+                        <div class="flex items-center justify-end gap-1">
+                            <!-- Priority -->
+                            <form class="inline">
+                                <input type="hidden" name="manager" value="sabnzbd">
+                                <input type="hidden" name="item_id" value="{{ item_id }}">
+                                <select name="priority"
+                                        hx-post="/web/downloads/priority"
+                                        hx-trigger="change"
+                                        hx-target="#toast-container"
+                                        hx-swap="beforeend"
+                                        title="Priority"
+                                        class="bg-gray-700 text-xs text-gray-300 rounded px-1 py-0.5 border-0 cursor-pointer">
+                                    <option value="-1">Low</option>
+                                    <option value="0" selected>Normal</option>
+                                    <option value="1">High</option>
+                                    <option value="2">Forced</option>
+                                </select>
+                            </form>
+                            <!-- Move up -->
+                            <button hx-post="/web/downloads/move"
+                                    hx-vals='{"manager":"sabnzbd","item_id":"{{ item_id }}","action":"{{ [loop.index0 - 1, 0] | max }}"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Move up" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded"
+                                    {% if loop.first %}disabled{% endif %}>↑</button>
+                            <!-- Move down -->
+                            <button hx-post="/web/downloads/move"
+                                    hx-vals='{"manager":"sabnzbd","item_id":"{{ item_id }}","action":"{{ loop.index0 + 1 }}"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Move down" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded"
+                                    {% if loop.last %}disabled{% endif %}>↓</button>
+                            <!-- Pause/Resume -->
+                            {% if item.get("status") == "Paused" %}
+                            <button hx-post="/web/downloads/item/resume"
+                                    hx-vals='{"manager":"sabnzbd","item_id":"{{ item_id }}"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Resume" class="px-1 py-0.5 text-xs text-green-400 hover:text-green-300 bg-gray-700 hover:bg-gray-600 rounded">▶</button>
+                            {% else %}
+                            <button hx-post="/web/downloads/item/pause"
+                                    hx-vals='{"manager":"sabnzbd","item_id":"{{ item_id }}"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Pause" class="px-1 py-0.5 text-xs text-yellow-400 hover:text-yellow-300 bg-gray-700 hover:bg-gray-600 rounded">⏸</button>
+                            {% endif %}
+                        </div>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
 
             {% elif mgr.type == "nzbget" %}
                 {% set slots = mgr.queue if mgr.queue is iterable and mgr.queue is not mapping else mgr.queue.get("result", []) %}
                 {% for item in slots[:20] %}
+                {% set item_id = item.get("NZBID", "") | string %}
                 <tr class="hover:bg-gray-800/50">
                     <td class="py-2 px-2 text-gray-200 max-w-0 w-full">
                         <div class="truncate" title="{{ item.get('NZBName', '') }}">{{ item.get("NZBName", "—") }}</div>
@@ -137,11 +193,63 @@
                         </div>
                     </td>
                     <td class="py-2 px-2 text-right text-xs text-gray-400">{{ item.get("Status", "—") }}</td>
+                    {% if can_control %}
+                    <td class="py-2 px-2">
+                        <div class="flex items-center justify-end gap-1">
+                            <!-- Priority -->
+                            <form class="inline">
+                                <input type="hidden" name="manager" value="nzbget">
+                                <input type="hidden" name="item_id" value="{{ item_id }}">
+                                <select name="priority"
+                                        hx-post="/web/downloads/priority"
+                                        hx-trigger="change"
+                                        hx-target="#toast-container"
+                                        hx-swap="beforeend"
+                                        title="Priority"
+                                        class="bg-gray-700 text-xs text-gray-300 rounded px-1 py-0.5 border-0 cursor-pointer">
+                                    <option value="-50">Low</option>
+                                    <option value="0" selected>Normal</option>
+                                    <option value="50">High</option>
+                                    <option value="900">Forced</option>
+                                </select>
+                            </form>
+                            <!-- Move up -->
+                            <button hx-post="/web/downloads/move"
+                                    hx-vals='{"manager":"nzbget","item_id":"{{ item_id }}","action":"-1"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Move up" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded"
+                                    {% if loop.first %}disabled{% endif %}>↑</button>
+                            <!-- Move down -->
+                            <button hx-post="/web/downloads/move"
+                                    hx-vals='{"manager":"nzbget","item_id":"{{ item_id }}","action":"1"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Move down" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded"
+                                    {% if loop.last %}disabled{% endif %}>↓</button>
+                            <!-- Pause/Resume -->
+                            {% if item.get("Status") == "PAUSED" %}
+                            <button hx-post="/web/downloads/item/resume"
+                                    hx-vals='{"manager":"nzbget","item_id":"{{ item_id }}"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Resume" class="px-1 py-0.5 text-xs text-green-400 hover:text-green-300 bg-gray-700 hover:bg-gray-600 rounded">▶</button>
+                            {% else %}
+                            <button hx-post="/web/downloads/item/pause"
+                                    hx-vals='{"manager":"nzbget","item_id":"{{ item_id }}"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Pause" class="px-1 py-0.5 text-xs text-yellow-400 hover:text-yellow-300 bg-gray-700 hover:bg-gray-600 rounded">⏸</button>
+                            {% endif %}
+                        </div>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
 
             {% elif mgr.type == "qbittorrent" %}
                 {% for item in mgr.queue[:20] %}
+                {% set item_hash = item.get("hash", "") %}
                 <tr class="hover:bg-gray-800/50">
                     <td class="py-2 px-2 text-gray-200 max-w-0 w-full">
                         <div class="truncate" title="{{ item.get('name', '') }}">{{ item.get("name", "—") }}</div>
@@ -162,12 +270,40 @@
                         </div>
                     </td>
                     <td class="py-2 px-2 text-right text-xs text-gray-400">{{ item.get("state", "—") }}</td>
+                    {% if can_control %}
+                    <td class="py-2 px-2">
+                        <div class="flex items-center justify-end gap-1">
+                            <!-- qBittorrent priority: top/bottom/increase/decrease -->
+                            <button hx-post="/web/downloads/move"
+                                    hx-vals='{"manager":"qbittorrent","item_id":"{{ item_hash }}","action":"top"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Move to top" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded">⇈</button>
+                            <button hx-post="/web/downloads/move"
+                                    hx-vals='{"manager":"qbittorrent","item_id":"{{ item_hash }}","action":"increase"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Move up" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded">↑</button>
+                            <button hx-post="/web/downloads/move"
+                                    hx-vals='{"manager":"qbittorrent","item_id":"{{ item_hash }}","action":"decrease"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Move down" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded">↓</button>
+                            <button hx-post="/web/downloads/move"
+                                    hx-vals='{"manager":"qbittorrent","item_id":"{{ item_hash }}","action":"bottom"}'
+                                    hx-target="#toast-container"
+                                    hx-swap="beforeend"
+                                    title="Move to bottom" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded">⇊</button>
+                        </div>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
 
             {% elif mgr.type == "transmission" %}
                 {% set torrents = mgr.queue.get("arguments", {}).get("torrents", []) if mgr.queue is mapping else mgr.queue %}
                 {% for item in torrents[:20] %}
+                {% set item_id = item.get("id", "") | string %}
                 <tr class="hover:bg-gray-800/50">
                     <td class="py-2 px-2 text-gray-200 max-w-0 w-full">
                         <div class="truncate" title="{{ item.get('name', '') }}">{{ item.get("name", "—") }}</div>
@@ -194,6 +330,28 @@
                         {% elif st == 6 %}Seeding
                         {% else %}{{ st }}{% endif %}
                     </td>
+                    {% if can_control %}
+                    <td class="py-2 px-2">
+                        <div class="flex items-center justify-end gap-1">
+                            <!-- Transmission: bandwidth priority -->
+                            <form class="inline">
+                                <input type="hidden" name="manager" value="transmission">
+                                <input type="hidden" name="item_id" value="{{ item_id }}">
+                                <select name="priority"
+                                        hx-post="/web/downloads/priority"
+                                        hx-trigger="change"
+                                        hx-target="#toast-container"
+                                        hx-swap="beforeend"
+                                        title="Bandwidth priority"
+                                        class="bg-gray-700 text-xs text-gray-300 rounded px-1 py-0.5 border-0 cursor-pointer">
+                                    <option value="-1">Low</option>
+                                    <option value="0" selected>Normal</option>
+                                    <option value="1">High</option>
+                                </select>
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             {% endif %}

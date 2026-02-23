@@ -47,10 +47,56 @@
         </div>
     </div>
 
-    <!-- Live queue status -->
+    <!-- Add Download card (power_user/admin only) -->
+    {% if current_user and current_user.role in ('admin', 'power_user') %}
+    <div class="card mb-6" x-data="{ manager: '{% if settings.sabnzbd_url %}sabnzbd{% elif settings.nzbget_url %}nzbget{% elif settings.qbittorrent_url %}qbittorrent{% else %}transmission{% endif %}' }">
+        <h2 class="text-sm font-semibold text-gray-300 mb-3">Add Download</h2>
+        <form hx-post="/web/downloads/add"
+              hx-target="#toast-container"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset()"
+              class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-64">
+                <label class="block text-xs text-gray-400 mb-1">NZB / Magnet / Torrent URL</label>
+                <input type="text" name="url" required placeholder="https://... or magnet:?xt=..."
+                       class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm placeholder-gray-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Client</label>
+                <select name="manager" x-model="manager"
+                        class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm">
+                    {% if settings.sabnzbd_url %}<option value="sabnzbd">SABnzbd</option>{% endif %}
+                    {% if settings.nzbget_url %}<option value="nzbget">NZBget</option>{% endif %}
+                    {% if settings.qbittorrent_url %}<option value="qbittorrent">qBittorrent</option>{% endif %}
+                    {% if settings.transmission_url %}<option value="transmission">Transmission</option>{% endif %}
+                </select>
+            </div>
+            <div x-show="manager !== 'transmission'">
+                <label class="block text-xs text-gray-400 mb-1">Category</label>
+                <input type="text" name="category" placeholder="optional"
+                       class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm w-28 placeholder-gray-500">
+            </div>
+            <div x-show="manager === 'sabnzbd' || manager === 'nzbget'">
+                <label class="block text-xs text-gray-400 mb-1">Priority</label>
+                <select name="priority"
+                        class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm">
+                    <option value="-1">Low</option>
+                    <option value="0" selected>Normal</option>
+                    <option value="1">High</option>
+                    <option value="2">Forced</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-primary text-sm" style="min-height: 40px;">
+                Add Download
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Live queue status — refreshes every 10s or after any download action -->
     <div id="download-status"
          hx-get="/web/downloads/status"
-         hx-trigger="load, every 10s"
+         hx-trigger="load, every 10s, downloads-updated"
          hx-swap="innerHTML">
         <div class="p-12 text-center">
             <div class="inline-block w-8 h-8 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mb-4"></div>

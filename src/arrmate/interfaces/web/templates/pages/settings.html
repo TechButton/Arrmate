@@ -32,7 +32,7 @@
 
     <!-- Tab Navigation -->
     <div class="flex gap-1 mb-6 p-1 bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
-        {% for t, label in [('llm', '🤖 AI / LLM'), ('media', '📺 Media'), ('downloads', '⬇️ Downloads'), ('auth', '🔐 Auth')] %}
+        {% for t, label in [('llm', '🤖 AI / LLM'), ('media', '📺 Media'), ('downloads', '⬇️ Downloads'), ('notifications', '🔔 Notifications'), ('auth', '🔐 Auth')] %}
         <button @click="tab = '{{ t }}'"
                 :class="tab === '{{ t }}' ? 'bg-primary-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'"
                 class="flex-1 min-w-fit px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap">
@@ -130,7 +130,6 @@
                 {{ service_section("AudioBookshelf", "📖", "audiobookshelf_url", settings.audiobookshelf_url, "audiobookshelf_api_key", settings.audiobookshelf_api_key, "13378") }}
                 {{ service_section("LazyLibrarian", "📚", "lazylibrarian_url", settings.lazylibrarian_url, "lazylibrarian_api_key", settings.lazylibrarian_api_key, "5299") }}
                 {{ service_section("Huntarr", "🎯", "huntarr_url", settings.huntarr_url, "huntarr_api_key", settings.huntarr_api_key, "3000") }}
-                {{ service_section("Whisparr", "🔞", "whisparr_url", settings.whisparr_url, "whisparr_api_key", settings.whisparr_api_key, "6969") }}
 
                 <button type="submit" class="btn-primary">Save Media Settings</button>
             </form>
@@ -177,6 +176,59 @@
                 </div>
 
                 <button type="submit" class="btn-primary">Save Download Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notifications Tab -->
+    <div x-show="tab === 'notifications'" x-cloak>
+        <div class="card">
+            <h2 class="text-xl font-bold text-white mb-1">Notification Webhooks</h2>
+            <p class="text-sm text-gray-400 mb-4">
+                Receive notifications in Slack or Discord when users submit or resolve media requests.
+            </p>
+            <form hx-post="/web/settings/services"
+                  hx-target="#settings-toast"
+                  hx-swap="innerHTML"
+                  class="space-y-4">
+
+                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-200 mb-3">💬 Slack</h3>
+                    <div class="space-y-3">
+                        {{ field("Webhook URL", "slack_webhook_url", settings.slack_webhook_url,
+                                 "https://hooks.slack.com/services/...",
+                                 help="Create an incoming webhook in your Slack app settings") }}
+                    </div>
+                    {% if settings.slack_webhook_url %}
+                    <button type="button"
+                            hx-post="/web/settings/notifications/test/slack"
+                            hx-target="#settings-toast"
+                            hx-swap="innerHTML"
+                            class="mt-2 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors">
+                        Send Test
+                    </button>
+                    {% endif %}
+                </div>
+
+                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🎮 Discord</h3>
+                    <div class="space-y-3">
+                        {{ field("Webhook URL", "discord_webhook_url", settings.discord_webhook_url,
+                                 "https://discord.com/api/webhooks/...",
+                                 help="Create a webhook in your Discord channel settings → Integrations") }}
+                    </div>
+                    {% if settings.discord_webhook_url %}
+                    <button type="button"
+                            hx-post="/web/settings/notifications/test/discord"
+                            hx-target="#settings-toast"
+                            hx-swap="innerHTML"
+                            class="mt-2 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors">
+                        Send Test
+                    </button>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="btn-primary">Save Notification Settings</button>
             </form>
         </div>
     </div>

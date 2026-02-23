@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Prowlarr Search — Arrmate{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">Prowlarr Search</h1>
+        <p class="text-gray-400">Search all configured indexers and send results to your download manager</p>
+    </div>
+
+    {% if not configured %}
+    <div class="card text-center py-12">
+        <p class="text-4xl mb-4">🔍</p>
+        <p class="text-gray-300 font-medium mb-2">Prowlarr is not configured</p>
+        <p class="text-sm text-gray-500">
+            Add <code class="text-primary-400">PROWLARR_URL</code> and
+            <code class="text-primary-400">PROWLARR_API_KEY</code> to your <code>.env</code>.
+        </p>
+    </div>
+    {% else %}
+
+    <!-- Indexer summary -->
+    {% if indexers %}
+    <div class="card mb-6">
+        <div class="flex items-center gap-2 mb-2">
+            <span class="text-sm font-medium text-gray-300">Indexers</span>
+            <span class="text-xs px-2 py-0.5 bg-gray-700 text-gray-400 rounded-full">{{ indexers | length }} configured</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% for idx in indexers %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs
+                         {% if idx.get('enable', True) %}bg-green-900/40 text-green-300{% else %}bg-gray-700 text-gray-500{% endif %}">
+                {% if idx.get('enable', True) %}●{% else %}○{% endif %}
+                {{ idx.get('name', 'Unknown') }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Search form -->
+    <div class="card mb-6" x-data="{ loading: false }">
+        <h2 class="text-sm font-semibold text-gray-300 mb-4">Search Indexers</h2>
+        <form hx-get="/web/prowlarr/search"
+              hx-target="#prowlarr-results"
+              hx-swap="innerHTML"
+              hx-indicator="#search-indicator"
+              @htmx:before-request="loading = true"
+              @htmx:after-request="loading = false"
+              class="space-y-4">
+            <div class="flex gap-3 items-end flex-wrap">
+                <div class="flex-1 min-w-64">
+                    <label class="block text-xs text-gray-400 mb-1">Search Query</label>
+                    <input type="text" name="query" required autofocus
+                           placeholder="Movie title, TV show, album..."
+                           class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm placeholder-gray-500">
+                </div>
+                <button type="submit"
+                        class="btn-primary text-sm flex items-center gap-2"
+                        style="min-height: 40px;">
+                    <span id="search-indicator" class="htmx-indicator">
+                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    Search
+                </button>
+            </div>
+
+            <!-- Category filters -->
+            <div>
+                <p class="text-xs text-gray-400 mb-2">Categories (leave unchecked to search all)</p>
+                <div class="flex flex-wrap gap-3">
+                    {% for label, value in [("TV", "5000"), ("Movies", "2000"), ("Music", "3000"), ("Books", "7000"), ("Other", "8000")] %}
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="categories" value="{{ value }}"
+                               class="w-3.5 h-3.5 rounded accent-primary-500">
+                        <span class="text-sm text-gray-300">{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results -->
+    <div id="prowlarr-results">
+        <div class="card text-center py-8 text-gray-500 text-sm">
+            Enter a search query above to find releases across all indexers.
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

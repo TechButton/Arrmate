@@ -1,0 +1,29 @@
+{% if notifications %}
+<div class="py-1">
+    {% for notif in notifications %}
+    <div class="px-4 py-2.5 hover:bg-gray-700/50 transition-colors
+                {% if not notif.read %}border-l-2 border-primary-500{% endif %}">
+        <p class="text-sm text-gray-200 leading-snug">{{ notif.message }}</p>
+        <p class="text-xs text-gray-500 mt-0.5">
+            {{ notif.created_at[:10] if notif.created_at else '' }}
+            {% if notif.request_id %}
+            · <a href="/web/requests" class="text-primary-400 hover:underline">View requests</a>
+            {% endif %}
+        </p>
+    </div>
+    {% endfor %}
+    <div class="px-4 py-2 border-t border-gray-700">
+        <button hx-post="/web/notifications/read"
+                hx-target="#notification-dropdown"
+                hx-swap="innerHTML"
+                hx-on::after-request="document.getElementById('notif-badge').setAttribute('data-count', '0'); document.getElementById('notif-badge').classList.add('hidden')"
+                class="text-xs text-gray-400 hover:text-gray-200 transition-colors">
+            Mark all as read
+        </button>
+    </div>
+</div>
+{% else %}
+<div class="px-4 py-6 text-center">
+    <p class="text-sm text-gray-400">No notifications</p>
+</div>
+{% endif %}

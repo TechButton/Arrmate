@@ -89,7 +89,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium text-purple-400 mb-1">TV Shows</p>
-                    <p class="text-3xl font-bold text-purple-300">-</p>
+                    <p class="text-3xl font-bold text-purple-300">{{ tv_count if tv_count is not none else "-" }}</p>
                     <p class="text-xs text-purple-400 mt-1">In Library</p>
                 </div>
                 <span class="text-4xl opacity-80">📺</span>
@@ -100,7 +100,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium text-green-400 mb-1">Movies</p>
-                    <p class="text-3xl font-bold text-green-300">-</p>
+                    <p class="text-3xl font-bold text-green-300">{{ movie_count if movie_count is not none else "-" }}</p>
                     <p class="text-xs text-green-400 mt-1">In Library</p>
                 </div>
                 <span class="text-4xl opacity-80">🎬</span>

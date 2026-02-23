@@ -3,9 +3,15 @@
 {% elif not items %}
 <div class="text-center py-16 text-gray-500">
     <div class="text-4xl mb-3">📋</div>
-    <p>No watch history found.</p>
+    <p>No watch history{% if days %} in the last {{ days }} day{{ 's' if days != 1 else '' }}{% endif %}.</p>
 </div>
 {% else %}
+<div class="flex items-center justify-between mb-2 px-1">
+    <p class="text-xs text-gray-500">
+        {{ items | length }} item{{ 's' if items | length != 1 else '' }}
+        {% if days %}— last {{ days }} day{{ 's' if days != 1 else '' }}{% else %}— all time{% endif %}
+    </p>
+</div>
 <div class="card overflow-hidden p-0">
     <table class="w-full text-sm">
         <thead>
@@ -13,6 +19,7 @@
                 <th class="px-4 py-3">Title</th>
                 <th class="px-4 py-3 hidden sm:table-cell">Episode</th>
                 <th class="px-4 py-3 hidden md:table-cell">Type</th>
+                <th class="px-4 py-3 hidden lg:table-cell">User</th>
                 <th class="px-4 py-3 text-right">Watched</th>
             </tr>
         </thead>
@@ -44,6 +51,7 @@
                         {% else %}{{ item.type }}{% endif %}
                     </span>
                 </td>
+                <td class="px-4 py-3 hidden lg:table-cell text-gray-400 text-xs">{{ item.user or '—' }}</td>
                 <td class="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
                     {% if item.viewed_at %}
                     <span title="{{ item.viewed_at }}">

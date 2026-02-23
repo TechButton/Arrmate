@@ -16,12 +16,12 @@ COPY src/ ./src/
 # Install Python dependencies
 RUN pip install --no-cache-dir -e .
 
-# Create non-root user and data directory
-RUN useradd -m -u 1000 arrmate && \
-    mkdir -p /data && \
-    chown -R arrmate:arrmate /app /data
+# Create data directory
+RUN mkdir -p /data
 
-USER arrmate
+# Copy entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose port
 EXPOSE 8000
@@ -34,5 +34,6 @@ ENV PYTHONPATH=/app/src
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8000/health')" || exit 1
 
-# Run the application
+# Entrypoint fixes /data ownership then drops to arrmate user
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "arrmate.interfaces.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

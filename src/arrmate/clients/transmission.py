@@ -116,3 +116,19 @@ class TransmissionClient:
             return True
         except Exception:
             return False
+
+    async def set_bandwidth_priority(self, torrent_id: int, priority: int) -> bool:
+        """Set per-torrent bandwidth priority: -1=low, 0=normal, 1=high."""
+        try:
+            await self._rpc("torrent-set", {"ids": [torrent_id], "bandwidthPriority": priority})
+            return True
+        except Exception:
+            return False
+
+    async def add_url(self, url: str, paused: bool = False) -> bool:
+        """Add a torrent or magnet link by URL."""
+        try:
+            await self._rpc("torrent-add", {"filename": url, "paused": paused})
+            return True
+        except Exception:
+            return False

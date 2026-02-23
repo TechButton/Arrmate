@@ -82,3 +82,46 @@ class NZBgetClient:
             return result.get("result", False)
         except Exception:
             return False
+
+    async def set_priority(self, nzo_id: int, priority: int) -> bool:
+        """Set item priority: -50=low, 0=normal, 50=high, 900=forced."""
+        try:
+            result = await self._rpc("editqueue", ["GroupSetPriority", str(priority), [nzo_id]])
+            return result.get("result", False)
+        except Exception:
+            return False
+
+    async def pause_item(self, nzo_id: int) -> bool:
+        """Pause a single queue item."""
+        try:
+            result = await self._rpc("editqueue", ["GroupPause", "", [nzo_id]])
+            return result.get("result", False)
+        except Exception:
+            return False
+
+    async def resume_item(self, nzo_id: int) -> bool:
+        """Resume a single paused queue item."""
+        try:
+            result = await self._rpc("editqueue", ["GroupResume", "", [nzo_id]])
+            return result.get("result", False)
+        except Exception:
+            return False
+
+    async def move_item(self, nzo_id: int, offset: int) -> bool:
+        """Move item by offset: positive=up, negative=down."""
+        try:
+            result = await self._rpc("editqueue", ["GroupMoveOffset", str(offset), [nzo_id]])
+            return result.get("result", False)
+        except Exception:
+            return False
+
+    async def add_url(self, url: str, priority: int = 0, category: str = "") -> bool:
+        """Add an NZB by URL."""
+        try:
+            filename = url.split("/")[-1] or "download.nzb"
+            result = await self._rpc(
+                "appendurl", [filename, category, priority, False, url, "", 0, "SCORE", []]
+            )
+            return result.get("result", False)
+        except Exception:
+            return False

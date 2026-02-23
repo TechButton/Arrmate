@@ -50,8 +50,9 @@ auth_router = APIRouter(prefix="/web", tags=["auth"])
 templates_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
 
-# Make auth_manager available in all templates
+# Make auth_manager and settings available in all templates
 templates.env.globals["auth_manager"] = auth_manager
+templates.env.globals["settings"] = settings
 
 
 def _timestamp_to_relative(ts: int) -> str:
@@ -2303,7 +2304,7 @@ async def downloads_status(request: Request):
 
     return templates.TemplateResponse(
         "partials/downloads_status.html",
-        {"request": request, "managers": managers},
+        {"request": request, "managers": managers, **_base_ctx(request)},
     )
 
 
@@ -2340,6 +2341,372 @@ async def set_download_speed(
         return templates.TemplateResponse(
             "components/toast.html",
             {"request": request, "type": "success", "message": f"Speed limit set to {label}"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+# ===== Download Item Control Routes =====
+
+
+@router.post("/downloads/priority", response_class=HTMLResponse,
+             dependencies=[Depends(require_power_user)])
+async def set_download_priority(
+    request: Request,
+    manager: str = Form(...),
+    item_id: str = Form(...),
+    priority: int = Form(...),
+):
+    """Set priority for an individual queue item."""
+    from ...clients.sabnzbd import SABnzbdClient
+    from ...clients.nzbget import NZBgetClient
+    from ...clients.transmission import TransmissionClient
+
+    try:
+        ok = False
+        if manager == "sabnzbd" and settings.sabnzbd_url:
+            c = SABnzbdClient(settings.sabnzbd_url, settings.sabnzbd_api_key)
+            ok = await c.set_priority(item_id, priority)
+            await c.close()
+        elif manager == "nzbget" and settings.nzbget_url:
+            c = NZBgetClient(
+                settings.nzbget_url, settings.nzbget_username or "", settings.nzbget_password or ""
+            )
+            ok = await c.set_priority(int(item_id), priority)
+            await c.close()
+        elif manager == "transmission" and settings.transmission_url:
+            c = TransmissionClient(
+                settings.transmission_url,
+                settings.transmission_username or "",
+                settings.transmission_password or "",
+            )
+            ok = await c.set_bandwidth_priority(int(item_id), priority)
+            await c.close()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "warning",
+                "message": "Priority updated" if ok else "Priority update submitted",
+            },
+            headers={"HX-Trigger": "downloads-updated"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+@router.post("/downloads/move", response_class=HTMLResponse,
+             dependencies=[Depends(require_power_user)])
+async def move_download_item(
+    request: Request,
+    manager: str = Form(...),
+    item_id: str = Form(...),
+    action: str = Form(...),
+):
+    """Move a queue item. action: absolute slot for SABnzbd, int offset for NZBget,
+    'top'/'bottom'/'increase'/'decrease' for qBittorrent."""
+    from ...clients.sabnzbd import SABnzbdClient
+    from ...clients.nzbget import NZBgetClient
+    from ...clients.qbittorrent import QBittorrentClient
+
+    try:
+        ok = False
+        if manager == "sabnzbd" and settings.sabnzbd_url:
+            c = SABnzbdClient(settings.sabnzbd_url, settings.sabnzbd_api_key)
+            ok = await c.move_item(item_id, int(action))
+            await c.close()
+        elif manager == "nzbget" and settings.nzbget_url:
+            c = NZBgetClient(
+                settings.nzbget_url, settings.nzbget_username or "", settings.nzbget_password or ""
+            )
+            ok = await c.move_item(int(item_id), int(action))
+            await c.close()
+        elif manager == "qbittorrent" and settings.qbittorrent_url:
+            c = QBittorrentClient(
+                settings.qbittorrent_url,
+                settings.qbittorrent_username or "",
+                settings.qbittorrent_password or "",
+            )
+            ok = await c.set_priority(item_id, action)
+            await c.close()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "warning",
+                "message": "Queue order updated" if ok else "Queue move submitted",
+            },
+            headers={"HX-Trigger": "downloads-updated"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+@router.post("/downloads/item/pause", response_class=HTMLResponse,
+             dependencies=[Depends(require_power_user)])
+async def pause_download_item(
+    request: Request,
+    manager: str = Form(...),
+    item_id: str = Form(...),
+):
+    """Pause an individual queue item (SABnzbd / NZBget)."""
+    from ...clients.sabnzbd import SABnzbdClient
+    from ...clients.nzbget import NZBgetClient
+
+    try:
+        ok = False
+        if manager == "sabnzbd" and settings.sabnzbd_url:
+            c = SABnzbdClient(settings.sabnzbd_url, settings.sabnzbd_api_key)
+            ok = await c.pause_item(item_id)
+            await c.close()
+        elif manager == "nzbget" and settings.nzbget_url:
+            c = NZBgetClient(
+                settings.nzbget_url, settings.nzbget_username or "", settings.nzbget_password or ""
+            )
+            ok = await c.pause_item(int(item_id))
+            await c.close()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "warning",
+                "message": "Item paused" if ok else "Pause submitted",
+            },
+            headers={"HX-Trigger": "downloads-updated"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+@router.post("/downloads/item/resume", response_class=HTMLResponse,
+             dependencies=[Depends(require_power_user)])
+async def resume_download_item(
+    request: Request,
+    manager: str = Form(...),
+    item_id: str = Form(...),
+):
+    """Resume an individual paused queue item (SABnzbd / NZBget)."""
+    from ...clients.sabnzbd import SABnzbdClient
+    from ...clients.nzbget import NZBgetClient
+
+    try:
+        ok = False
+        if manager == "sabnzbd" and settings.sabnzbd_url:
+            c = SABnzbdClient(settings.sabnzbd_url, settings.sabnzbd_api_key)
+            ok = await c.resume_item(item_id)
+            await c.close()
+        elif manager == "nzbget" and settings.nzbget_url:
+            c = NZBgetClient(
+                settings.nzbget_url, settings.nzbget_username or "", settings.nzbget_password or ""
+            )
+            ok = await c.resume_item(int(item_id))
+            await c.close()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "warning",
+                "message": "Item resumed" if ok else "Resume submitted",
+            },
+            headers={"HX-Trigger": "downloads-updated"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+@router.post("/downloads/add", response_class=HTMLResponse,
+             dependencies=[Depends(require_power_user)])
+async def add_download(
+    request: Request,
+    manager: str = Form(...),
+    url: str = Form(...),
+    priority: int = Form(default=0),
+    category: str = Form(default=""),
+):
+    """Add an NZB or torrent/magnet URL directly to a download manager."""
+    from ...clients.sabnzbd import SABnzbdClient
+    from ...clients.nzbget import NZBgetClient
+    from ...clients.qbittorrent import QBittorrentClient
+    from ...clients.transmission import TransmissionClient
+
+    try:
+        ok = False
+        if manager == "sabnzbd" and settings.sabnzbd_url:
+            c = SABnzbdClient(settings.sabnzbd_url, settings.sabnzbd_api_key)
+            ok = await c.add_url(url, priority=priority, category=category)
+            await c.close()
+        elif manager == "nzbget" and settings.nzbget_url:
+            c = NZBgetClient(
+                settings.nzbget_url, settings.nzbget_username or "", settings.nzbget_password or ""
+            )
+            ok = await c.add_url(url, priority=priority, category=category)
+            await c.close()
+        elif manager == "qbittorrent" and settings.qbittorrent_url:
+            c = QBittorrentClient(
+                settings.qbittorrent_url,
+                settings.qbittorrent_username or "",
+                settings.qbittorrent_password or "",
+            )
+            ok = await c.add_url(url, category=category)
+            await c.close()
+        elif manager == "transmission" and settings.transmission_url:
+            c = TransmissionClient(
+                settings.transmission_url,
+                settings.transmission_username or "",
+                settings.transmission_password or "",
+            )
+            ok = await c.add_url(url)
+            await c.close()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "warning",
+                "message": "Download added" if ok else "Download submitted",
+            },
+            headers={"HX-Trigger": "downloads-updated"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
+# ===== Prowlarr Routes =====
+
+
+def _prowlarr_client():
+    """Return ProwlarrClient if configured, else None."""
+    if settings.prowlarr_url and settings.prowlarr_api_key:
+        from ...clients.prowlarr import ProwlarrClient
+        return ProwlarrClient(settings.prowlarr_url, settings.prowlarr_api_key)
+    return None
+
+
+@router.get("/prowlarr", response_class=HTMLResponse)
+async def prowlarr_page(request: Request):
+    """Prowlarr indexer search page."""
+    client = _prowlarr_client()
+    configured = client is not None
+    indexers = []
+    if client:
+        try:
+            indexers = await client.get_indexers()
+        except Exception:
+            pass
+        finally:
+            await client.close()
+    return templates.TemplateResponse(
+        "pages/prowlarr.html",
+        {
+            "request": request,
+            **_base_ctx(request),
+            "configured": configured,
+            "indexers": indexers,
+        },
+    )
+
+
+@router.get("/prowlarr/search", response_class=HTMLResponse)
+async def prowlarr_search(
+    request: Request,
+    query: str = Query(default=""),
+    categories: str = Query(default=""),
+):
+    """HTMX partial: Prowlarr indexer search results."""
+    client = _prowlarr_client()
+    results = []
+    error = None
+
+    if not client:
+        error = "Prowlarr is not configured (set PROWLARR_URL and PROWLARR_API_KEY)"
+    elif query:
+        try:
+            cat_ids = [int(c) for c in categories.split(",") if c.strip().isdigit()] if categories else None
+            results = await client.search(query, categories=cat_ids)
+        except Exception as e:
+            error = str(e)
+        finally:
+            await client.close()
+
+    return templates.TemplateResponse(
+        "partials/prowlarr_results.html",
+        {
+            "request": request,
+            "results": results,
+            "query": query,
+            "error": error,
+            **_base_ctx(request),
+        },
+    )
+
+
+@router.post("/prowlarr/send", response_class=HTMLResponse,
+             dependencies=[Depends(require_power_user)])
+async def prowlarr_send(
+    request: Request,
+    url: str = Form(...),
+    manager: str = Form(...),
+    title: str = Form(default=""),
+):
+    """Send a Prowlarr search result URL to a configured download manager."""
+    from ...clients.sabnzbd import SABnzbdClient
+    from ...clients.nzbget import NZBgetClient
+    from ...clients.qbittorrent import QBittorrentClient
+    from ...clients.transmission import TransmissionClient
+
+    try:
+        ok = False
+        if manager == "sabnzbd" and settings.sabnzbd_url:
+            c = SABnzbdClient(settings.sabnzbd_url, settings.sabnzbd_api_key)
+            ok = await c.add_url(url)
+            await c.close()
+        elif manager == "nzbget" and settings.nzbget_url:
+            c = NZBgetClient(
+                settings.nzbget_url, settings.nzbget_username or "", settings.nzbget_password or ""
+            )
+            ok = await c.add_url(url)
+            await c.close()
+        elif manager == "qbittorrent" and settings.qbittorrent_url:
+            c = QBittorrentClient(
+                settings.qbittorrent_url,
+                settings.qbittorrent_username or "",
+                settings.qbittorrent_password or "",
+            )
+            ok = await c.add_url(url)
+            await c.close()
+        elif manager == "transmission" and settings.transmission_url:
+            c = TransmissionClient(
+                settings.transmission_url,
+                settings.transmission_username or "",
+                settings.transmission_password or "",
+            )
+            ok = await c.add_url(url)
+            await c.close()
+        label = (title[:60] + "…") if len(title) > 60 else title or url[:60]
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "warning",
+                "message": f"Sent to {manager}: {label}" if ok else "Download submitted",
+            },
         )
     except Exception as e:
         return templates.TemplateResponse(

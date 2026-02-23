@@ -22,12 +22,12 @@ COPY pyproject.toml /app/
 # Install the package
 RUN pip install -e .
 
-# Create non-root user and data directory
-RUN useradd -m -u 1000 arrmate && \
-    mkdir -p /data && \
-    chown -R arrmate:arrmate /app /data
+# Create data directory
+RUN mkdir -p /data
 
-USER arrmate
+# Copy entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose API port
 EXPOSE 8000
@@ -36,5 +36,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Default command: run API server
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "arrmate.interfaces.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

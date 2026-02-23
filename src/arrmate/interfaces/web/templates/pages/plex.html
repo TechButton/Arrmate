@@ -35,6 +35,15 @@
                 {{ label }}
             </button>
             {% endfor %}
+            {% if current_user and current_user.get('role') in ('admin', 'power_user') %}
+            <button @click="tab = 'share'"
+                    :class="tab === 'share'
+                        ? 'border-b-2 border-primary-500 text-white bg-gray-800'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                    class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors -mb-px">
+                👥 Share Server
+            </button>
+            {% endif %}
         </div>
 
         <!-- Continue Watching -->
@@ -78,10 +87,15 @@
 
         <!-- Watch History -->
         <div x-show="tab === 'history'" x-cloak>
-            <div class="card mb-4" x-data="{ accountId: 0 }">
-                <div class="flex flex-wrap gap-3 items-end">
+            <div class="card mb-4" x-data="{ accountId: 0, days: 7 }">
+                <!-- Hidden inputs picked up by hx-include -->
+                <input type="hidden" name="account_id" :value="accountId">
+                <input type="hidden" name="days" :value="days">
+
+                <div class="flex flex-wrap gap-4 items-end">
+                    <!-- User filter -->
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1">Filter by user</label>
+                        <label class="block text-xs text-gray-400 mb-1">User</label>
                         <select x-model="accountId"
                                 @change="htmx.trigger('#plex-history', 'refresh')"
                                 class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm">
@@ -91,22 +105,40 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <button @click="htmx.trigger('#plex-history', 'refresh')"
-                            class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
-                        Refresh
-                    </button>
-                    <div class="ml-auto">
-                        <label class="block text-xs text-gray-400 mb-1">Limit</label>
-                        <select x-model="accountId"
-                                class="bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm">
-                        </select>
+
+                    <!-- Timeframe pills -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Timeframe</label>
+                        <div class="flex gap-1">
+                            <template x-for="tf in [
+                                { label: 'Today',  val: 1  },
+                                { label: '7 days', val: 7  },
+                                { label: '30 days',val: 30 },
+                                { label: '90 days',val: 90 },
+                                { label: 'All',    val: 0  },
+                            ]" :key="tf.val">
+                                <button @click="days = tf.val; htmx.trigger('#plex-history', 'refresh')"
+                                        :class="days === tf.val
+                                            ? 'bg-primary-600 text-white border-primary-500'
+                                            : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700 hover:text-white'"
+                                        class="px-3 py-2 text-sm rounded-lg border transition-colors"
+                                        x-text="tf.label">
+                                </button>
+                            </template>
+                        </div>
                     </div>
+
+                    <!-- Refresh -->
+                    <button @click="htmx.trigger('#plex-history', 'refresh')"
+                            class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors ml-auto">
+                        ↻ Refresh
+                    </button>
                 </div>
             </div>
             <div id="plex-history"
                  hx-get="/web/plex/history"
                  hx-trigger="intersect once, refresh"
-                 hx-include="[name='account_id']"
+                 hx-include="[name='account_id'],[name='days']"
                  hx-swap="innerHTML">
                 <div class="flex items-center justify-center py-16 text-gray-500">
                     <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
@@ -127,6 +159,21 @@
                 </div>
             </div>
         </div>
+
+        {% if current_user and current_user.get('role') in ('admin', 'power_user') %}
+        <!-- Share Server -->
+        <div x-show="tab === 'share'" x-cloak>
+            <div id="plex-share"
+                 hx-get="/web/plex/share"
+                 hx-trigger="intersect once, plexShareUpdated from:body"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-16 text-gray-500">
+                    <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

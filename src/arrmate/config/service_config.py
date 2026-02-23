@@ -37,12 +37,14 @@ CONFIGURABLE_FIELDS: set[str] = {
     "audiobookshelf_url", "audiobookshelf_api_key",
     "lazylibrarian_url", "lazylibrarian_api_key",
     "huntarr_url", "huntarr_api_key",
-    "whisparr_url", "whisparr_api_key",
     # Download clients
     "sabnzbd_url", "sabnzbd_api_key",
     "nzbget_url", "nzbget_username", "nzbget_password",
     "qbittorrent_url", "qbittorrent_username", "qbittorrent_password",
     "transmission_url", "transmission_username", "transmission_password",
+    # Notification webhooks
+    "slack_webhook_url",
+    "discord_webhook_url",
 }
 
 

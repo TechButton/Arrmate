@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Arrmate{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto" x-data="{ tab: 'users' }">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-white mb-1">Admin Panel</h1>
+        <p class="text-gray-400">Manage users, invites, and media requests</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="flex gap-1 mb-6 p-1 bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
+        {% for t, label, badge in [
+            ('users', '👥 Users', users|length),
+            ('invites', '🔗 Invites', invites|length),
+            ('requests', '📋 Pending Requests', pending_requests|length)
+        ] %}
+        <button @click="tab = '{{ t }}'"
+                :class="tab === '{{ t }}' ? 'bg-primary-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'"
+                class="flex-1 min-w-fit px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 justify-center">
+            {{ label }}
+            {% if badge > 0 %}<span class="bg-gray-600 text-gray-200 text-xs px-1.5 py-0.5 rounded-full">{{ badge }}</span>{% endif %}
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- Users Tab -->
+    <div x-show="tab === 'users'" x-cloak>
+        <div class="card">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-white">Users</h2>
+            </div>
+            <div id="user-list" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-gray-400 border-b border-gray-700">
+                            <th class="pb-2 pr-4">Username</th>
+                            <th class="pb-2 pr-4">Role</th>
+                            <th class="pb-2 pr-4">Status</th>
+                            <th class="pb-2 pr-4">Created</th>
+                            <th class="pb-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700/50">
+                        {% for user in users %}
+                        <tr class="py-2" id="user-row-{{ user.id }}"
+                            hx-trigger="user-updated from:body"
+                            hx-get="/web/admin"
+                            hx-target="body"
+                            hx-swap="outerHTML">
+                            <td class="py-2 pr-4">
+                                <span class="text-white font-medium">{{ user.username }}</span>
+                                {% if user.id == current_user.user_id %}<span class="ml-1 text-xs text-gray-500">(you)</span>{% endif %}
+                            </td>
+                            <td class="py-2 pr-4">
+                                <form hx-post="/web/admin/user/{{ user.id }}/role"
+                                      hx-target="#toast-container"
+                                      hx-swap="innerHTML">
+                                    <select name="role"
+                                            onchange="this.form.requestSubmit()"
+                                            class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200">
+                                        {% for r in ['admin', 'power_user', 'user'] %}
+                                        <option value="{{ r }}" {% if user.role == r %}selected{% endif %}>
+                                            {{ r.replace('_', ' ').title() }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </form>
+                            </td>
+                            <td class="py-2 pr-4">
+                                <form hx-post="/web/admin/user/{{ user.id }}/toggle"
+                                      hx-target="#toast-container"
+                                      hx-swap="innerHTML">
+                                    <input type="hidden" name="enabled" value="{{ 'false' if user.enabled else 'true' }}">
+                                    <button type="submit"
+                                            class="px-2 py-1 rounded text-xs font-medium transition-colors
+                                                   {% if user.enabled %}bg-green-900/40 text-green-400 hover:bg-red-900/40 hover:text-red-400
+                                                   {% else %}bg-red-900/40 text-red-400 hover:bg-green-900/40 hover:text-green-400{% endif %}">
+                                        {{ 'Enabled' if user.enabled else 'Disabled' }}
+                                    </button>
+                                </form>
+                            </td>
+                            <td class="py-2 pr-4 text-gray-400 text-xs">
+                                {{ user.created_at[:10] if user.created_at else '' }}
+                            </td>
+                            <td class="py-2">
+                                {% if user.id != current_user.user_id %}
+                                <button hx-post="/web/admin/user/{{ user.id }}/delete"
+                                        hx-target="#toast-container"
+                                        hx-swap="innerHTML"
+                                        hx-confirm="Delete user {{ user.username }}? This cannot be undone."
+                                        class="px-2 py-1 rounded text-xs text-red-400 hover:bg-red-900/30 transition-colors">
+                                    Delete
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="py-4 text-center text-gray-500">No users found</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invites Tab -->
+    <div x-show="tab === 'invites'" x-cloak>
+        <div class="card">
+            <h2 class="text-lg font-bold text-white mb-4">Create Invite Link</h2>
+            <form hx-post="/web/admin/invite/create"
+                  hx-target="#invite-list"
+                  hx-swap="innerHTML"
+                  class="flex flex-wrap gap-3 items-end mb-6">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Role</label>
+                    <select name="role" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="user">User</option>
+                        <option value="power_user">Power User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Expires in</label>
+                    <select name="ttl_hours" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="24">24 hours</option>
+                        <option value="48" selected>48 hours</option>
+                        <option value="168">7 days</option>
+                        <option value="720">30 days</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Generate Invite</button>
+            </form>
+
+            <div id="invite-list">
+                {% include "partials/invite_list.html" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Requests Tab -->
+    <div x-show="tab === 'requests'" x-cloak>
+        <div class="card">
+            <h2 class="text-lg font-bold text-white mb-4">Pending Requests</h2>
+            {% if pending_requests %}
+            <div class="space-y-3">
+                {% for req in pending_requests %}
+                <div class="p-4 bg-gray-700/50 rounded-lg border border-gray-600/50"
+                     id="req-{{ req.id }}">
+                    <div class="flex justify-between items-start gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-white font-medium">{{ req.title }}</span>
+                                <span class="px-1.5 py-0.5 rounded text-xs
+                                    {% if req.request_type == 'media' %}bg-blue-900/50 text-blue-300
+                                    {% else %}bg-yellow-900/50 text-yellow-300{% endif %}">
+                                    {{ req.request_type }}
+                                </span>
+                                {% if req.media_type %}
+                                <span class="text-xs text-gray-400">{{ req.media_type }}</span>
+                                {% endif %}
+                            </div>
+                            {% if req.details %}
+                            <p class="text-gray-300 text-sm mb-1">{{ req.details }}</p>
+                            {% endif %}
+                            <p class="text-xs text-gray-500">
+                                by {{ req.requester_name }} · {{ req.created_at[:10] if req.created_at else '' }}
+                            </p>
+                        </div>
+                        <div class="flex gap-2 flex-shrink-0" x-data="{ showNotes: false }">
+                            <div class="flex flex-col gap-1">
+                                <div class="flex gap-1">
+                                    <form hx-post="/web/requests/{{ req.id }}/resolve"
+                                          hx-target="#toast-container"
+                                          hx-swap="innerHTML"
+                                          hx-on::after-request="htmx.ajax('GET', '/web/admin', {target: 'body', swap: 'outerHTML'})">
+                                        <input type="hidden" name="status" value="completed">
+                                        <input type="hidden" name="notes" value="">
+                                        <button type="submit"
+                                                class="px-2 py-1 bg-green-700 hover:bg-green-600 text-white text-xs rounded transition-colors">
+                                            Fulfill
+                                        </button>
+                                    </form>
+                                    <button @click="showNotes = !showNotes"
+                                            class="px-2 py-1 bg-red-800 hover:bg-red-700 text-white text-xs rounded transition-colors">
+                                        Reject
+                                    </button>
+                                </div>
+                                <div x-show="showNotes" x-cloak class="mt-1">
+                                    <form hx-post="/web/requests/{{ req.id }}/resolve"
+                                          hx-target="#toast-container"
+                                          hx-swap="innerHTML"
+                                          hx-on::after-request="htmx.ajax('GET', '/web/admin', {target: 'body', swap: 'outerHTML'})">
+                                        <input type="hidden" name="status" value="rejected">
+                                        <textarea name="notes" placeholder="Reason (optional)"
+                                                  rows="2"
+                                                  class="w-full px-2 py-1 bg-gray-600 border border-gray-500 rounded text-xs text-white placeholder-gray-400 mb-1"></textarea>
+                                        <button type="submit"
+                                                class="w-full px-2 py-1 bg-red-700 hover:bg-red-600 text-white text-xs rounded transition-colors">
+                                            Confirm Reject
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-400 text-sm">No pending requests.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

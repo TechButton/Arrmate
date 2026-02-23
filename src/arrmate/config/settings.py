@@ -129,7 +129,9 @@ class Settings(BaseSettings):
 
     # SABnzbd settings
     sabnzbd_url: Optional[str] = Field(
-        default=None, description="SABnzbd base URL (e.g., http://sabnzbd:8080)"
+        default=None,
+        description="SABnzbd base URL (e.g., http://sabnzbd:8080). "
+        "Append /sabnzbd if your instance uses that URL base (e.g., http://sabnzbd:8080/sabnzbd).",
     )
     sabnzbd_api_key: Optional[str] = Field(default=None, description="SABnzbd API key")
 
@@ -156,6 +158,20 @@ class Settings(BaseSettings):
     )
     transmission_password: Optional[str] = Field(
         default=None, description="Transmission password"
+    )
+
+    # Prowlarr settings
+    prowlarr_url: Optional[str] = Field(
+        default=None, description="Prowlarr base URL (e.g., http://prowlarr:9696)"
+    )
+    prowlarr_api_key: Optional[str] = Field(default=None, description="Prowlarr API key")
+
+    # Notification webhooks
+    slack_webhook_url: Optional[str] = Field(
+        default=None, description="Slack webhook URL for request notifications"
+    )
+    discord_webhook_url: Optional[str] = Field(
+        default=None, description="Discord webhook URL for request notifications"
     )
 
     # Transcoding settings

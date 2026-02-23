@@ -29,7 +29,14 @@ class SABnzbdClient:
             self._client = None
 
     def _api_url(self) -> str:
-        return f"{self.base_url}/sabnzbd/api"
+        url = self.base_url.rstrip("/")
+        # Accept URLs that already include the path (e.g. http://host:8080/sabnzbd)
+        if url.endswith("/api"):
+            return url
+        if url.endswith("/sabnzbd"):
+            return f"{url}/api"
+        # Default: bare host:port — SABnzbd Docker (linuxserver) uses /api at root
+        return f"{url}/api"
 
     async def _get(self, mode: str, extra: Optional[Dict[str, Any]] = None) -> Any:
         params = {"apikey": self.api_key, "output": "json", "mode": mode}
@@ -82,6 +89,46 @@ class SABnzbdClient:
             await self._get("queue", {
                 "name": "delete", "value": nzo_id, "del_files": 1 if delete_files else 0
             })
+            return True
+        except Exception:
+            return False
+
+    async def set_priority(self, nzo_id: str, priority: int) -> bool:
+        """Set item priority: -1=low, 0=normal, 1=high, 2=forced."""
+        try:
+            await self._get("queue", {"name": "priority", "value": nzo_id, "extra": priority})
+            return True
+        except Exception:
+            return False
+
+    async def move_item(self, nzo_id: str, new_slot: int) -> bool:
+        """Move item to an absolute queue slot position."""
+        try:
+            await self._get("queue", {"name": "move", "value": nzo_id, "extra": new_slot})
+            return True
+        except Exception:
+            return False
+
+    async def pause_item(self, nzo_id: str) -> bool:
+        """Pause a single queue item."""
+        try:
+            await self._get("queue", {"name": "pause", "value": nzo_id})
+            return True
+        except Exception:
+            return False
+
+    async def resume_item(self, nzo_id: str) -> bool:
+        """Resume a single paused queue item."""
+        try:
+            await self._get("queue", {"name": "resume", "value": nzo_id})
+            return True
+        except Exception:
+            return False
+
+    async def add_url(self, url: str, priority: int = 0, category: str = "") -> bool:
+        """Add an NZB by URL."""
+        try:
+            await self._get("addurl", {"name": url, "priority": priority, "cat": category})
             return True
         except Exception:
             return False

@@ -12,6 +12,24 @@ Arrmate is a natural language interface for your media server stack. Type plain 
 
 Works with Sonarr, Radarr, Lidarr, Bazarr, Plex, SABnzbd, qBittorrent, and more. Uses your choice of local (Ollama) or cloud LLM.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard — service overview and media counts" width="700">
+</p>
+<p align="center">
+  <img src="docs/screenshots/command.png" alt="Command page — natural language input" width="700">
+</p>
+<p align="center">
+  <img src="docs/screenshots/services.png" alt="Services status page" width="700">
+</p>
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Settings — service URLs and API keys" width="700">
+</p>
+<p align="center">
+  <img src="docs/screenshots/transcode.png" alt="Transcode jobs — H.265 conversion progress" width="700">
+</p>
+
 ## Supported Services
 
 | Service | Type | What you can do |
@@ -24,10 +42,11 @@ Works with Sonarr, Radarr, Lidarr, Bazarr, Plex, SABnzbd, qBittorrent, and more.
 | AudioBookshelf | Audiobooks | Browse and search libraries |
 | LazyLibrarian | Books | Search and manage book libraries |
 | huntarr.io | Stats | Dashboard metrics across all services |
-| SABnzbd | Downloads | Queue status, speed control, pause/resume |
-| NZBget | Downloads | Queue status, speed control, pause/resume |
-| qBittorrent | Torrents | Queue status, speed limits, pause/resume |
-| Transmission | Torrents | Queue status, speed limits, pause/resume |
+| Prowlarr | Indexer aggregator | Search all indexers, send results to download managers |
+| SABnzbd | Downloads | Queue, speed control, per-item priority/pause/resume, add by URL |
+| NZBget | Downloads | Queue, speed control, per-item priority/pause/resume, add by URL |
+| qBittorrent | Torrents | Queue, speed limits, priority reorder, add by URL/magnet |
+| Transmission | Torrents | Queue, speed limits, bandwidth priority, add by URL/magnet |
 
 Services are optional — anything not configured simply doesn't appear in the UI.
 
@@ -84,11 +103,23 @@ Arrmate can scan your Sonarr/Radarr libraries for files not already in H.265 and
 
 Track progress at `/web/transcode`. Requires media files to be accessible inside the container — see the volume mount comments in the compose file.
 
-## Authentication
+## Multi-User Authentication
 
-Off by default. Enable it from the Settings page — pick a username and password, and all routes (web and API) require login from that point on. Sessions persist across restarts when `SECRET_KEY` is set in your env.
+Arrmate includes a full multi-user system with three roles:
 
-Locked out? Delete `auth.json` from your data directory and restart.
+| Role | Access |
+|------|--------|
+| **admin** | Full access — settings, user management, execute commands, approve requests |
+| **power_user** | Execute commands, approve/fulfill media requests |
+| **user** | Browse library, submit media requests (no execute/delete) |
+
+**First run:** navigate to `/web/register` to create the admin account. After that, invite additional users from the Admin Panel (`/web/admin`) — share the generated link and they register with a role you pick.
+
+Existing `auth.json` single-user setups are automatically migrated to the new system on first startup.
+
+Locked out? Delete `/data/users.db` and restart — you'll be prompted to create a new admin account.
+
+Sessions persist across restarts when `SECRET_KEY` is set in your env.
 
 ## API
 
@@ -135,6 +166,7 @@ docker compose -f docker-compose.full.yml up -d
 - [Docker Hub](https://hub.docker.com/r/techbutton/arrmate)
 - [GitHub](https://github.com/techbutton/arrmate)
 - [Issues](https://github.com/techbutton/arrmate/issues)
+- [Buy Me a Coffee](https://buymeacoffee.com/techbutton) — if Arrmate saves you time, consider supporting development
 
 ## License
 

@@ -1,0 +1,117 @@
+{% set can_send = current_user and current_user.role in ('admin', 'power_user') %}
+{% set has_managers = settings.sabnzbd_url or settings.nzbget_url or settings.qbittorrent_url or settings.transmission_url %}
+
+{% if error %}
+<div class="card text-center py-8">
+    <p class="text-red-400 text-sm">{{ error }}</p>
+</div>
+
+{% elif not results %}
+<div class="card text-center py-8">
+    <p class="text-gray-400">
+        {% if query %}No results found for <strong class="text-gray-300">{{ query }}</strong>.{% else %}No results.{% endif %}
+    </p>
+</div>
+
+{% else %}
+<div class="card">
+    <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-400">
+            <span class="font-medium text-gray-300">{{ results | length }}</span> results for
+            <span class="text-primary-400 font-medium">{{ query }}</span>
+        </p>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-700">
+                    <th class="text-left py-2 px-2 text-xs text-gray-400 font-medium">Release</th>
+                    <th class="text-left py-2 px-2 text-xs text-gray-400 font-medium w-28">Indexer</th>
+                    <th class="text-right py-2 px-2 text-xs text-gray-400 font-medium w-20">Size</th>
+                    <th class="text-right py-2 px-2 text-xs text-gray-400 font-medium w-20">Age</th>
+                    <th class="text-right py-2 px-2 text-xs text-gray-400 font-medium w-20">Seeds</th>
+                    <th class="text-right py-2 px-2 text-xs text-gray-400 font-medium w-16">Grabs</th>
+                    {% if can_send and has_managers %}
+                    <th class="text-right py-2 px-2 text-xs text-gray-400 font-medium w-44">Send</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800">
+            {% for item in results %}
+            {% set dl_url = item.get("downloadUrl") or item.get("magnetUrl") or item.get("guid") or "" %}
+            {% set protocol = item.get("protocol", "torrent") %}
+            {% set size = item.get("size", 0) | int %}
+            {% set seeders = item.get("seeders") %}
+            {% set peers = item.get("peers") %}
+            {% set grabs = item.get("grabs") %}
+            {% set publish_date = item.get("publishDate", "") %}
+            <tr class="hover:bg-gray-800/50">
+                <td class="py-2 px-2 max-w-0 w-full">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs flex-shrink-0
+                            {% if protocol == 'usenet' %}text-blue-400{% else %}text-green-400{% endif %}"
+                              title="{{ protocol }}">
+                            {% if protocol == "usenet" %}📰{% else %}🌊{% endif %}
+                        </span>
+                        <div class="truncate text-gray-200" title="{{ item.get('title', '') }}">
+                            {{ item.get("title", "—") }}
+                        </div>
+                    </div>
+                </td>
+                <td class="py-2 px-2 text-xs text-gray-400 whitespace-nowrap">
+                    {{ item.get("indexer", "—") }}
+                </td>
+                <td class="py-2 px-2 text-right text-xs text-gray-400 whitespace-nowrap">
+                    {% if size > 1073741824 %}{{ "%.1f"|format(size/1073741824) }} GB
+                    {% elif size > 1048576 %}{{ "%.0f"|format(size/1048576) }} MB
+                    {% elif size > 0 %}{{ size }} B
+                    {% else %}—{% endif %}
+                </td>
+                <td class="py-2 px-2 text-right text-xs text-gray-500 whitespace-nowrap">
+                    {{ publish_date[:10] if publish_date else "—" }}
+                </td>
+                <td class="py-2 px-2 text-right text-xs whitespace-nowrap">
+                    {% if seeders is not none %}
+                    <span class="text-green-400">{{ seeders }}</span>
+                    {% if peers is not none %}<span class="text-gray-600">/</span><span class="text-gray-400">{{ peers }}</span>{% endif %}
+                    {% else %}
+                    <span class="text-gray-600">—</span>
+                    {% endif %}
+                </td>
+                <td class="py-2 px-2 text-right text-xs text-gray-500 whitespace-nowrap">
+                    {{ grabs if grabs is not none else "—" }}
+                </td>
+                {% if can_send and has_managers %}
+                <td class="py-2 px-2">
+                    {% if dl_url %}
+                    <form hx-post="/web/prowlarr/send"
+                          hx-target="#toast-container"
+                          hx-swap="beforeend"
+                          class="flex items-center justify-end gap-1">
+                        <input type="hidden" name="url" value="{{ dl_url }}">
+                        <input type="hidden" name="title" value="{{ item.get('title', '') | truncate(60) }}">
+                        <select name="manager"
+                                class="bg-gray-700 text-xs text-gray-300 rounded px-1.5 py-1 border-0 cursor-pointer">
+                            {% if settings.sabnzbd_url %}<option value="sabnzbd">SABnzbd</option>{% endif %}
+                            {% if settings.nzbget_url %}<option value="nzbget">NZBget</option>{% endif %}
+                            {% if settings.qbittorrent_url %}<option value="qbittorrent">qBittorrent</option>{% endif %}
+                            {% if settings.transmission_url %}<option value="transmission">Transmission</option>{% endif %}
+                        </select>
+                        <button type="submit"
+                                class="px-2 py-1 text-xs bg-primary-600 hover:bg-primary-700 text-white rounded transition-colors whitespace-nowrap">
+                            Send ↗
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="text-xs text-gray-600">No URL</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}

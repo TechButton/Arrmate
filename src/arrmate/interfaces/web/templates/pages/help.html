@@ -141,11 +141,6 @@
                         <td class="py-2 pr-4">Orchestration</td>
                         <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
                     </tr>
-                    <tr class="border-b border-gray-800">
-                        <td class="py-2 pr-4">🔞 Whisparr</td>
-                        <td class="py-2 pr-4">Adult Content</td>
-                        <td class="py-2"><span class="text-yellow-400">Testing Required</span></td>
-                    </tr>
                     <tr>
                         <td class="py-2 pr-4">📚 Readarr</td>
                         <td class="py-2 pr-4">Books</td>
@@ -153,6 +148,87 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Finding API Keys (Admin Guide) -->
+    <div class="card mb-6">
+        <h2 class="text-xl font-bold text-white mb-2">Finding Your API Keys & Tokens</h2>
+        <p class="text-gray-400 text-sm mb-4">
+            Each service needs a URL and API key entered in
+            <a href="/web/settings" class="text-primary-400 hover:text-primary-300 underline">Settings → Media Services</a>.
+            Here's where to find them:
+        </p>
+        <div class="space-y-3">
+
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white mb-1">📺 Sonarr &nbsp;/&nbsp; 🎬 Radarr &nbsp;/&nbsp; 🎵 Lidarr</h3>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-0.5 ml-1">
+                    <li>Open the service web UI</li>
+                    <li>Go to <span class="text-gray-300">Settings → General</span></li>
+                    <li>Copy the value from the <span class="text-gray-300">API Key</span> field</li>
+                </ol>
+                <p class="text-xs text-gray-500 mt-2">Default ports: Sonarr&nbsp;8989, Radarr&nbsp;7878, Lidarr&nbsp;8686</p>
+            </div>
+
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white mb-1">💬 Bazarr</h3>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-0.5 ml-1">
+                    <li>Open Bazarr web UI</li>
+                    <li>Go to <span class="text-gray-300">Settings → General</span></li>
+                    <li>Enable the API and copy the <span class="text-gray-300">API Key</span> shown there</li>
+                </ol>
+                <p class="text-xs text-gray-500 mt-2">Default port: 6767</p>
+            </div>
+
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white mb-1">🎞️ Plex — X-Plex-Token</h3>
+                <p class="text-sm text-gray-400 mb-1">Option A — via Plex Web:</p>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-0.5 ml-1">
+                    <li>Open Plex Web and sign in</li>
+                    <li>Browse to any movie or episode and click the <span class="text-gray-300">⋮ menu → Get Info</span></li>
+                    <li>Click <span class="text-gray-300">View XML</span> in the bottom-left of the info panel</li>
+                    <li>In the URL that opens, copy the value after <code class="bg-gray-900 px-1 rounded text-gray-300">X-Plex-Token=</code></li>
+                </ol>
+                <p class="text-sm text-gray-400 mt-2 mb-1">Option B — via plex.tv account page:</p>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-0.5 ml-1">
+                    <li>Go to <span class="text-gray-300">plex.tv → Your Account</span></li>
+                    <li>Open browser DevTools → Network tab, then reload the page</li>
+                    <li>Find any request to <code class="bg-gray-900 px-1 rounded text-gray-300">plex.tv</code> and look for <code class="bg-gray-900 px-1 rounded text-gray-300">X-Plex-Token</code> in the request headers</li>
+                </ol>
+                <p class="text-xs text-gray-500 mt-2">Default port: 32400</p>
+            </div>
+
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white mb-1">🎧 AudioBookshelf</h3>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-0.5 ml-1">
+                    <li>Open AudioBookshelf, sign in as admin</li>
+                    <li>Go to <span class="text-gray-300">Settings → Users</span></li>
+                    <li>Click your username → copy the <span class="text-gray-300">API Token</span></li>
+                </ol>
+                <p class="text-xs text-gray-500 mt-2">Default port: 13378</p>
+            </div>
+
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white mb-1">📖 LazyLibrarian</h3>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-0.5 ml-1">
+                    <li>Open LazyLibrarian web UI</li>
+                    <li>Go to <span class="text-gray-300">Config → Interface</span></li>
+                    <li>Copy the <span class="text-gray-300">API Key</span> field value</li>
+                </ol>
+                <p class="text-xs text-gray-500 mt-2">Default port: 5299</p>
+            </div>
+
+            <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <h3 class="font-semibold text-white mb-1">🎯 huntarr.io</h3>
+                <ol class="text-sm text-gray-400 list-decimal list-inside space-y-0.5 ml-1">
+                    <li>Open huntarr web UI</li>
+                    <li>Go to <span class="text-gray-300">Settings → General</span></li>
+                    <li>Copy the <span class="text-gray-300">API Key</span></li>
+                </ol>
+                <p class="text-xs text-gray-500 mt-2">Default port: 9705</p>
+            </div>
+
         </div>
     </div>
 
@@ -230,11 +306,13 @@
             <div>
                 <h3 class="font-semibold text-yellow-400 mb-1">Authentication / login issues</h3>
                 <ul class="text-sm text-gray-400 list-disc list-inside space-y-1 ml-1">
-                    <li>Authentication is optional and disabled by default &mdash; go to <a href="/web/settings" class="text-primary-400 hover:text-primary-300 underline">Settings</a> to set it up</li>
-                    <li>If you get locked out, delete the <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">auth.json</code> file from the data directory (default: <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">/data</code>) and restart</li>
+                    <li>First-run: if no users exist, go to <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">/web/register</code> to create the initial admin account</li>
+                    <li>Invite new users via the <a href="/web/admin" class="text-primary-400 hover:text-primary-300 underline">Admin Panel</a> &mdash; generate an invite link and share it</li>
+                    <li>If locked out, delete <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">/data/users.db</code> (or both <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">users.db</code> and <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">auth.json</code>) and restart &mdash; you'll be prompted to create a new admin</li>
                     <li>Sessions expire after 24 hours &mdash; you'll need to sign in again</li>
                     <li>For persistent sessions across restarts, set <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">SECRET_KEY</code> in your <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">.env</code> file</li>
-                    <li>API requests use HTTP Basic Auth when authentication is enabled</li>
+                    <li>Roles: <span class="text-gray-300">admin</span> (full access), <span class="text-gray-300">power_user</span> (execute + requests), <span class="text-gray-300">user</span> (browse + request media)</li>
+                    <li>An existing <code class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">auth.json</code> is automatically migrated to the new multi-user database on first startup</li>
                 </ul>
             </div>
 
@@ -341,6 +419,17 @@
                 <div>
                     <p class="font-semibold text-white">Documentation</p>
                     <p class="text-xs text-gray-400">Setup guides and service reference</p>
+                </div>
+            </a>
+
+            <a href="https://buymeacoffee.com/techbutton" target="_blank" rel="noopener noreferrer"
+               class="flex items-center space-x-3 p-3 bg-yellow-900/20 rounded-lg border border-yellow-700/40 hover:border-yellow-600/60 transition-colors col-span-1 sm:col-span-2">
+                <svg class="w-6 h-6 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+                <div>
+                    <p class="font-semibold text-yellow-300">Buy Me a Coffee</p>
+                    <p class="text-xs text-gray-400">Enjoying Arrmate? Support the developer</p>
                 </div>
             </a>
         </div>

@@ -16,6 +16,7 @@ from .huntarr import HuntarrClient
 from .lazylibrarian import LazyLibrarianClient
 from .lidarr import LidarrClient
 from .plex import PlexClient
+from .prowlarr import ProwlarrClient
 from .radarr import RadarrClient
 from .readarr import ReadarrClient
 from .sonarr import SonarrClient
@@ -32,6 +33,7 @@ DEFAULT_PORTS = {
     "lazylibrarian": 5299,
     "huntarr": 3000,
     "plex": 32400,
+    "prowlarr": 9696,
 }
 
 
@@ -68,6 +70,7 @@ def _get_implementation_status(service_name: str) -> ImplementationStatus:
         "lazylibrarian": ImplementationStatus.PARTIAL,
         "huntarr": ImplementationStatus.PARTIAL,
         "plex": ImplementationStatus.PARTIAL,
+        "prowlarr": ImplementationStatus.PARTIAL,
     }
     return status_map.get(service_name, ImplementationStatus.PLANNED)
 
@@ -91,6 +94,7 @@ def _get_api_version(service_name: str) -> str:
         "lazylibrarian": "custom",
         "huntarr": "REST",
         "plex": "REST",
+        "prowlarr": "v1",
     }
     return version_map.get(service_name, "unknown")
 
@@ -114,6 +118,7 @@ def _get_media_type(service_name: str) -> str:
         "lazylibrarian": "Books/Audiobooks",
         "huntarr": "Orchestration",
         "plex": "Media Server",
+        "prowlarr": "Indexer Aggregator",
     }
     return media_type_map.get(service_name, "Unknown")
 
@@ -203,6 +208,16 @@ def _get_capabilities(service_name: str) -> ServiceCapability:
             can_search=True,
             can_add=False,  # Doesn't download or add content
             can_remove=True,  # Can delete to trash
+            can_upgrade=False,
+            can_list=True,
+        )
+
+    # Prowlarr capabilities (indexer aggregator / NZB+torrent search)
+    if service_name == "prowlarr":
+        return ServiceCapability(
+            can_search=True,
+            can_add=False,
+            can_remove=False,
             can_upgrade=False,
             can_list=True,
         )
@@ -577,6 +592,47 @@ async def discover_services() -> Dict[str, EnhancedServiceInfo]:
                 api_version=_get_api_version("plex"),
                 capabilities=_get_capabilities("plex"),
                 media_type=_get_media_type("plex"),
+                is_deprecated=False,
+            )
+        finally:
+            await client.close()
+
+    # Prowlarr (Indexer Aggregator)
+    if settings.prowlarr_url and settings.prowlarr_api_key:
+        client = ProwlarrClient(settings.prowlarr_url, settings.prowlarr_api_key)
+        try:
+            available = await client.test_connection()
+            version = None
+            if available:
+                try:
+                    status = await client.get_system_status()
+                    version = status.get("version")
+                except Exception:
+                    pass
+
+            services["prowlarr"] = EnhancedServiceInfo(
+                name="prowlarr",
+                url=settings.prowlarr_url,
+                api_key=_mask_api_key(settings.prowlarr_api_key),
+                available=available,
+                version=version,
+                implementation_status=_get_implementation_status("prowlarr"),
+                api_version=_get_api_version("prowlarr"),
+                capabilities=_get_capabilities("prowlarr"),
+                media_type=_get_media_type("prowlarr"),
+                is_deprecated=False,
+            )
+        except Exception as e:
+            logger.error(f"Error discovering Prowlarr: {e}")
+            services["prowlarr"] = EnhancedServiceInfo(
+                name="prowlarr",
+                url=settings.prowlarr_url,
+                api_key=_mask_api_key(settings.prowlarr_api_key),
+                available=False,
+                implementation_status=_get_implementation_status("prowlarr"),
+                api_version=_get_api_version("prowlarr"),
+                capabilities=_get_capabilities("prowlarr"),
+                media_type=_get_media_type("prowlarr"),
                 is_deprecated=False,
             )
         finally:

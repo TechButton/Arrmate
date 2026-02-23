@@ -114,3 +114,32 @@ class QBittorrentClient:
             return True
         except Exception:
             return False
+
+    async def set_priority(self, torrent_hash: str, action: str) -> bool:
+        """Adjust queue priority. action: 'top', 'bottom', 'increase', 'decrease'."""
+        endpoints = {
+            "top": "/api/v2/torrents/topPrio",
+            "bottom": "/api/v2/torrents/bottomPrio",
+            "increase": "/api/v2/torrents/increasePrio",
+            "decrease": "/api/v2/torrents/decreasePrio",
+        }
+        try:
+            ep = endpoints.get(action)
+            if not ep:
+                return False
+            await self._post(ep, {"hashes": torrent_hash})
+            return True
+        except Exception:
+            return False
+
+    async def add_url(self, url: str, category: str = "", paused: bool = False) -> bool:
+        """Add a torrent or magnet link by URL."""
+        try:
+            await self._post("/api/v2/torrents/add", {
+                "urls": url,
+                "category": category,
+                "paused": "true" if paused else "false",
+            })
+            return True
+        except Exception:
+            return False

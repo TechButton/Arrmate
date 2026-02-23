@@ -1,0 +1,127 @@
+{% if error %}
+<div class="p-4 bg-red-900/20 border border-red-700/30 rounded-lg text-red-300 text-sm">{{ error }}</div>
+{% else %}
+
+<!-- Current Shares -->
+<div class="card mb-6">
+    <h3 class="text-lg font-semibold text-white mb-4">
+        Current Shares
+        <span class="ml-2 text-sm font-normal text-gray-400">({{ friends | length }} user{{ 's' if friends | length != 1 else '' }})</span>
+    </h3>
+
+    {% if not friends %}
+    <p class="text-gray-500 text-sm">No users currently have access to this server.</p>
+    {% else %}
+    <div class="space-y-2">
+        {% for f in friends %}
+        <div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700 group">
+            <div class="flex items-center gap-3 min-w-0">
+                {% if f.thumb %}
+                <img src="{{ f.thumb }}" alt=""
+                     class="w-8 h-8 rounded-full flex-shrink-0 bg-gray-700"
+                     onerror="this.style.display='none'">
+                {% else %}
+                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 text-gray-400 text-sm">
+                    {{ f.username[0].upper() if f.username else '?' }}
+                </div>
+                {% endif %}
+                <div class="min-w-0">
+                    <p class="text-white font-medium text-sm truncate">{{ f.username }}</p>
+                    <p class="text-gray-500 text-xs truncate">
+                        {% if f.all_libraries %}
+                            All libraries
+                        {% elif f.section_titles %}
+                            {{ f.section_titles | join(', ') }}
+                        {% else %}
+                            {{ f.email }}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <button hx-post="/web/plex/share/remove/{{ f.id }}"
+                    hx-target="#toast-container"
+                    hx-swap="beforeend"
+                    hx-confirm="Revoke {{ f.username }}'s access to this server?"
+                    class="flex-shrink-0 px-3 py-1.5 text-xs bg-red-900/30 hover:bg-red-800/50 text-red-400 hover:text-red-300 border border-red-800/50 hover:border-red-700 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                Revoke
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Invite Form -->
+<div class="card" x-data="{ allLibs: true, submitting: false }">
+    <h3 class="text-lg font-semibold text-white mb-4">Invite a User</h3>
+    <p class="text-gray-400 text-sm mb-5">
+        Enter the user's plex.tv email address. They'll receive an invite email from Plex
+        and must accept it in their plex.tv account.
+    </p>
+
+    <form hx-post="/web/plex/share/invite"
+          hx-target="#toast-container"
+          hx-swap="beforeend"
+          hx-on::before-request="submitting = true"
+          hx-on::after-request="submitting = false; if(event.detail.successful) $el.reset()"
+          class="space-y-5 max-w-lg">
+
+        <!-- Email -->
+        <div>
+            <label for="share-email" class="block text-sm font-medium text-gray-300 mb-1">
+                plex.tv Email Address
+            </label>
+            <input type="email" id="share-email" name="email" required
+                   placeholder="user@example.com"
+                   class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500
+                          focus:border-transparent text-sm">
+        </div>
+
+        <!-- Library selection -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Libraries to Share</label>
+
+            <label class="flex items-center gap-2 mb-3 cursor-pointer select-none">
+                <input type="checkbox" x-model="allLibs"
+                       class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary-600
+                              focus:ring-primary-500 focus:ring-offset-gray-900">
+                <span class="text-sm text-white font-medium">Share all libraries</span>
+            </label>
+
+            <div x-show="!allLibs" x-cloak
+                 class="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2">
+                {% for lib in libraries %}
+                <label class="flex items-center gap-2 cursor-pointer select-none group/lib">
+                    <input type="checkbox" name="section_ids" value="{{ lib.key }}"
+                           class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary-600
+                                  focus:ring-primary-500 focus:ring-offset-gray-900">
+                    <span class="text-sm text-gray-300 group-hover/lib:text-white transition-colors">
+                        {% if lib.type == 'movie' %}🎬
+                        {% elif lib.type == 'show' %}📺
+                        {% elif lib.type == 'artist' %}🎵
+                        {% elif lib.type == 'photo' %}📷
+                        {% else %}📁
+                        {% endif %}
+                        {{ lib.title }}
+                    </span>
+                </label>
+                {% endfor %}
+                {% if not libraries %}
+                <p class="text-gray-500 text-sm col-span-2">No libraries found.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <button type="submit"
+                :disabled="submitting"
+                class="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
+                       text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2
+                       focus:ring-primary-500 text-sm">
+            <span x-show="!submitting">Send Invite</span>
+            <span x-show="submitting" x-cloak>Sending…</span>
+        </button>
+    </form>
+</div>
+
+{% endif %}

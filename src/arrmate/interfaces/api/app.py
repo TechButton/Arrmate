@@ -43,7 +43,7 @@ class CommandResponse(BaseModel):
 app = FastAPI(
     title="Arrmate API",
     description="Natural language interface for media management",
-    version="0.5.0",
+    version="0.6.0",
 )
 
 # Mount static files
@@ -77,6 +77,13 @@ async def startup_event() -> None:
     global parser, engine, executor
     # Load any settings saved via the UI (env vars already took priority via Pydantic)
     apply_saved_config()
+    # Initialize the multi-user database (and migrate auth.json if present)
+    try:
+        from ...auth.user_db import init_db
+        init_db()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("user_db init failed: %s", e)
     # Discover services so the LLM prompt knows which ones are available
     services = await discover_services()
     available = [name for name, info in services.items() if info.available]

@@ -63,6 +63,18 @@ class PlexClient(BaseExternalService):
             ],
         }
 
+    async def get_machine_identifier(self) -> Optional[str]:
+        """Get the server's unique machineIdentifier (needed for sharing via plex.tv).
+
+        Returns:
+            machineIdentifier string, or None on failure.
+        """
+        try:
+            data = await self._get("/identity")
+            return data.get("MediaContainer", {}).get("machineIdentifier")
+        except Exception:
+            return None
+
     async def get_version(self) -> Optional[str]:
         """Get server version from identity endpoint.
 
@@ -252,13 +264,16 @@ class PlexClient(BaseExternalService):
             List of in-progress media items with viewOffset
         """
         try:
+            # /hubs/home/continueWatching returns Metadata directly (not Hub-wrapped)
             data = await self._get("/hubs/home/continueWatching")
-            hubs = data.get("MediaContainer", {}).get("Hub", [])
-            for hub in hubs:
-                items = hub.get("Metadata", [])
-                if items:
-                    return items
-            return []
+            container = data.get("MediaContainer", {})
+            items = container.get("Metadata", [])
+            if items:
+                return items
+            # Fallback: /library/onDeck filtered to items with a viewOffset
+            data2 = await self._get("/library/onDeck")
+            all_deck = data2.get("MediaContainer", {}).get("Metadata", [])
+            return [i for i in all_deck if i.get("viewOffset", 0) > 0]
         except Exception:
             return []
 

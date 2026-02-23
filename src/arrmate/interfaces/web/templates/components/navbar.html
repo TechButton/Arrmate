@@ -1,84 +1,254 @@
-<nav class="fixed top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 shadow-lg z-40" x-data="{ mobileMenuOpen: false }">
+{% set cur_user = current_user %}
+{% set cur_role = cur_user.role if cur_user else None %}
+
+<nav class="fixed top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 shadow-lg z-40"
+     x-data="{ mobileOpen: false, moreOpen: false }">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
+
             <!-- Logo -->
-            <div class="flex items-center">
+            <div class="flex items-center flex-shrink-0">
                 <a href="/web/" class="flex items-center space-x-2">
                     <span class="text-2xl">🤝</span>
                     <span class="text-xl font-bold text-white">Arrmate</span>
                 </a>
             </div>
 
-            <!-- Desktop Navigation -->
-            <div class="hidden md:flex items-center space-x-1">
+            <!-- Desktop: primary nav links -->
+            <div class="hidden md:flex items-center space-x-1 ml-4">
                 <a href="/web/"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
                     Dashboard
                 </a>
                 <a href="/web/command"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
                     Command
                 </a>
-                <a href="/web/services"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                    Services
-                </a>
                 <a href="/web/library"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
                     Library
                 </a>
                 <a href="/web/search"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
                     Search
                 </a>
                 <a href="/web/plex"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
                     Plex
                 </a>
-                <a href="/web/downloads"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                    Downloads
-                </a>
-                <a href="/web/transcode"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                    Transcode
-                </a>
-                <a href="/web/help"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                    Help
-                </a>
-                <a href="/web/settings"
-                   class="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                    Settings
-                </a>
 
-                {% if auth_manager.is_auth_required() %}
+                <!-- More dropdown (hamburger) -->
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open"
+                            @click.outside="open = false"
+                            class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
+                        <!-- Hamburger icon -->
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                        <span>More</span>
+                        <svg class="w-3 h-3 transition-transform" :class="open ? 'rotate-180' : ''"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+
+                    <div x-show="open"
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-75"
+                         x-transition:leave-start="opacity-100 scale-100"
+                         x-transition:leave-end="opacity-0 scale-95"
+                         class="absolute left-0 mt-2 w-44 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden py-1">
+                        <a href="/web/services"
+                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            <span class="text-base">⚙️</span> Services
+                        </a>
+                        {% if not cur_user or cur_role in ('admin', 'power_user') %}
+                        <a href="/web/downloads"
+                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            <span class="text-base">⬇️</span> Downloads
+                        </a>
+                        {% if settings.prowlarr_url %}
+                        <a href="/web/prowlarr"
+                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            <span class="text-base">🔍</span> Prowlarr
+                        </a>
+                        {% endif %}
+                        <a href="/web/transcode"
+                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            <span class="text-base">🎞️</span> Transcode
+                        </a>
+                        {% endif %}
+                        <a href="/web/requests"
+                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            <span class="text-base">📋</span> Requests
+                        </a>
+                        <a href="/web/help"
+                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            <span class="text-base">❓</span> Help
+                        </a>
+                        {% if not cur_user or cur_role == 'admin' %}
+                        <div class="border-t border-gray-700 my-1"></div>
+                        <a href="/web/settings"
+                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            <span class="text-base">🔧</span> Settings
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Desktop: right-side controls -->
+            <div class="hidden md:flex items-center space-x-1 ml-auto">
+
+                {% if cur_user %}
+                <!-- Notification Bell -->
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open; if(open) htmx.ajax('GET', '/web/notifications', {target: '#notification-dropdown', swap: 'innerHTML'})"
+                            @click.outside="open = false"
+                            class="relative p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                        <span id="notif-bell-badge"
+                              hx-get="/web/notifications/count"
+                              hx-trigger="load, every 30s"
+                              hx-swap="innerHTML">
+                            {% if unread_count > 0 %}
+                            <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                                {{ unread_count if unread_count < 10 else '9+' }}
+                            </span>
+                            {% endif %}
+                        </span>
+                    </button>
+
+                    <!-- Notification Dropdown -->
+                    <div x-show="open"
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-75"
+                         x-transition:leave-start="opacity-100 scale-100"
+                         x-transition:leave-end="opacity-0 scale-95"
+                         class="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                        <div class="px-4 py-2.5 border-b border-gray-700">
+                            <span class="text-sm font-medium text-white">Notifications</span>
+                        </div>
+                        <div id="notification-dropdown" class="max-h-80 overflow-y-auto">
+                            <div class="px-4 py-6 text-center">
+                                <p class="text-sm text-gray-400">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Menu -->
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open"
+                            @click.outside="open = false"
+                            class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors border border-gray-600">
+                        <span class="text-sm font-medium">{{ cur_user.username }}</span>
+                        <span class="text-xs px-1.5 py-0.5 rounded font-medium
+                            {% if cur_role == 'admin' %}bg-red-900/60 text-red-300
+                            {% elif cur_role == 'power_user' %}bg-purple-900/60 text-purple-300
+                            {% else %}bg-gray-700 text-gray-400{% endif %}">
+                            {{ cur_role.replace('_', ' ').title() if cur_role else '' }}
+                        </span>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+
+                    <div x-show="open"
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         class="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden py-1">
+                        {% if cur_role == 'admin' %}
+                        <a href="/web/admin"
+                           class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            Admin Panel
+                        </a>
+                        {% endif %}
+                        <a href="/web/requests"
+                           class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            My Requests
+                        </a>
+                        <a href="/web/change-password"
+                           class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                            Change Password
+                        </a>
+                        <div class="border-t border-gray-700 my-1"></div>
+                        <a href="/web/logout"
+                           class="block px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-colors">
+                            Sign Out
+                        </a>
+                    </div>
+                </div>
+                {% elif auth_manager.is_auth_required() %}
                 <a href="/web/logout"
-                   class="ml-2 px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors border border-gray-600">
+                   class="px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors border border-gray-600 text-sm">
                     Sign Out
                 </a>
                 {% endif %}
 
-                <!-- Service Status Indicator -->
-                <div class="ml-4 flex items-center space-x-2">
+                <!-- Service Status -->
+                <div class="ml-1 flex items-center space-x-1.5 pl-2 border-l border-gray-700">
                     <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Services Online"></div>
-                    <span class="text-sm text-gray-400">Online</span>
+                    <span class="text-xs text-gray-400">Online</span>
                 </div>
             </div>
 
-            <!-- Mobile Menu Button -->
-            <button @click="mobileMenuOpen = !mobileMenuOpen"
-                    class="md:hidden p-2 rounded-lg text-gray-300 hover:bg-gray-700"
-                    style="min-width: 44px; min-height: 44px;">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path x-show="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    <path x-show="mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
+            <!-- Mobile: right-side (bell + hamburger) -->
+            <div class="md:hidden flex items-center gap-1">
+                {% if cur_user %}
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open; if(open) htmx.ajax('GET', '/web/notifications', {target: '#notification-dropdown-mobile', swap: 'innerHTML'})"
+                            @click.outside="open = false"
+                            class="relative p-2 rounded-lg text-gray-300 hover:bg-gray-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                        {% if unread_count > 0 %}
+                        <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                            {{ unread_count if unread_count < 10 else '9+' }}
+                        </span>
+                        {% endif %}
+                    </button>
+                    <div x-show="open"
+                         class="absolute right-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                        <div class="px-4 py-2.5 border-b border-gray-700">
+                            <span class="text-sm font-medium text-white">Notifications</span>
+                        </div>
+                        <div id="notification-dropdown-mobile" class="max-h-64 overflow-y-auto">
+                            <div class="px-4 py-6 text-center">
+                                <p class="text-sm text-gray-400">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <button @click="mobileOpen = !mobileOpen"
+                        class="p-2 rounded-lg text-gray-300 hover:bg-gray-700"
+                        style="min-width: 44px; min-height: 44px;">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path x-show="!mobileOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 6h16M4 12h16M4 18h16"/>
+                        <path x-show="mobileOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
         </div>
 
-        <!-- Mobile Menu -->
-        <div x-show="mobileMenuOpen"
+        <!-- Mobile slide-down menu -->
+        <div x-show="mobileOpen"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 -translate-y-2"
              x-transition:enter-end="opacity-100 translate-y-0"
@@ -87,68 +257,55 @@
              x-transition:leave-end="opacity-0 -translate-y-2"
              class="md:hidden pb-4">
             <div class="flex flex-col space-y-1">
-                <a href="/web/"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Dashboard
-                </a>
-                <a href="/web/command"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Command
-                </a>
-                <a href="/web/services"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Services
-                </a>
-                <a href="/web/library"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Library
-                </a>
-                <a href="/web/search"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Search
-                </a>
-                <a href="/web/plex"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Plex
-                </a>
-                <a href="/web/downloads"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Downloads
-                </a>
-                <a href="/web/transcode"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Transcode
-                </a>
-                <a href="/web/help"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Help
-                </a>
-                <a href="/web/settings"
-                   class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                   style="min-height: 44px;">
-                    Settings
-                </a>
+                <!-- Primary links -->
+                <a href="/web/" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Dashboard</a>
+                <a href="/web/command" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Command</a>
+                <a href="/web/library" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Library</a>
+                <a href="/web/search" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Search</a>
+                <a href="/web/plex" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Plex</a>
 
-                {% if auth_manager.is_auth_required() %}
-                <div class="border-t border-gray-700 mt-1 pt-1">
-                    <a href="/web/logout"
-                       class="px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
-                       style="min-height: 44px;">
-                        Sign Out
-                    </a>
+                <!-- More section -->
+                <div class="border-t border-gray-700/50 pt-1">
+                    <p class="px-4 py-1 text-xs text-gray-500 uppercase tracking-wider font-medium">More</p>
+                    <a href="/web/services" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">⚙️ Services</a>
+                    {% if not cur_user or cur_role in ('admin', 'power_user') %}
+                    <a href="/web/downloads" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">⬇️ Downloads</a>
+                    {% if settings.prowlarr_url %}
+                    <a href="/web/prowlarr" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">🔍 Prowlarr</a>
+                    {% endif %}
+                    <a href="/web/transcode" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">🎞️ Transcode</a>
+                    {% endif %}
+                    <a href="/web/requests" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">📋 Requests</a>
+                    <a href="/web/help" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">❓ Help</a>
+                    {% if not cur_user or cur_role == 'admin' %}
+                    <a href="/web/settings" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">🔧 Settings</a>
+                    {% endif %}
+                </div>
+
+                <!-- User section -->
+                {% if cur_user %}
+                <div class="border-t border-gray-700 pt-1">
+                    <div class="px-4 py-2 text-sm text-gray-400">
+                        Signed in as <strong class="text-gray-300">{{ cur_user.username }}</strong>
+                        <span class="ml-1 text-xs px-1.5 py-0.5 rounded
+                            {% if cur_role == 'admin' %}bg-red-900/60 text-red-300
+                            {% elif cur_role == 'power_user' %}bg-purple-900/60 text-purple-300
+                            {% else %}bg-gray-700 text-gray-400{% endif %}">
+                            {{ cur_role.replace('_', ' ').title() if cur_role else '' }}
+                        </span>
+                    </div>
+                    {% if cur_role == 'admin' %}
+                    <a href="/web/admin" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">Admin Panel</a>
+                    {% endif %}
+                    <a href="/web/change-password" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">Change Password</a>
+                    <a href="/web/logout" class="px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">Sign Out</a>
+                </div>
+                {% elif auth_manager.is_auth_required() %}
+                <div class="border-t border-gray-700 pt-1">
+                    <a href="/web/logout" class="px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">Sign Out</a>
                 </div>
                 {% endif %}
 
-                <!-- Mobile Service Status -->
                 <div class="px-4 py-2 flex items-center space-x-2">
                     <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
                     <span class="text-sm text-gray-400">Services Online</span>
@@ -157,3 +314,26 @@
         </div>
     </div>
 </nav>
+
+{% if cur_user %}
+<script>
+(function() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        setTimeout(() => Notification.requestPermission(), 5000);
+    }
+    let _lastCount = {{ unread_count | default(0) }};
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target && e.detail.target.id === 'notif-bell-badge') {
+            const badge = e.detail.target.querySelector('span');
+            const newCount = badge ? parseInt(badge.textContent) || 0 : 0;
+            if (newCount > _lastCount && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification('Arrmate', {
+                    body: 'You have ' + newCount + ' new notification' + (newCount !== 1 ? 's' : '')
+                });
+            }
+            _lastCount = newCount;
+        }
+    });
+})();
+</script>
+{% endif %}

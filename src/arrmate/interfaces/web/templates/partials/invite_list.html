@@ -1,0 +1,48 @@
+{% if new_invite_url %}
+<div class="mb-4 p-3 bg-primary-900/30 border border-primary-700/50 rounded-lg">
+    <p class="text-sm text-primary-300 font-medium mb-1">
+        New {{ new_invite_role.replace('_', ' ').title() }} invite created — share this link:
+    </p>
+    <div class="flex items-center gap-2">
+        <input type="text" readonly value="{{ new_invite_url }}"
+               id="invite-url-input"
+               class="flex-1 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-xs text-gray-200 font-mono">
+        <button onclick="navigator.clipboard.writeText(document.getElementById('invite-url-input').value); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500)"
+                class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs rounded transition-colors">
+            Copy
+        </button>
+    </div>
+</div>
+{% endif %}
+
+{% if invites %}
+<h3 class="text-sm font-medium text-gray-300 mb-2">Active Invites</h3>
+<div class="space-y-2">
+    {% for invite in invites %}
+    <div class="flex items-center justify-between p-2 bg-gray-700/50 rounded-lg text-sm">
+        <div>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium
+                {% if invite.role == 'admin' %}bg-red-900/50 text-red-300
+                {% elif invite.role == 'power_user' %}bg-purple-900/50 text-purple-300
+                {% else %}bg-gray-600 text-gray-300{% endif %}">
+                {{ invite.role.replace('_', ' ').title() }}
+            </span>
+            <span class="text-gray-400 text-xs ml-2">
+                Expires {{ invite.expires_at[:10] if invite.expires_at else '' }}
+            </span>
+        </div>
+        <form hx-post="/web/admin/invite/delete"
+              hx-target="#invite-list"
+              hx-swap="innerHTML">
+            <input type="hidden" name="token" value="{{ invite.token }}">
+            <button type="submit"
+                    class="text-xs text-red-400 hover:text-red-300 transition-colors">
+                Revoke
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-gray-500">No active invites.</p>
+{% endif %}
