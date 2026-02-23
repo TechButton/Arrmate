@@ -43,7 +43,7 @@ class CommandResponse(BaseModel):
 app = FastAPI(
     title="Arrmate API",
     description="Natural language interface for media management",
-    version="0.6.0",
+    version="0.7.0",
 )
 
 # Mount static files
@@ -55,6 +55,11 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 @app.exception_handler(AuthRedirectException)
 async def auth_redirect_handler(request: Request, exc: AuthRedirectException):
     if exc.is_htmx:
+        # Silently 204 must-change-password redirects — HTMX background polls
+        # (Plex now-playing strip, notification badge) would otherwise cause a
+        # full-page reload loop on the /web/change-password page.
+        if exc.login_url == "/web/change-password":
+            return Response(status_code=204)
         return Response(status_code=200, headers={"HX-Redirect": exc.login_url})
     return RedirectResponse(url=exc.login_url, status_code=303)
 
