@@ -31,6 +31,7 @@ from ...clients.plex import PlexClient
 from ...clients.plex_tv import PlexTVClient
 from ...clients.radarr import RadarrClient
 from ...clients.sonarr import SonarrClient
+from ...clients.tmdb import TMDBClient
 from ...clients.transcoder import cancel_job, get_all_jobs, get_job
 from ...config.settings import settings
 from ...core.command_parser import CommandParser
@@ -3018,6 +3019,213 @@ async def prowlarr_send(
             "components/toast.html",
             {"request": request, "type": "error", "message": str(e)},
         )
+
+
+# ── Discover (TMDB) ──────────────────────────────────────────────────────────
+
+_DISCOVER_CATEGORIES = {
+    "trending_movies": ("trending movies", "movie"),
+    "trending_tv": ("trending TV shows", "tv"),
+    "upcoming": ("upcoming movies", "movie"),
+    "now_playing": ("movies in theatres", "movie"),
+    "on_the_air": ("TV shows on the air", "tv"),
+    "popular_movies": ("popular movies", "movie"),
+    "popular_tv": ("popular TV shows", "tv"),
+    "top_rated_movies": ("top rated movies", "movie"),
+    "top_rated_tv": ("top rated TV shows", "tv"),
+}
+
+
+def _tmdb_client() -> TMDBClient | None:
+    if settings.tmdb_api_key:
+        return TMDBClient(settings.tmdb_api_key)
+    return None
+
+
+@router.get("/discover", response_class=HTMLResponse)
+async def discover_page(request: Request):
+    configured = bool(settings.tmdb_api_key)
+    sonarr_ok = bool(settings.sonarr_url and settings.sonarr_api_key)
+    radarr_ok = bool(settings.radarr_url and settings.radarr_api_key)
+    return templates.TemplateResponse(
+        "pages/discover.html",
+        {
+            "request": request,
+            "configured": configured,
+            "sonarr_ok": sonarr_ok,
+            "radarr_ok": radarr_ok,
+            **_base_ctx(request),
+        },
+    )
+
+
+@router.get("/discover/results", response_class=HTMLResponse)
+async def discover_results(
+    request: Request,
+    category: str = Query(default="trending_movies"),
+):
+    tmdb = _tmdb_client()
+    if not tmdb:
+        return templates.TemplateResponse(
+            "partials/discover_results.html",
+            {"request": request, "error": "TMDB_API_KEY not configured.", "items": []},
+        )
+
+    try:
+        if category == "trending_movies":
+            items = await tmdb.get_trending_movies()
+        elif category == "trending_tv":
+            items = await tmdb.get_trending_tv()
+        elif category == "upcoming":
+            items = await tmdb.get_upcoming_movies()
+        elif category == "now_playing":
+            items = await tmdb.get_now_playing()
+        elif category == "on_the_air":
+            items = await tmdb.get_tv_on_the_air()
+        elif category == "popular_movies":
+            items = await tmdb.get_popular_movies()
+        elif category == "popular_tv":
+            items = await tmdb.get_popular_tv()
+        elif category == "top_rated_movies":
+            items = await tmdb.get_top_rated_movies()
+        elif category == "top_rated_tv":
+            items = await tmdb.get_top_rated_tv()
+        else:
+            items = await tmdb.get_trending_movies()
+
+        media_type = _DISCOVER_CATEGORIES.get(category, ("", "movie"))[1]
+
+        # Enrich items with poster URL and clean year
+        for item in items:
+            item["poster"] = tmdb.poster_url(item.get("poster_path"), "w342")
+            raw = item.get("release_date") or item.get("first_air_date") or ""
+            item["year"] = raw[:4] if raw else ""
+            item["display_title"] = item.get("title") or item.get("name") or "Unknown"
+            item["rating"] = round(item.get("vote_average", 0), 1)
+            item["media_type"] = media_type
+
+        # For movies: fetch Radarr library TMDB IDs so we can show "In Library" badge
+        library_tmdb_ids: set[int] = set()
+        if media_type == "movie" and settings.radarr_url and settings.radarr_api_key:
+            try:
+                radarr = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+                all_movies = await radarr.get_all_movies()
+                await radarr.close()
+                library_tmdb_ids = {m["tmdbId"] for m in all_movies if m.get("tmdbId")}
+            except Exception:
+                pass
+
+        for item in items:
+            item["in_library"] = item.get("id") in library_tmdb_ids
+
+    except Exception as e:
+        logger.error("TMDB discover error: %s", e)
+        items = []
+        media_type = "movie"
+        return templates.TemplateResponse(
+            "partials/discover_results.html",
+            {"request": request, "error": str(e), "items": [], "media_type": media_type},
+        )
+    finally:
+        await tmdb.close()
+
+    sonarr_ok = bool(settings.sonarr_url and settings.sonarr_api_key)
+    radarr_ok = bool(settings.radarr_url and settings.radarr_api_key)
+
+    return templates.TemplateResponse(
+        "partials/discover_results.html",
+        {
+            "request": request,
+            "items": items,
+            "media_type": media_type,
+            "sonarr_ok": sonarr_ok,
+            "radarr_ok": radarr_ok,
+            "error": None,
+            **_base_ctx(request),
+        },
+    )
+
+
+@router.post("/discover/add", response_class=HTMLResponse)
+async def discover_add(
+    request: Request,
+    media_type: str = Form(...),
+    tmdb_id: int = Form(...),
+    title: str = Form(...),
+    _: None = Depends(require_power_user),
+):
+    """Add a discovered title to Radarr (movies) or Sonarr (TV)."""
+    try:
+        if media_type == "movie":
+            if not (settings.radarr_url and settings.radarr_api_key):
+                raise ValueError("Radarr is not configured")
+            radarr = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            profiles = await radarr.get_quality_profiles()
+            root_folders = await radarr.get_root_folders()
+            if not profiles or not root_folders:
+                raise ValueError("Radarr has no quality profiles or root folders configured")
+            added = await radarr.add_movie(
+                tmdb_id=tmdb_id,
+                title=title,
+                quality_profile_id=profiles[0]["id"],
+                root_folder_path=root_folders[0]["path"],
+            )
+            await radarr.close()
+            msg = f"Added '{added.get('title', title)}' to Radarr"
+            success = True
+
+        elif media_type == "tv":
+            if not (settings.sonarr_url and settings.sonarr_api_key):
+                raise ValueError("Sonarr is not configured")
+            # Get TVDB ID from TMDB
+            tmdb = _tmdb_client()
+            if not tmdb:
+                raise ValueError("TMDB API key not configured")
+            ext = await tmdb.get_external_ids(tmdb_id, "tv")
+            await tmdb.close()
+            tvdb_id = ext.get("tvdb_id")
+            if not tvdb_id:
+                raise ValueError(f"Could not find TVDB ID for '{title}' — it may not be in TVDB yet")
+
+            sonarr = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            profiles = await sonarr.get_quality_profiles()
+            root_folders = await sonarr.get_root_folders()
+            if not profiles or not root_folders:
+                raise ValueError("Sonarr has no quality profiles or root folders configured")
+            added = await sonarr.add_series(
+                tvdb_id=tvdb_id,
+                title=title,
+                quality_profile_id=profiles[0]["id"],
+                root_folder_path=root_folders[0]["path"],
+            )
+            await sonarr.close()
+            msg = f"Added '{added.get('title', title)}' to Sonarr"
+            success = True
+
+        else:
+            raise ValueError(f"Unknown media type: {media_type}")
+
+    except Exception as e:
+        err = str(e)
+        # "already in library" from Radarr/Sonarr returns a 400 with a message
+        if "already" in err.lower() or "exists" in err.lower():
+            msg = f"'{title}' is already in your library"
+            success = True  # treat as success — it's there
+        else:
+            msg = err
+            success = False
+
+    return templates.TemplateResponse(
+        "partials/discover_add_btn.html",
+        {
+            "request": request,
+            "success": success,
+            "message": msg,
+            "media_type": media_type,
+            "tmdb_id": tmdb_id,
+            "title": title,
+        },
+    )
 
 
 def _format_size(size_bytes: int) -> str:

@@ -166,6 +166,12 @@ class Settings(BaseSettings):
     )
     prowlarr_api_key: Optional[str] = Field(default=None, description="Prowlarr API key")
 
+    # TMDB (The Movie Database) — powers the Discover page
+    tmdb_api_key: Optional[str] = Field(
+        default=None,
+        description="TMDB API key for the Discover page (https://www.themoviedb.org/settings/api)",
+    )
+
     # Notification webhooks
     slack_webhook_url: Optional[str] = Field(
         default=None, description="Slack webhook URL for request notifications"

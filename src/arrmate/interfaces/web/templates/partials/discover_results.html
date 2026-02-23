@@ -1,0 +1,97 @@
+{% if error %}
+<div class="text-red-400 text-sm p-4 bg-red-900/20 rounded-lg border border-red-700/30">{{ error }}</div>
+
+{% elif not items %}
+<div class="text-center py-20 text-gray-500">
+    <div class="text-5xl mb-3">🎬</div>
+    <p>No results found.</p>
+</div>
+
+{% else %}
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    {% for item in items %}
+    <div class="group flex flex-col rounded-xl overflow-hidden bg-gray-800 border border-gray-700 hover:border-primary-600/60 transition-colors">
+
+        <!-- Poster -->
+        <div class="relative aspect-[2/3] bg-gray-900 flex-shrink-0">
+            {% if item.poster %}
+            <img src="{{ item.poster }}"
+                 alt="{{ item.display_title }}"
+                 class="w-full h-full object-cover"
+                 loading="lazy"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+            <div class="hidden absolute inset-0 items-center justify-center text-5xl bg-gray-900">
+                {{ '🎬' if item.media_type == 'movie' else '📺' }}
+            </div>
+            {% else %}
+            <div class="absolute inset-0 flex items-center justify-center text-5xl bg-gray-900">
+                {{ '🎬' if item.media_type == 'movie' else '📺' }}
+            </div>
+            {% endif %}
+
+            <!-- Rating badge -->
+            {% if item.rating and item.rating > 0 %}
+            <div class="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-sm text-xs font-semibold px-1.5 py-0.5 rounded text-yellow-400">
+                ★ {{ item.rating }}
+            </div>
+            {% endif %}
+
+            <!-- In Library badge -->
+            {% if item.in_library %}
+            <div class="absolute top-1.5 right-1.5 bg-green-900/80 backdrop-blur-sm text-xs font-medium px-1.5 py-0.5 rounded text-green-400 border border-green-700/50">
+                ✓ In Library
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Info + action -->
+        <div class="flex flex-col flex-1 p-2.5 gap-1.5">
+            <div>
+                <div class="text-white text-xs font-semibold leading-tight line-clamp-2">{{ item.display_title }}</div>
+                {% if item.year %}
+                <div class="text-gray-500 text-xs mt-0.5">{{ item.year }}</div>
+                {% endif %}
+            </div>
+
+            {% if item.overview %}
+            <p class="text-gray-400 text-xs leading-relaxed line-clamp-3 flex-1">{{ item.overview }}</p>
+            {% endif %}
+
+            <!-- Add button -->
+            <div class="mt-auto pt-1">
+                {% if item.in_library %}
+                <div class="w-full text-center text-xs py-1.5 rounded-lg bg-green-900/30 text-green-400 border border-green-800/40">
+                    ✓ In Library
+                </div>
+                {% elif item.media_type == 'movie' and radarr_ok %}
+                <button hx-post="/web/discover/add"
+                        hx-vals='{"tmdb_id": "{{ item.id }}", "media_type": "movie", "title": "{{ item.display_title | replace('"', '\\"') }}"}'
+                        hx-target="this"
+                        hx-swap="outerHTML"
+                        hx-indicator="this"
+                        class="w-full text-xs py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 text-white transition-colors text-center cursor-pointer font-medium
+                               htmx-indicator:opacity-60 htmx-indicator:cursor-wait">
+                    + Add to Radarr
+                </button>
+                {% elif item.media_type == 'tv' and sonarr_ok %}
+                <button hx-post="/web/discover/add"
+                        hx-vals='{"tmdb_id": "{{ item.id }}", "media_type": "tv", "title": "{{ item.display_title | replace('"', '\\"') }}"}'
+                        hx-target="this"
+                        hx-swap="outerHTML"
+                        hx-indicator="this"
+                        class="w-full text-xs py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 text-white transition-colors text-center cursor-pointer font-medium
+                               htmx-indicator:opacity-60 htmx-indicator:cursor-wait">
+                    + Add to Sonarr
+                </button>
+                {% else %}
+                <div class="w-full text-center text-xs py-1.5 rounded-lg bg-gray-700/50 text-gray-500 border border-gray-600/30">
+                    {{ 'Radarr' if item.media_type == 'movie' else 'Sonarr' }} not configured
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<p class="text-xs text-gray-600 mt-4">{{ items | length }} result{{ 's' if items | length != 1 else '' }} · Powered by TMDB</p>
+{% endif %}
