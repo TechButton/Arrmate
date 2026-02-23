@@ -1,15 +1,25 @@
 """Web routes for Arrmate HTMX interface."""
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ...auth import auth_manager
-from ...auth.dependencies import require_auth, safe_next_url
+from ...auth import user_db
+from ...auth.dependencies import (
+    get_current_user,
+    require_any_auth,
+    require_auth,
+    require_admin,
+    require_power_user,
+    safe_next_url,
+)
+from ...auth.notifications import notify_request_resolved, notify_request_submitted
 from ...auth.session import (
     clear_session_cookie,
     create_session_token,
@@ -18,6 +28,7 @@ from ...auth.session import (
 from ...clients.discovery import discover_services, get_client_for_media_type
 from ...config.service_config import save_service_config
 from ...clients.plex import PlexClient
+from ...clients.plex_tv import PlexTVClient
 from ...clients.radarr import RadarrClient
 from ...clients.sonarr import SonarrClient
 from ...clients.transcoder import cancel_job, get_all_jobs, get_job
@@ -32,7 +43,7 @@ logger = logging.getLogger(__name__)
 # Protected router — all routes require auth when enabled
 router = APIRouter(prefix="/web", tags=["web"], dependencies=[Depends(require_auth)])
 
-# Auth router — login/logout routes (no auth dependency)
+# Auth router — login/logout/register routes (no auth dependency)
 auth_router = APIRouter(prefix="/web", tags=["auth"])
 
 # Get templates directory
@@ -42,10 +53,38 @@ templates = Jinja2Templates(directory=str(templates_dir))
 # Make auth_manager available in all templates
 templates.env.globals["auth_manager"] = auth_manager
 
+
+def _timestamp_to_relative(ts: int) -> str:
+    """Convert a Unix timestamp to a human-readable relative string."""
+    import time
+    delta = int(time.time()) - ts
+    if delta < 60:
+        return "just now"
+    if delta < 3600:
+        m = delta // 60
+        return f"{m}m ago"
+    if delta < 86400:
+        h = delta // 3600
+        return f"{h}h ago"
+    if delta < 604800:
+        d = delta // 86400
+        return f"{d}d ago"
+    if delta < 2592000:
+        w = delta // 604800
+        return f"{w}w ago"
+    mo = delta // 2592000
+    return f"{mo}mo ago"
+
+
+templates.env.filters["timestamp_to_relative"] = _timestamp_to_relative
+
 # Global components (shared with API)
 parser: Optional[CommandParser] = None
 engine: Optional[IntentEngine] = None
 executor: Optional[Executor] = None
+
+# Destructive actions blocked for 'user' role
+_USER_BLOCKED_ACTIONS = {ActionType.REMOVE, ActionType.DELETE}
 
 
 async def get_parser() -> CommandParser:
@@ -80,15 +119,44 @@ def reset_parser() -> None:
     parser = None
 
 
+def _base_ctx(request: Request) -> dict:
+    """Base template context: current user + unread notification count."""
+    user = get_current_user(request)
+    unread = 0
+    if user:
+        uid = user.get("user_id") or user.get("id", "")
+        if uid and uid != "legacy":
+            try:
+                unread = user_db.get_unread_count(uid)
+            except Exception:
+                pass
+            # Merge must_change_password from DB into session dict
+            try:
+                db_user = user_db.get_user_by_id(uid)
+                if db_user:
+                    user = {**user, "must_change_password": db_user.get("must_change_password", 0)}
+            except Exception:
+                pass
+    return {"current_user": user, "unread_count": unread}
+
+
 # ===== Auth Routes (unprotected) =====
 
 
 @auth_router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request, next: str = Query(default="/web/"), error: str = Query(default="")):
-    """Login page."""
-    # If auth not required, redirect to dashboard
-    if not auth_manager.is_auth_required():
-        return RedirectResponse(url="/web/", status_code=303)
+async def login_page(
+    request: Request,
+    next: str = Query(default="/web/"),
+    error: str = Query(default=""),
+):
+    """Login page. Redirects to register only if truly no users exist."""
+    try:
+        no_users = not user_db.has_any_users()
+    except Exception:
+        no_users = False  # If DB check fails, show login page rather than risk a redirect loop
+
+    if no_users:
+        return RedirectResponse(url="/web/register", status_code=303)
 
     return templates.TemplateResponse(
         "pages/login.html",
@@ -108,14 +176,35 @@ async def login_submit(
     next: str = Form(default="/web/"),
 ):
     """Process login form submission."""
-    if auth_manager.verify(username, password):
-        token = create_session_token(username, auth_manager.get_secret_key())
-        redirect_url = safe_next_url(next)
-        response = RedirectResponse(url=redirect_url, status_code=303)
+    # Try new multi-user DB first
+    user = None
+    try:
+        user = user_db.verify_user(username, password)
+    except Exception:
+        pass
+
+    # Fall back to legacy single-user auth
+    if user is None and auth_manager.verify(username, password):
+        legacy_username = auth_manager.get_username() or username
+        user = {"user_id": "legacy", "username": legacy_username, "role": "admin"}
+
+    if user:
+        uid = user.get("user_id") or user.get("id", "")
+        token = create_session_token(
+            uid,
+            user["username"],
+            user["role"],
+            auth_manager.get_secret_key(),
+        )
+        # Redirect to change-password if required (e.g. default admin account)
+        if user.get("must_change_password"):
+            response = RedirectResponse(url="/web/change-password", status_code=303)
+        else:
+            redirect_url = safe_next_url(next)
+            response = RedirectResponse(url=redirect_url, status_code=303)
         set_session_cookie(response, token)
         return response
 
-    # Login failed
     return templates.TemplateResponse(
         "pages/login.html",
         {
@@ -129,33 +218,263 @@ async def login_submit(
 
 @auth_router.get("/logout")
 async def logout():
-    """Log out and redirect to login or dashboard."""
-    if auth_manager.is_auth_required():
-        response = RedirectResponse(url="/web/login", status_code=303)
-    else:
-        response = RedirectResponse(url="/web/", status_code=303)
+    """Log out and redirect to login."""
+    response = RedirectResponse(url="/web/login", status_code=303)
     clear_session_cookie(response)
+    return response
+
+
+@auth_router.get("/change-password", response_class=HTMLResponse)
+async def change_password_page(request: Request):
+    """Show the change-password form."""
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/web/login", status_code=303)
+    return templates.TemplateResponse(
+        "pages/change_password.html",
+        {"request": request, "error": None, **_base_ctx(request)},
+    )
+
+
+@auth_router.post("/change-password", response_class=HTMLResponse)
+async def change_password_submit(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    """Process the change-password form."""
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/web/login", status_code=303)
+
+    def _error(msg: str):
+        return templates.TemplateResponse(
+            "pages/change_password.html",
+            {"request": request, "error": msg, **_base_ctx(request)},
+            status_code=422,
+        )
+
+    if len(new_password) < 4:
+        return _error("New password must be at least 4 characters.")
+    if new_password != confirm_password:
+        return _error("Passwords do not match.")
+
+    uid = user.get("user_id") or user.get("id", "")
+    # Verify current password against DB (legacy users can skip)
+    if uid and uid != "legacy":
+        db_user = user_db.get_user_by_id(uid)
+        if db_user:
+            verified = user_db.verify_user(db_user["username"], current_password)
+            if not verified:
+                return _error("Current password is incorrect.")
+            user_db.change_password(uid, new_password)
+        else:
+            return _error("User not found.")
+    else:
+        return _error("Cannot change password for legacy accounts.")
+
+    return RedirectResponse(url="/web/", status_code=303)
+
+
+@auth_router.get("/register", response_class=HTMLResponse)
+async def register_page(
+    request: Request,
+    token: str = Query(default=""),
+    error: str = Query(default=""),
+):
+    """Register page for invite tokens or first-admin setup."""
+    try:
+        no_users = not user_db.has_any_users()
+    except Exception:
+        no_users = False
+
+    if no_users:
+        # First-admin setup — no token required
+        return templates.TemplateResponse(
+            "pages/register.html",
+            {
+                "request": request,
+                "token": "",
+                "is_first_admin": True,
+                "invite_role": "admin",
+                "error": error,
+            },
+        )
+
+    if not token:
+        return RedirectResponse(url="/web/login", status_code=303)
+
+    invite = user_db.validate_invite(token)
+    if not invite:
+        return templates.TemplateResponse(
+            "pages/register.html",
+            {
+                "request": request,
+                "token": token,
+                "is_first_admin": False,
+                "invite_role": None,
+                "error": "This invite link is invalid or has expired.",
+            },
+        )
+
+    return templates.TemplateResponse(
+        "pages/register.html",
+        {
+            "request": request,
+            "token": token,
+            "is_first_admin": False,
+            "invite_role": invite["role"],
+            "error": error,
+        },
+    )
+
+
+@auth_router.post("/register", response_class=HTMLResponse)
+async def register_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+    token: str = Form(default=""),
+):
+    """Process registration form."""
+    # Validate input
+    if len(username.strip()) < 1:
+        error = "Username is required"
+    elif len(password) < 4:
+        error = "Password must be at least 4 characters"
+    elif password != password_confirm:
+        error = "Passwords do not match"
+    else:
+        error = ""
+
+    if error:
+        try:
+            no_users = not user_db.has_any_users()
+        except Exception:
+            no_users = False
+        invite = user_db.validate_invite(token) if token else None
+        return templates.TemplateResponse(
+            "pages/register.html",
+            {
+                "request": request,
+                "token": token,
+                "is_first_admin": no_users,
+                "invite_role": invite["role"] if invite else ("admin" if no_users else None),
+                "error": error,
+            },
+            status_code=422,
+        )
+
+    username = username.strip()
+
+    try:
+        no_users = not user_db.has_any_users()
+    except Exception:
+        no_users = False
+
+    try:
+        if no_users:
+            # Create first admin
+            new_user = user_db.create_user(username, password, role="admin")
+        elif token:
+            new_user = user_db.use_invite(token, username, password)
+        else:
+            raise HTTPException(status_code=403, detail="Registration requires an invite")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("register_submit error: %s", exc)
+        return templates.TemplateResponse(
+            "pages/register.html",
+            {
+                "request": request,
+                "token": token,
+                "is_first_admin": no_users,
+                "invite_role": "admin" if no_users else None,
+                "error": "An internal error occurred. Please try again.",
+            },
+            status_code=500,
+        )
+
+    if not new_user:
+        invite = user_db.validate_invite(token) if token else None
+        return templates.TemplateResponse(
+            "pages/register.html",
+            {
+                "request": request,
+                "token": token,
+                "is_first_admin": no_users,
+                "invite_role": invite["role"] if invite else ("admin" if no_users else None),
+                "error": "Username already taken or invite is invalid.",
+            },
+            status_code=422,
+        )
+
+    # Log the new user in
+    session_token = create_session_token(
+        new_user["id"],
+        new_user["username"],
+        new_user["role"],
+        auth_manager.get_secret_key(),
+    )
+    response = RedirectResponse(url="/web/", status_code=303)
+    set_session_cookie(response, session_token)
     return response
 
 
 # ===== Full Page Routes =====
 
 
+async def _get_tv_count() -> int | None:
+    """Fetch number of series from Sonarr, returns None if unavailable."""
+    if not settings.sonarr_url or not settings.sonarr_api_key:
+        return None
+    client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+    try:
+        series = await client.get_all_series()
+        return len(series)
+    except Exception:
+        return None
+    finally:
+        await client.close()
+
+
+async def _get_movie_count() -> int | None:
+    """Fetch number of movies from Radarr, returns None if unavailable."""
+    if not settings.radarr_url or not settings.radarr_api_key:
+        return None
+    client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+    try:
+        movies = await client.get_all_movies()
+        return len(movies)
+    except Exception:
+        return None
+    finally:
+        await client.close()
+
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Dashboard page with overview."""
-    services = await discover_services()
-
-    # Count available services
+    services, tv_count, movie_count = await asyncio.gather(
+        discover_services(),
+        _get_tv_count(),
+        _get_movie_count(),
+    )
     available_count = sum(1 for s in services.values() if s.available)
 
     return templates.TemplateResponse(
         "pages/index.html",
         {
             "request": request,
+            **_base_ctx(request),
             "services": services,
             "available_count": available_count,
             "total_count": len(services),
+            "tv_count": tv_count,
+            "movie_count": movie_count,
         },
     )
 
@@ -167,6 +486,7 @@ async def command_page(request: Request):
         "pages/command.html",
         {
             "request": request,
+            **_base_ctx(request),
         },
     )
 
@@ -180,6 +500,7 @@ async def services_page(request: Request):
         "pages/services.html",
         {
             "request": request,
+            **_base_ctx(request),
             "services": services,
         },
     )
@@ -195,6 +516,7 @@ async def library_page(
         "pages/library.html",
         {
             "request": request,
+            **_base_ctx(request),
             "media_type": media_type,
         },
     )
@@ -207,6 +529,7 @@ async def search_page(request: Request):
         "pages/search.html",
         {
             "request": request,
+            **_base_ctx(request),
         },
     )
 
@@ -218,27 +541,320 @@ async def help_page(request: Request):
         "pages/help.html",
         {
             "request": request,
+            **_base_ctx(request),
             "version": "0.5.0",
         },
     )
 
 
-@router.get("/settings", response_class=HTMLResponse)
+@router.get("/settings", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 async def settings_page(request: Request):
-    """Settings page."""
+    """Settings page — admin only."""
     return templates.TemplateResponse(
         "pages/settings.html",
         {
             "request": request,
+            **_base_ctx(request),
             "settings": settings,
         },
+    )
+
+
+# ===== Admin Routes =====
+
+
+@router.get("/admin", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def admin_page(request: Request):
+    """Admin panel: user management, invites, pending requests."""
+    users = user_db.list_users()
+    invites = user_db.list_invites(include_used=False)
+    pending = user_db.list_requests(status="pending")
+
+    # Enrich requests with requester username
+    user_map = {u["id"]: u["username"] for u in users}
+    for req in pending:
+        req["requester_name"] = user_map.get(req["requested_by"], "Unknown")
+
+    return templates.TemplateResponse(
+        "pages/admin.html",
+        {
+            "request": request,
+            **_base_ctx(request),
+            "users": users,
+            "invites": invites,
+            "pending_requests": pending,
+        },
+    )
+
+
+@router.post("/admin/invite/create", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
+async def admin_create_invite(
+    request: Request,
+    role: str = Form(default="user"),
+    ttl_hours: int = Form(default=48),
+):
+    """Create an invite link."""
+    current_user = get_current_user(request)
+    admin_id = current_user["user_id"] if current_user else "system"
+    token = user_db.create_invite(role, created_by=admin_id, ttl_hours=ttl_hours)
+    invite_url = f"{request.base_url}web/register?token={token}"
+
+    invites = user_db.list_invites(include_used=False)
+    return templates.TemplateResponse(
+        "partials/invite_list.html",
+        {
+            "request": request,
+            "invites": invites,
+            "new_invite_url": invite_url,
+            "new_invite_role": role,
+        },
+    )
+
+
+@router.post("/admin/invite/delete", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
+async def admin_delete_invite(
+    request: Request,
+    token: str = Form(...),
+):
+    """Delete (revoke) an invite."""
+    user_db.delete_invite(token)
+    invites = user_db.list_invites(include_used=False)
+    return templates.TemplateResponse(
+        "partials/invite_list.html",
+        {"request": request, "invites": invites},
+    )
+
+
+@router.post("/admin/user/{user_id}/role", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
+async def admin_set_role(
+    request: Request,
+    user_id: str,
+    role: str = Form(...),
+):
+    """Change a user's role."""
+    current_user = get_current_user(request)
+    # Prevent admin from demoting themselves
+    if current_user and current_user["user_id"] == user_id and role != "admin":
+        pass  # Allow — admin can change their own role if they want
+    user_db.update_user(user_id, role=role)
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {"request": request, "type": "success", "message": "Role updated"},
+        headers={"HX-Trigger": "user-updated"},
+    )
+
+
+@router.post("/admin/user/{user_id}/toggle", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
+async def admin_toggle_user(
+    request: Request,
+    user_id: str,
+    enabled: str = Form(...),
+):
+    """Enable or disable a user account."""
+    new_state = enabled.lower() in ("true", "1", "on")
+    user_db.update_user(user_id, enabled=1 if new_state else 0)
+    label = "enabled" if new_state else "disabled"
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {"request": request, "type": "success", "message": f"User {label}"},
+        headers={"HX-Trigger": "user-updated"},
+    )
+
+
+@router.post("/admin/user/{user_id}/delete", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
+async def admin_delete_user(
+    request: Request,
+    user_id: str,
+):
+    """Delete a user account."""
+    current_user = get_current_user(request)
+    if current_user and current_user["user_id"] == user_id:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Cannot delete your own account"},
+        )
+    user_db.delete_user(user_id)
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {"request": request, "type": "success", "message": "User deleted"},
+        headers={"HX-Trigger": "user-updated"},
+    )
+
+
+# ===== Requests Routes =====
+
+
+@router.get("/requests", response_class=HTMLResponse)
+async def requests_page(request: Request):
+    """Media requests page — all users can view and submit."""
+    current_user = get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/web/login", status_code=303)
+
+    role = current_user.get("role", "user")
+    if role in ("admin", "power_user"):
+        all_requests = user_db.list_requests()
+        # Enrich with usernames
+        users = {u["id"]: u["username"] for u in user_db.list_users()}
+        for req in all_requests:
+            req["requester_name"] = users.get(req["requested_by"], "Unknown")
+            if req.get("resolved_by"):
+                req["resolver_name"] = users.get(req["resolved_by"], "Unknown")
+            else:
+                req["resolver_name"] = None
+    else:
+        all_requests = user_db.list_requests(user_id=current_user["user_id"])
+        for req in all_requests:
+            req["requester_name"] = current_user["username"]
+            req["resolver_name"] = None
+
+    return templates.TemplateResponse(
+        "pages/requests.html",
+        {
+            "request": request,
+            **_base_ctx(request),
+            "requests": all_requests,
+            "current_user": current_user,
+        },
+    )
+
+
+@router.post("/requests/new", response_class=HTMLResponse)
+async def new_request(
+    request: Request,
+    title: str = Form(...),
+    request_type: str = Form(default="media"),
+    details: str = Form(default=""),
+    media_type: str = Form(default=""),
+):
+    """Submit a new media request or issue report."""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    req = user_db.create_request(
+        request_type=request_type,
+        user_id=current_user["user_id"],
+        title=title,
+        details=details,
+        media_type=media_type,
+    )
+    try:
+        notify_request_submitted(req, settings)
+    except Exception as e:
+        logger.warning("Failed to send request notification: %s", e)
+
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {
+            "request": request,
+            "type": "success",
+            "message": f"Request submitted: '{title}'",
+        },
+        headers={"HX-Trigger": "request-updated"},
+    )
+
+
+@router.post("/requests/{req_id}/resolve", response_class=HTMLResponse)
+async def resolve_request(
+    request: Request,
+    req_id: str,
+    status: str = Form(...),
+    notes: str = Form(default=""),
+):
+    """Approve, complete, or reject a request — admin/power_user only."""
+    current_user = get_current_user(request)
+    if not current_user or current_user.get("role") not in ("admin", "power_user"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    req = user_db.get_request(req_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    user_db.update_request(req_id, status=status, resolved_by=current_user["user_id"], notes=notes)
+    updated_req = user_db.get_request(req_id)
+    if updated_req:
+        try:
+            notify_request_resolved(updated_req, settings)
+        except Exception as e:
+            logger.warning("Failed to send resolve notification: %s", e)
+
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {
+            "request": request,
+            "type": "success",
+            "message": f"Request marked as {status}",
+        },
+        headers={"HX-Trigger": "request-updated"},
+    )
+
+
+# ===== Notification Routes =====
+
+
+@router.get("/notifications", response_class=HTMLResponse)
+async def notifications_panel(request: Request):
+    """HTMX partial: notification dropdown panel."""
+    current_user = get_current_user(request)
+    if not current_user or current_user.get("user_id") == "legacy":
+        return templates.TemplateResponse(
+            "partials/notifications_panel.html",
+            {"request": request, "notifications": [], "unread_count": 0},
+        )
+    notifications = user_db.get_notifications(current_user["user_id"])
+    unread = sum(1 for n in notifications if not n["read"])
+    return templates.TemplateResponse(
+        "partials/notifications_panel.html",
+        {
+            "request": request,
+            "notifications": notifications,
+            "unread_count": unread,
+        },
+    )
+
+
+@router.get("/notifications/count", response_class=HTMLResponse)
+async def notifications_count(request: Request):
+    """HTMX partial: just the unread badge count (polled every 30s)."""
+    current_user = get_current_user(request)
+    unread = 0
+    if current_user and current_user.get("user_id") not in (None, "legacy"):
+        try:
+            unread = user_db.get_unread_count(current_user["user_id"])
+        except Exception:
+            pass
+    return templates.TemplateResponse(
+        "partials/notification_count.html",
+        {"request": request, "unread_count": unread},
+    )
+
+
+@router.post("/notifications/read", response_class=HTMLResponse)
+async def mark_notifications_read(request: Request):
+    """Mark all notifications as read."""
+    current_user = get_current_user(request)
+    if current_user and current_user.get("user_id") not in (None, "legacy"):
+        try:
+            user_db.mark_notifications_read(current_user["user_id"])
+        except Exception:
+            pass
+    return templates.TemplateResponse(
+        "partials/notifications_panel.html",
+        {"request": request, "notifications": [], "unread_count": 0},
     )
 
 
 # ===== Settings Auth Actions =====
 
 
-@router.post("/settings/auth/set", response_class=HTMLResponse)
+@router.post("/settings/auth/set", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
 async def auth_set(
     request: Request,
     username: str = Form(...),
@@ -263,7 +879,9 @@ async def auth_set(
     auth_manager.set_credentials(username.strip(), password)
 
     # Set session cookie so the user stays logged in
-    token = create_session_token(username.strip(), auth_manager.get_secret_key())
+    token = create_session_token(
+        "legacy", username.strip(), "admin", auth_manager.get_secret_key()
+    )
     response = templates.TemplateResponse(
         "partials/auth_settings.html",
         {"request": request, "auth_success": "Authentication enabled"},
@@ -272,15 +890,17 @@ async def auth_set(
     return response
 
 
-@router.post("/settings/auth/enable", response_class=HTMLResponse)
+@router.post("/settings/auth/enable", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
 async def auth_enable(request: Request):
     """Re-enable auth."""
     auth_manager.enable()
 
-    # Set session cookie so the current user stays logged in
     username = auth_manager.get_username()
     if username:
-        token = create_session_token(username, auth_manager.get_secret_key())
+        token = create_session_token(
+            "legacy", username, "admin", auth_manager.get_secret_key()
+        )
         response = templates.TemplateResponse(
             "partials/auth_settings.html",
             {"request": request, "auth_success": "Authentication re-enabled"},
@@ -294,7 +914,8 @@ async def auth_enable(request: Request):
     )
 
 
-@router.post("/settings/auth/disable", response_class=HTMLResponse)
+@router.post("/settings/auth/disable", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
 async def auth_disable(request: Request):
     """Disable auth without deleting credentials."""
     auth_manager.disable()
@@ -304,7 +925,8 @@ async def auth_disable(request: Request):
     )
 
 
-@router.post("/settings/auth/delete", response_class=HTMLResponse)
+@router.post("/settings/auth/delete", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
 async def auth_delete(request: Request):
     """Delete all credentials."""
     auth_manager.delete()
@@ -319,16 +941,68 @@ async def auth_delete(request: Request):
 # ===== Service Settings =====
 
 
-@router.post("/settings/services", response_class=HTMLResponse)
+@router.post("/settings/services", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
 async def save_services(request: Request):
     """Save service URLs and API keys to persistent config."""
-    form = await request.form()
-    save_service_config(dict(form))
-    # Reset parser so the next command re-discovers available services
-    reset_parser()
+    try:
+        form = await request.form()
+        save_service_config({k: v for k, v in form.multi_items()})
+        reset_parser()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "success", "message": "Settings saved"},
+        )
+    except Exception as e:
+        logger.error("Failed to save service config: %s", e)
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": f"Failed to save: {e}"},
+        )
+
+
+# ===== Notification Webhook Test Routes =====
+
+
+@router.post("/settings/notifications/test/slack", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
+async def test_slack_webhook(request: Request):
+    """Send a test Slack notification."""
+    from ...auth.notifications import send_slack
+    if not settings.slack_webhook_url:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "No Slack webhook configured"},
+        )
+    ok = send_slack(settings.slack_webhook_url, "Arrmate test notification", title="Test")
     return templates.TemplateResponse(
         "components/toast.html",
-        {"request": request, "type": "success", "message": "Settings saved"},
+        {
+            "request": request,
+            "type": "success" if ok else "error",
+            "message": "Slack test sent!" if ok else "Slack test failed — check webhook URL",
+        },
+    )
+
+
+@router.post("/settings/notifications/test/discord", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
+async def test_discord_webhook(request: Request):
+    """Send a test Discord notification."""
+    from ...auth.notifications import send_discord
+    if not settings.discord_webhook_url:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "No Discord webhook configured"},
+        )
+    ok = send_discord(settings.discord_webhook_url, "Arrmate test notification", title="Test")
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {
+            "request": request,
+            "type": "success" if ok else "error",
+            "message": "Discord test sent!" if ok else "Discord test failed — check webhook URL",
+        },
     )
 
 
@@ -362,11 +1036,19 @@ async def parse_command(request: Request, command: str = Form(...)):
 
 
 @router.post("/command/execute", response_class=HTMLResponse)
-async def execute_command(request: Request, command: str = Form(...), mode: str = Form(default="")):
+async def execute_command(
+    request: Request,
+    command: str = Form(...),
+    mode: str = Form(default=""),
+):
     """Execute command and return result HTML with toast.
 
     mode: optional override — "transcode" to run FFmpeg instead of Sonarr/Radarr search.
+    'user' role cannot execute REMOVE or DELETE actions.
     """
+    current_user = get_current_user(request)
+    user_role = current_user.get("role", "user") if current_user else "user"
+
     try:
         # Parse
         cmd_parser = await get_parser()
@@ -379,6 +1061,24 @@ async def execute_command(request: Request, command: str = Form(...), mode: str 
         # If the user explicitly chose transcode mode, override the action
         if mode == "transcode":
             enriched.action = ActionType.TRANSCODE
+
+        # Role-based action restriction: 'user' cannot delete/remove
+        if user_role == "user" and enriched.action in _USER_BLOCKED_ACTIONS:
+            return templates.TemplateResponse(
+                "partials/execution_result.html",
+                {
+                    "request": request,
+                    "result": {
+                        "success": False,
+                        "message": "You don't have permission to remove or delete media. "
+                                   "Submit a request instead.",
+                        "errors": ["Insufficient permissions for this action"],
+                    },
+                    "show_toast": True,
+                    "toast_type": "error",
+                    "toast_message": "Permission denied: cannot remove media",
+                },
+            )
 
         # Validate
         errors = intent_engine.validate(enriched)
@@ -462,7 +1162,6 @@ async def library_items(
                 raw_items = await client.get_all_series()
                 for item in raw_items:
                     item_id = item.get("id")
-                    # Use remoteUrl from images array for poster (public TVDB/TMDB URL)
                     poster_url = None
                     for img in item.get("images", []):
                         if img.get("coverType") == "poster":
@@ -513,17 +1212,13 @@ async def library_items(
         finally:
             await client.close()
 
-        # Sort by title
         items.sort(key=lambda x: x["title"].lower())
-
-        # Paginate
         start = (page - 1) * page_size
         end = start + page_size
         has_more = end < len(items)
         items = items[start:end]
 
     except ValueError as e:
-        # Service not configured - return empty with message
         logger.debug(f"Service not configured for {media_type}: {e}")
     except Exception as e:
         logger.error(f"Error fetching library items: {e}")
@@ -536,6 +1231,7 @@ async def library_items(
             "media_type": media_type,
             "page": page,
             "has_more": has_more,
+            **_base_ctx(request),
         },
     )
 
@@ -553,7 +1249,7 @@ async def search_results(
         client = get_client_for_media_type(media_type)
         try:
             raw_results = await client.search(query)
-            for item in raw_results[:20]:  # Limit to 20 results
+            for item in raw_results[:20]:
                 result = {
                     "title": item.get("title", "Unknown"),
                     "media_type": media_type,
@@ -566,7 +1262,6 @@ async def search_results(
                     "quality_profiles": None,
                 }
 
-                # Extract poster URL from images array
                 images = item.get("images") or item.get("remotePoster")
                 if isinstance(images, list):
                     for img in images:
@@ -576,7 +1271,6 @@ async def search_results(
                 elif isinstance(images, str):
                     result["poster_url"] = images
 
-                # Extract rating
                 ratings = item.get("ratings")
                 if ratings and isinstance(ratings, dict):
                     value = ratings.get("value")
@@ -599,6 +1293,7 @@ async def search_results(
             "results": results,
             "query": query,
             "media_type": media_type,
+            **_base_ctx(request),
         },
     )
 
@@ -613,7 +1308,6 @@ async def add_to_library(
     try:
         client = get_client_for_media_type(media_type)
         try:
-            # Search for the item
             results = await client.search(title)
             if not results:
                 return templates.TemplateResponse(
@@ -625,7 +1319,6 @@ async def add_to_library(
                     },
                 )
 
-            # Get quality profiles and root folders
             profiles = await client.get_quality_profiles()
             root_folders = await client.get_root_folders()
 
@@ -673,11 +1366,7 @@ async def add_to_library(
     except ValueError as e:
         return templates.TemplateResponse(
             "components/toast.html",
-            {
-                "request": request,
-                "type": "error",
-                "message": str(e),
-            },
+            {"request": request, "type": "error", "message": str(e)},
         )
     except Exception as e:
         return templates.TemplateResponse(
@@ -690,13 +1379,13 @@ async def add_to_library(
         )
 
 
-@router.get("/transcode", response_class=HTMLResponse)
+@router.get("/transcode", response_class=HTMLResponse, dependencies=[Depends(require_power_user)])
 async def transcode_page(request: Request):
     """Transcode job status page."""
     jobs = get_all_jobs()
     return templates.TemplateResponse(
         "pages/transcode.html",
-        {"request": request, "jobs": jobs},
+        {"request": request, **_base_ctx(request), "jobs": jobs},
     )
 
 
@@ -728,7 +1417,6 @@ async def transcode_cancel(request: Request, job_id: str):
 
 # ===== Plex Hub =====
 
-# Common Butler tasks with friendly labels
 BUTLER_TASKS = [
     {"name": "CleanOldBundles", "label": "Clean Old Bundles", "desc": "Remove unused bundle data"},
     {"name": "CleanOldCacheFiles", "label": "Clean Cache Files", "desc": "Delete stale cached files"},
@@ -749,6 +1437,13 @@ def _plex_client() -> PlexClient | None:
     return None
 
 
+def _plex_tv_client() -> PlexTVClient | None:
+    """Return a PlexTVClient if Plex token is available, else None."""
+    if settings.plex_token:
+        return PlexTVClient(settings.plex_token)
+    return None
+
+
 def _plex_thumb_url(path: str) -> str:
     """Build a proxied Plex thumbnail URL (keeps token server-side)."""
     import urllib.parse
@@ -757,7 +1452,7 @@ def _plex_thumb_url(path: str) -> str:
 
 @router.get("/plex", response_class=HTMLResponse)
 async def plex_page(request: Request):
-    """Plex hub page with history, continue watching, on deck, recently added, butler."""
+    """Plex hub page."""
     plex = _plex_client()
     configured = plex is not None
     accounts = []
@@ -770,7 +1465,13 @@ async def plex_page(request: Request):
             await plex.close()
     return templates.TemplateResponse(
         "pages/plex.html",
-        {"request": request, "configured": configured, "accounts": accounts, "butler_tasks": BUTLER_TASKS},
+        {
+            "request": request,
+            **_base_ctx(request),
+            "configured": configured,
+            "accounts": accounts,
+            "butler_tasks": BUTLER_TASKS,
+        },
     )
 
 
@@ -804,9 +1505,14 @@ async def plex_thumb(path: str = Query(...)):
 async def plex_history(
     request: Request,
     account_id: int = Query(default=0),
-    limit: int = Query(default=50, le=200),
+    days: int = Query(default=7, ge=0),  # 0 = all time
 ):
-    """HTMX partial: watch history, optionally filtered by user account."""
+    """HTMX partial: watch history."""
+    import time as _time
+    cutoff = int(_time.time()) - (days * 86400) if days > 0 else 0
+    # Fetch more items when a short window is selected so we don't miss entries
+    fetch_limit = 500 if days > 0 else 200
+
     items = []
     error = None
     plex = _plex_client()
@@ -814,18 +1520,31 @@ async def plex_history(
         try:
             raw = await plex.get_history(
                 account_id=account_id if account_id else None,
-                limit=limit,
+                limit=fetch_limit,
             )
             for item in raw:
+                viewed_at = item.get("viewedAt", 0)
+                # Skip items with no timestamp
+                if viewed_at == 0:
+                    continue
+                # Skip items older than the cutoff (don't break — multi-user results
+                # may not be strictly newest-first across all accounts)
+                if cutoff and viewed_at < cutoff:
+                    continue
                 media_type = item.get("type", "")
                 if media_type == "episode":
-                    title = f"{item.get('grandparentTitle', '')} — {item.get('title', '')}"
+                    show = item.get("grandparentTitle") or item.get("title") or ""
+                    ep_title = item.get("title", "")
+                    title = f"{show} — {ep_title}" if show else ep_title
                     subtitle = f"S{item.get('parentIndex', 0):02d}E{item.get('index', 0):02d}"
                 else:
-                    title = item.get("title", "Unknown")
+                    title = item.get("title") or ""
                     subtitle = str(item.get("year", "")) if item.get("year") else ""
-                viewed_at = item.get("viewedAt", 0)
+                # Skip entries with no usable title (e.g. media removed from library)
+                if not title:
+                    continue
                 thumb = _plex_thumb_url(item.get("thumb", "")) if item.get("thumb") else None
+                user_info = item.get("User", {})
                 items.append({
                     "title": title,
                     "subtitle": subtitle,
@@ -833,6 +1552,7 @@ async def plex_history(
                     "viewed_at": viewed_at,
                     "thumb": thumb,
                     "rating_key": item.get("ratingKey"),
+                    "user": user_info.get("title", "") if isinstance(user_info, dict) else "",
                 })
         except Exception as e:
             error = str(e)
@@ -842,7 +1562,7 @@ async def plex_history(
         error = "Plex is not configured"
     return templates.TemplateResponse(
         "partials/plex_history.html",
-        {"request": request, "items": items, "error": error},
+        {"request": request, "items": items, "error": error, "days": days},
     )
 
 
@@ -890,7 +1610,7 @@ async def plex_continue_watching(request: Request):
 
 @router.get("/plex/ondeck", response_class=HTMLResponse)
 async def plex_on_deck(request: Request):
-    """HTMX partial: on deck items (next episodes)."""
+    """HTMX partial: on deck items."""
     items = []
     error = None
     plex = _plex_client()
@@ -1128,6 +1848,175 @@ async def plex_detect_credits(request: Request, rating_key: str):
         await plex.close()
 
 
+# ===== Plex Share Server =====
+
+
+@router.get(
+    "/plex/share",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_power_user)],
+)
+async def plex_share_panel(request: Request):
+    """HTMX partial: share server management (invite + current shares)."""
+    plex = _plex_client()
+    plex_tv = _plex_tv_client()
+
+    libraries: list = []
+    friends: list = []
+    machine_id: str | None = None
+    error: str | None = None
+
+    if not plex or not plex_tv:
+        error = "Plex is not configured (PLEX_URL and PLEX_TOKEN required)"
+    else:
+        try:
+            machine_id, raw_libs, raw_friends = await asyncio.gather(
+                plex.get_machine_identifier(),
+                plex.get_libraries(),
+                plex_tv.get_friends(),
+                return_exceptions=True,
+            )
+            if isinstance(machine_id, Exception):
+                machine_id = None
+            if isinstance(raw_libs, Exception):
+                raw_libs = []
+            if isinstance(raw_friends, Exception):
+                raw_friends = []
+                error = "Could not load friends list from plex.tv"
+
+            # Build clean library list (key as int for matching)
+            for lib in (raw_libs or []):
+                libraries.append({
+                    "key": int(lib.get("key", 0)),
+                    "title": lib.get("title", ""),
+                    "type": lib.get("type", ""),
+                })
+
+            # Filter friends to those who have access to THIS server
+            for f in (raw_friends or []):
+                servers = f.get("servers") or []
+                on_this_server = any(
+                    s.get("machineIdentifier") == machine_id for s in servers
+                )
+                if on_this_server:
+                    server_info = next(
+                        (s for s in servers if s.get("machineIdentifier") == machine_id),
+                        {},
+                    )
+                    shared_sections = server_info.get("sections") or []
+                    friends.append({
+                        "id": f.get("id"),
+                        "username": f.get("title") or f.get("username") or "Unknown",
+                        "email": f.get("email", ""),
+                        "thumb": f.get("thumb", ""),
+                        "all_libraries": server_info.get("allLibraries", False),
+                        "section_titles": [s.get("title", "") for s in shared_sections],
+                    })
+        except Exception as e:
+            error = str(e)
+        finally:
+            await plex.close()
+            await plex_tv.close()
+
+    return templates.TemplateResponse(
+        "partials/plex_share.html",
+        {
+            "request": request,
+            "libraries": libraries,
+            "friends": friends,
+            "machine_id": machine_id,
+            "error": error,
+        },
+    )
+
+
+@router.post(
+    "/plex/share/invite",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_power_user)],
+)
+async def plex_share_invite(request: Request):
+    """Send a Plex server share invite to an email address."""
+    form = await request.form()
+    email = (form.get("email") or "").strip()
+    # section_ids comes as one or more values; empty = share all
+    raw_ids = form.getlist("section_ids")
+    section_ids = [int(v) for v in raw_ids if v.isdigit()]
+
+    if not email:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Email address is required"},
+        )
+
+    plex = _plex_client()
+    plex_tv = _plex_tv_client()
+    if not plex or not plex_tv:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+
+    try:
+        machine_id = await plex.get_machine_identifier()
+        await plex.close()
+        if not machine_id:
+            return templates.TemplateResponse(
+                "components/toast.html",
+                {"request": request, "type": "error", "message": "Could not get Plex server ID"},
+            )
+        await plex_tv.share_server(machine_id, email, section_ids)
+        lib_note = "all libraries" if not section_ids else f"{len(section_ids)} librar{'y' if len(section_ids) == 1 else 'ies'}"
+        resp = templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "success", "message": f"Invite sent to {email} ({lib_note})"},
+        )
+        resp.headers["HX-Trigger"] = "plexShareUpdated"
+        return resp
+    except Exception as e:
+        msg = str(e)
+        if "400" in msg:
+            msg = "Could not send invite — user may already have access, or email not found on plex.tv"
+        elif "401" in msg or "403" in msg:
+            msg = "Authentication failed — check your PLEX_TOKEN"
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": msg},
+        )
+    finally:
+        await plex_tv.close()
+
+
+@router.post(
+    "/plex/share/remove/{friend_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_power_user)],
+)
+async def plex_share_remove(request: Request, friend_id: int):
+    """Revoke a friend's access to this Plex server."""
+    plex_tv = _plex_tv_client()
+    if not plex_tv:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        ok = await plex_tv.remove_friend(friend_id)
+        resp = templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "error",
+                "message": "Access revoked" if ok else "Failed to revoke access",
+            },
+        )
+        if ok:
+            resp.headers["HX-Trigger"] = "plexShareUpdated"
+        return resp
+    finally:
+        await plex_tv.close()
+
+
 # ===== Plex Now Playing =====
 
 
@@ -1268,14 +2157,15 @@ async def more_seasons(
         )
 
 
-@router.post("/library/remove", response_class=HTMLResponse)
+@router.post("/library/remove", response_class=HTMLResponse,
+             dependencies=[Depends(require_power_user)])
 async def remove_item(
     request: Request,
     item_id: int = Form(...),
     media_type: str = Form(...),
     title: str = Form(...),
 ):
-    """Remove a movie or TV series and delete its files."""
+    """Remove a movie or TV series and delete its files — power_user/admin only."""
     try:
         if media_type == "movie":
             client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
@@ -1330,10 +2220,13 @@ async def library_poster(service: str, item_id: int):
 # ===== Downloads page =====
 
 
-@router.get("/downloads", response_class=HTMLResponse)
+@router.get("/downloads", response_class=HTMLResponse, dependencies=[Depends(require_power_user)])
 async def downloads_page(request: Request):
     """Download manager overview page."""
-    return templates.TemplateResponse("pages/downloads.html", {"request": request})
+    return templates.TemplateResponse(
+        "pages/downloads.html",
+        {"request": request, **_base_ctx(request)},
+    )
 
 
 @router.get("/downloads/status", response_class=HTMLResponse)

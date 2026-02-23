@@ -67,19 +67,21 @@ class OllamaProvider(BaseLLMProvider):
             )
 
             # Extract tool call from response
-            message = response.get("message", {})
-            tool_calls = message.get("tool_calls", [])
+            # The ollama library returns typed objects (not dicts)
+            message = response.message
+            tool_calls = message.tool_calls or []
 
             if tool_calls:
                 # Get the first tool call (should be parse_media_command)
                 tool_call = tool_calls[0]
-                function_args = tool_call.get("function", {}).get("arguments", {})
+                # function.arguments is already a dict in the ollama library
+                function_args = tool_call.function.arguments
 
                 if function_args:
-                    return function_args
+                    return dict(function_args)
 
             # Fallback: try to extract JSON from the text response
-            content = message.get("content", "")
+            content = message.content or ""
             if content:
                 extracted = self._extract_json_from_text(content)
                 if extracted:
@@ -165,4 +167,4 @@ class OllamaProvider(BaseLLMProvider):
             messages=messages,
         )
 
-        return response.get("message", {}).get("content", "")
+        return response.message.content or ""

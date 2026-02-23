@@ -30,16 +30,33 @@ def safe_next_url(url: str | None) -> str:
     return url
 
 
-async def require_auth(request: Request) -> None:
-    """Web route dependency — redirect to login if auth is required and not authenticated."""
-    if not auth_manager.is_auth_required():
-        return
-
+def get_current_user(request: Request) -> dict | None:
+    """Get the current user from session cookie. Returns user dict or None."""
     token = request.cookies.get(SESSION_COOKIE)
-    if token:
-        username = validate_session_token(token, auth_manager.get_secret_key())
-        if username:
-            return
+    if not token:
+        return None
+    return validate_session_token(token, auth_manager.get_secret_key())
+
+
+async def require_any_auth(request: Request) -> None:
+    """Web route dependency — always require authentication."""
+    user = get_current_user(request)
+    if user:
+        # Enforce must_change_password: block access to all protected routes until changed
+        uid = user.get("user_id") or user.get("id", "")
+        if uid and uid != "legacy":
+            try:
+                from .user_db import get_user_by_id
+                db_user = get_user_by_id(uid)
+                if db_user and db_user.get("must_change_password"):
+                    if request.url.path != "/web/change-password":
+                        is_htmx = bool(request.headers.get("HX-Request"))
+                        raise AuthRedirectException("/web/change-password", is_htmx=is_htmx)
+            except AuthRedirectException:
+                raise
+            except Exception:
+                pass
+        return
 
     next_url = str(request.url.path)
     if request.url.query:
@@ -47,8 +64,37 @@ async def require_auth(request: Request) -> None:
 
     login_url = f"/web/login?next={next_url}"
     is_htmx = bool(request.headers.get("HX-Request"))
-
     raise AuthRedirectException(login_url, is_htmx=is_htmx)
+
+
+# Backwards-compat alias
+async def require_auth(request: Request) -> None:
+    """Backwards-compat alias for require_any_auth."""
+    return await require_any_auth(request)
+
+
+async def require_admin(request: Request) -> None:
+    """Redirect to login if not authenticated; 403 if not admin."""
+    user = get_current_user(request)
+    if not user:
+        next_url = str(request.url.path)
+        login_url = f"/web/login?next={next_url}"
+        is_htmx = bool(request.headers.get("HX-Request"))
+        raise AuthRedirectException(login_url, is_htmx=is_htmx)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
+async def require_power_user(request: Request) -> None:
+    """Redirect to login if not authenticated; 403 if not admin or power_user."""
+    user = get_current_user(request)
+    if not user:
+        next_url = str(request.url.path)
+        login_url = f"/web/login?next={next_url}"
+        is_htmx = bool(request.headers.get("HX-Request"))
+        raise AuthRedirectException(login_url, is_htmx=is_htmx)
+    if user.get("role") not in ("admin", "power_user"):
+        raise HTTPException(status_code=403, detail="Power user or admin access required")
 
 
 async def require_api_auth(request: Request) -> None:
