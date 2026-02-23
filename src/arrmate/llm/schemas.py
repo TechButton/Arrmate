@@ -24,6 +24,13 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                     "transcode",
                     "rate",
                     "butler",
+                    "queue",
+                    "history",
+                    "wanted",
+                    "monitor",
+                    "unmonitor",
+                    "rename",
+                    "rescan",
                 ],
                 "description": (
                     "The action to perform: "
@@ -37,7 +44,14 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                     "'sync_subtitles' = sync existing subtitles via Bazarr, "
                     "'transcode' = convert media files to H265/HEVC to save disk space, "
                     "'rate' = rate a Plex item (1-5 stars), "
-                    "'butler' = run a Plex Butler maintenance task"
+                    "'butler' = run a Plex Butler maintenance task, "
+                    "'queue' = show what is currently downloading in Sonarr/Radarr, "
+                    "'history' = show recent downloads/imports, "
+                    "'wanted' = show monitored media that has no file yet (missing/cutoff), "
+                    "'monitor' = enable monitoring for a show, movie, or episode, "
+                    "'unmonitor' = disable monitoring for a show, movie, or episode, "
+                    "'rename' = rename files on disk to match naming convention, "
+                    "'rescan' = rescan disk for a series or movie"
                 ),
             },
             "media_type": {
@@ -229,6 +243,45 @@ Audiobook / book examples:
 - "search for Dune audiobook" → action=search, media_type=audiobook, title="Dune"
 - "add Terry Pratchett books" → action=add, media_type=book, title="Terry Pratchett"
 - "show my audiobook library" → action=list, media_type=audiobook, criteria={{service: "audiobookshelf"}}
+
+Queue / download status examples:
+- "what's downloading?" → action=queue, media_type=tv
+- "show me the download queue" → action=queue, media_type=tv
+- "what's in the queue for Radarr?" → action=queue, media_type=movie
+- "what movies are downloading?" → action=queue, media_type=movie
+- "show current downloads" → action=queue, media_type=tv
+
+History examples:
+- "what did I download recently?" → action=history, media_type=tv
+- "show recent downloads" → action=history, media_type=tv
+- "what movies have been added lately?" → action=history, media_type=movie
+- "show import history for Breaking Bad" → action=history, media_type=tv, title="Breaking Bad"
+- "what was downloaded this week?" → action=history, media_type=tv
+
+Wanted / missing examples:
+- "what episodes am I missing?" → action=wanted, media_type=tv
+- "show missing episodes" → action=wanted, media_type=tv
+- "what movies don't I have yet?" → action=wanted, media_type=movie
+- "list missing content" → action=wanted, media_type=tv
+- "what's still not downloaded?" → action=wanted, media_type=tv
+
+Monitor / unmonitor examples:
+- "monitor Breaking Bad" → action=monitor, media_type=tv, title="Breaking Bad"
+- "monitor Breaking Bad season 3" → action=monitor, media_type=tv, title="Breaking Bad", season=3
+- "unmonitor The Office" → action=unmonitor, media_type=tv, title="The Office"
+- "stop monitoring Inception" → action=unmonitor, media_type=movie, title="Inception"
+- "start monitoring The Matrix" → action=monitor, media_type=movie, title="The Matrix"
+- "unmonitor season 5 of Dexter" → action=unmonitor, media_type=tv, title="Dexter", season=5
+
+Rename examples:
+- "rename Breaking Bad files" → action=rename, media_type=tv, title="Breaking Bad"
+- "rename Inception" → action=rename, media_type=movie, title="Inception"
+- "fix filenames for The Wire" → action=rename, media_type=tv, title="The Wire"
+
+Rescan examples:
+- "rescan Breaking Bad" → action=rescan, media_type=tv, title="Breaking Bad"
+- "refresh Inception" → action=rescan, media_type=movie, title="Inception"
+- "rescan disk for The Sopranos" → action=rescan, media_type=tv, title="The Sopranos"
 
 Always use the parse_media_command function to return structured data."""
 

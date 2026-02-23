@@ -171,3 +171,91 @@ class RadarrClient(BaseMediaClient):
             List of movies with file details
         """
         return await self._get("api/v3/movie")
+
+    async def get_calendar(self, start: str, end: str) -> List[Dict[str, Any]]:
+        """Get movies releasing between start and end dates.
+
+        Args:
+            start: ISO date string e.g. "2024-01-01"
+            end: ISO date string e.g. "2024-01-08"
+
+        Returns:
+            List of movie dicts with release date fields
+        """
+        params: Dict[str, Any] = {"start": start, "end": end}
+        return await self._get("api/v3/calendar", params=params)
+
+    async def get_queue(self, page_size: int = 50) -> Dict[str, Any]:
+        """Get the current download queue.
+
+        Args:
+            page_size: Number of items to return
+
+        Returns:
+            Paginated queue response with records array
+        """
+        params: Dict[str, Any] = {"pageSize": page_size, "includeMovie": "true"}
+        return await self._get("api/v3/queue", params=params)
+
+    async def get_history(self, page_size: int = 25) -> Dict[str, Any]:
+        """Get recent download history.
+
+        Args:
+            page_size: Number of items to return
+
+        Returns:
+            Paginated history response
+        """
+        params: Dict[str, Any] = {
+            "pageSize": page_size,
+            "includeMovie": "true",
+            "sortKey": "date",
+            "sortDirection": "descending",
+        }
+        return await self._get("api/v3/history", params=params)
+
+    async def get_wanted_cutoff(self, page_size: int = 50) -> Dict[str, Any]:
+        """Get monitored movies below quality cutoff.
+
+        Args:
+            page_size: Number of items to return
+
+        Returns:
+            Paginated cutoff movies response
+        """
+        params: Dict[str, Any] = {
+            "pageSize": page_size,
+            "sortKey": "title",
+            "sortDirection": "ascending",
+        }
+        return await self._get("api/v3/wanted/cutoff", params=params)
+
+    async def trigger_rename_movie(self, movie_id: int) -> Dict[str, Any]:
+        """Trigger a rename of all files for a movie.
+
+        Args:
+            movie_id: Movie ID
+
+        Returns:
+            Command response
+        """
+        files = await self._get("api/v3/moviefile", params={"movieId": movie_id})
+        file_ids = [f["id"] for f in files if f.get("id")]
+        return await self._post(
+            "api/v3/command",
+            data={"name": "RenameFiles", "movieIds": [movie_id], "files": file_ids},
+        )
+
+    async def rescan_movie(self, movie_id: int) -> Dict[str, Any]:
+        """Trigger a disk rescan for a movie.
+
+        Args:
+            movie_id: Movie ID
+
+        Returns:
+            Command response
+        """
+        return await self._post(
+            "api/v3/command",
+            data={"name": "RescanMovie", "movieId": movie_id},
+        )

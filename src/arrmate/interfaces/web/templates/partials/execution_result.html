@@ -10,6 +10,113 @@
     </div>
 
     {% if result.data %}
+    {# ── Download queue ── #}
+    {% if result.data.data_type == 'queue' %}
+    {% if result.data.items %}
+    <div class="mt-2 overflow-hidden rounded-lg border border-gray-700">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-700 text-left text-xs text-gray-500 uppercase tracking-wider">
+                <th class="px-3 py-2">Title</th>
+                <th class="px-3 py-2 hidden sm:table-cell">Quality</th>
+                <th class="px-3 py-2">Progress</th>
+                <th class="px-3 py-2 hidden md:table-cell">Status</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-700/50">
+            {% for item in result.data.items %}
+            <tr class="hover:bg-gray-700/20">
+                <td class="px-3 py-2">
+                    <div class="text-white text-xs font-medium truncate max-w-xs">
+                        {% if item.kind == 'tv' and item.show %}
+                        <span class="text-gray-400">{{ item.show }}</span>
+                        {% if item.episode %} <span class="text-primary-400 font-mono">{{ item.episode }}</span>{% endif %}
+                        {% else %}{{ item.title }}{% endif %}
+                    </div>
+                </td>
+                <td class="px-3 py-2 hidden sm:table-cell text-gray-400 text-xs">{{ item.quality or '—' }}</td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 bg-gray-700 rounded-full h-1.5 min-w-12">
+                            <div class="bg-primary-500 h-1.5 rounded-full" style="width: {{ item.progress }}%"></div>
+                        </div>
+                        <span class="text-xs text-gray-400 whitespace-nowrap">{{ item.progress }}%</span>
+                    </div>
+                </td>
+                <td class="px-3 py-2 hidden md:table-cell text-xs text-gray-400 capitalize">{{ item.status }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {# ── Download history ── #}
+    {% elif result.data.data_type == 'history' %}
+    {% if result.data.items %}
+    <div class="mt-2 overflow-hidden rounded-lg border border-gray-700">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-700 text-left text-xs text-gray-500 uppercase tracking-wider">
+                <th class="px-3 py-2">Title</th>
+                <th class="px-3 py-2 hidden sm:table-cell">Event</th>
+                <th class="px-3 py-2 hidden md:table-cell">Quality</th>
+                <th class="px-3 py-2">Date</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-700/50">
+            {% for item in result.data.items %}
+            <tr class="hover:bg-gray-700/20">
+                <td class="px-3 py-2">
+                    <div class="text-white text-xs font-medium truncate max-w-xs">
+                        {% if item.kind == 'tv' and item.show %}
+                        <span class="text-gray-400">{{ item.show }}</span>
+                        {% if item.episode %} <span class="text-primary-400 font-mono">{{ item.episode }}</span>{% endif %}
+                        {% else %}{{ item.title }}{% endif %}
+                    </div>
+                </td>
+                <td class="px-3 py-2 hidden sm:table-cell">
+                    <span class="text-xs px-1.5 py-0.5 rounded
+                        {% if item.event == 'Imported' %}bg-green-900/40 text-green-400
+                        {% elif item.event == 'Failed' %}bg-red-900/40 text-red-400
+                        {% elif item.event == 'Grabbed' %}bg-blue-900/40 text-blue-400
+                        {% else %}bg-gray-700 text-gray-400{% endif %}">
+                        {{ item.event }}
+                    </span>
+                </td>
+                <td class="px-3 py-2 hidden md:table-cell text-xs text-gray-400">{{ item.quality or '—' }}</td>
+                <td class="px-3 py-2 text-xs text-gray-500">{{ item.date }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {# ── Wanted / missing ── #}
+    {% elif result.data.data_type == 'wanted' %}
+    {% if result.data.items %}
+    <div class="mt-2 overflow-hidden rounded-lg border border-gray-700">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-700 text-left text-xs text-gray-500 uppercase tracking-wider">
+                <th class="px-3 py-2">Title</th>
+                <th class="px-3 py-2 hidden sm:table-cell">Episode</th>
+                <th class="px-3 py-2">Air Date</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-700/50">
+            {% for item in result.data.items %}
+            <tr class="hover:bg-gray-700/20">
+                <td class="px-3 py-2">
+                    <div class="text-white text-xs font-medium truncate max-w-xs">
+                        {% if item.show %}{{ item.show }}{% else %}{{ item.title }}{% endif %}
+                    </div>
+                    {% if item.title and item.show %}<div class="text-gray-500 text-xs truncate">{{ item.title }}</div>{% endif %}
+                </td>
+                <td class="px-3 py-2 hidden sm:table-cell text-xs font-mono text-primary-400">{{ item.episode or '—' }}</td>
+                <td class="px-3 py-2 text-xs text-gray-500">{{ item.air_date or '—' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
     {# ── List of titles (list/search results) ── #}
     {% if result.data.titles is defined %}
     <div class="mt-2">

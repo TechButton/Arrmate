@@ -241,3 +241,105 @@ class SonarrClient(BaseMediaClient):
             "api/v3/command",
             data={"name": "SeasonSearch", "seriesId": series_id, "seasonNumber": season_number},
         )
+
+    async def get_calendar(
+        self, start: str, end: str, include_series: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Get episodes airing between start and end dates.
+
+        Args:
+            start: ISO date string e.g. "2024-01-01"
+            end: ISO date string e.g. "2024-01-08"
+            include_series: Embed series info in each episode
+
+        Returns:
+            List of episode dicts with optional nested series
+        """
+        params: Dict[str, Any] = {
+            "start": start,
+            "end": end,
+            "includeSeries": str(include_series).lower(),
+            "includeEpisodeFile": "false",
+        }
+        return await self._get("api/v3/calendar", params=params)
+
+    async def get_queue(self, page_size: int = 50) -> Dict[str, Any]:
+        """Get the current download queue.
+
+        Args:
+            page_size: Number of items to return
+
+        Returns:
+            Paginated queue response with records array
+        """
+        params: Dict[str, Any] = {
+            "pageSize": page_size,
+            "includeSeries": "true",
+            "includeEpisode": "true",
+        }
+        return await self._get("api/v3/queue", params=params)
+
+    async def get_history(self, page_size: int = 25) -> Dict[str, Any]:
+        """Get recent download history.
+
+        Args:
+            page_size: Number of items to return
+
+        Returns:
+            Paginated history response
+        """
+        params: Dict[str, Any] = {
+            "pageSize": page_size,
+            "includeSeries": "true",
+            "includeEpisode": "true",
+            "sortKey": "date",
+            "sortDirection": "descending",
+        }
+        return await self._get("api/v3/history", params=params)
+
+    async def get_wanted_missing(self, page_size: int = 50) -> Dict[str, Any]:
+        """Get monitored episodes that are missing (no file yet).
+
+        Args:
+            page_size: Number of items to return
+
+        Returns:
+            Paginated missing episodes response
+        """
+        params: Dict[str, Any] = {
+            "pageSize": page_size,
+            "includeSeries": "true",
+            "sortKey": "airDateUtc",
+            "sortDirection": "descending",
+        }
+        return await self._get("api/v3/wanted/missing", params=params)
+
+    async def trigger_rename_series(self, series_id: int) -> Dict[str, Any]:
+        """Trigger a rename of all files for a series.
+
+        Args:
+            series_id: Series ID
+
+        Returns:
+            Command response
+        """
+        files = await self.get_episode_files(series_id)
+        file_ids = [f["id"] for f in files if f.get("id")]
+        return await self._post(
+            "api/v3/command",
+            data={"name": "RenameFiles", "seriesId": series_id, "files": file_ids},
+        )
+
+    async def rescan_series(self, series_id: int) -> Dict[str, Any]:
+        """Trigger a disk rescan for a series.
+
+        Args:
+            series_id: Series ID
+
+        Returns:
+            Command response
+        """
+        return await self._post(
+            "api/v3/command",
+            data={"name": "RescanSeries", "seriesId": series_id},
+        )

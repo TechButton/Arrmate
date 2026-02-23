@@ -1462,6 +1462,126 @@ def _plex_thumb_url(path: str) -> str:
     return f"/web/plex/thumb?path={urllib.parse.quote(path, safe='')}"
 
 
+@router.get("/upcoming", response_class=HTMLResponse)
+async def upcoming_page(request: Request):
+    """Upcoming calendar page — episodes and movies airing in the next few days."""
+    return templates.TemplateResponse(
+        "pages/upcoming.html",
+        {"request": request, **_base_ctx(request)},
+    )
+
+
+@router.get("/upcoming/content", response_class=HTMLResponse)
+async def upcoming_content(
+    request: Request,
+    days: int = Query(default=7, ge=1, le=30),
+):
+    """HTMX partial: combined Sonarr + Radarr calendar for the next N days."""
+    from datetime import date, timedelta
+    from itertools import groupby as _groupby
+
+    today = date.today()
+    start_str = today.isoformat()
+    end_str = (today + timedelta(days=days)).isoformat()
+
+    events: list = []
+    error = None
+
+    # --- Sonarr ---
+    if settings.sonarr_url and settings.sonarr_api_key:
+        try:
+            sonarr = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            eps = await sonarr.get_calendar(start_str, end_str, include_series=True)
+            await sonarr.close()
+            for ep in eps:
+                series = ep.get("series") or {}
+                air_date = ep.get("airDate") or (ep.get("airDateUtc") or "")[:10]
+                if not air_date:
+                    continue
+                poster = None
+                for img in (series.get("images") or []):
+                    if img.get("coverType") == "poster":
+                        url = img.get("remoteUrl") or img.get("url", "")
+                        poster = url if url.startswith("http") else None
+                        break
+                events.append({
+                    "kind": "tv",
+                    "date": air_date,
+                    "show": series.get("title", ""),
+                    "episode_label": f"S{ep.get('seasonNumber', 0):02d}E{ep.get('episodeNumber', 0):02d}",
+                    "title": ep.get("title", ""),
+                    "network": series.get("network", ""),
+                    "has_file": bool(ep.get("hasFile")),
+                    "monitored": bool(ep.get("monitored")),
+                    "poster": poster,
+                })
+        except Exception as e:
+            error = str(e)
+
+    # --- Radarr ---
+    if settings.radarr_url and settings.radarr_api_key:
+        try:
+            radarr = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            movies = await radarr.get_calendar(start_str, end_str)
+            await radarr.close()
+            for m in movies:
+                release_date = None
+                for field in ("inCinemas", "digitalRelease", "physicalRelease"):
+                    val = (m.get(field) or "")[:10]
+                    if val and start_str <= val <= end_str:
+                        release_date = val
+                        break
+                if not release_date:
+                    release_date = (
+                        m.get("inCinemas") or m.get("digitalRelease") or m.get("physicalRelease") or ""
+                    )[:10]
+                if not release_date:
+                    continue
+                poster = None
+                for img in (m.get("images") or []):
+                    if img.get("coverType") == "poster":
+                        url = img.get("remoteUrl") or img.get("url", "")
+                        poster = url if url.startswith("http") else None
+                        break
+                release_type = (
+                    "Cinema" if (m.get("inCinemas") or "")[:10] == release_date
+                    else "Digital" if (m.get("digitalRelease") or "")[:10] == release_date
+                    else "Physical"
+                )
+                events.append({
+                    "kind": "movie",
+                    "date": release_date,
+                    "show": "",
+                    "episode_label": "",
+                    "title": m.get("title", ""),
+                    "network": release_type,
+                    "has_file": bool(m.get("hasFile")),
+                    "monitored": bool(m.get("monitored")),
+                    "poster": poster,
+                    "year": m.get("year"),
+                })
+        except Exception as ex:
+            if not error:
+                error = str(ex)
+
+    events.sort(key=lambda e: (e["date"], e.get("show") or e["title"]))
+    grouped = [
+        {"date": d, "events": list(evs)}
+        for d, evs in _groupby(events, key=lambda e: e["date"])
+    ]
+
+    return templates.TemplateResponse(
+        "partials/upcoming_content.html",
+        {
+            "request": request,
+            "grouped": grouped,
+            "days": days,
+            "error": error,
+            "total": len(events),
+        },
+    )
+
+
 @router.get("/plex", response_class=HTMLResponse)
 async def plex_page(request: Request):
     """Plex hub page."""

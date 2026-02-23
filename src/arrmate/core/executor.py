@@ -38,6 +38,12 @@ class Executor:
                 return await self._execute_rate(intent)
             if intent.action == ActionType.BUTLER:
                 return await self._execute_butler(intent)
+            if intent.action == ActionType.QUEUE:
+                return await self._execute_queue(intent)
+            if intent.action == ActionType.HISTORY:
+                return await self._execute_history(intent)
+            if intent.action == ActionType.WANTED:
+                return await self._execute_wanted(intent)
 
             # Get the appropriate client
             client = get_client_for_media_type(intent.media_type)
@@ -56,6 +62,14 @@ class Executor:
                     return await self._execute_list(intent, client)
                 elif intent.action == ActionType.INFO:
                     return await self._execute_info(intent, client)
+                elif intent.action == ActionType.MONITOR:
+                    return await self._execute_monitor(intent, client, monitored=True)
+                elif intent.action == ActionType.UNMONITOR:
+                    return await self._execute_monitor(intent, client, monitored=False)
+                elif intent.action == ActionType.RENAME:
+                    return await self._execute_rename(intent, client)
+                elif intent.action == ActionType.RESCAN:
+                    return await self._execute_rescan(intent, client)
                 else:
                     return ExecutionResult(
                         success=False,
@@ -661,6 +675,300 @@ class Executor:
             )
         finally:
             await client.close()
+
+
+    async def _execute_queue(self, intent: Intent) -> ExecutionResult:
+        """Show what is currently downloading in Sonarr and/or Radarr."""
+        import time as _time
+        items: List[dict] = []
+        sources: List[str] = []
+
+        if intent.media_type in ("tv", "tv_show") or intent.media_type == "tv":
+            if settings.sonarr_url and settings.sonarr_api_key:
+                try:
+                    from ..clients.sonarr import SonarrClient
+                    c = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+                    resp = await c.get_queue()
+                    await c.close()
+                    for r in (resp.get("records") or []):
+                        series = r.get("series") or {}
+                        ep = r.get("episode") or {}
+                        size = r.get("size", 0)
+                        size_left = r.get("sizeleft", 0)
+                        pct = int((size - size_left) / size * 100) if size else 0
+                        eta = r.get("estimatedCompletionTime", "")
+                        items.append({
+                            "kind": "tv",
+                            "show": series.get("title", ""),
+                            "episode": f"S{ep.get('seasonNumber',0):02d}E{ep.get('episodeNumber',0):02d}" if ep else "",
+                            "title": r.get("title", ""),
+                            "status": r.get("status", ""),
+                            "progress": pct,
+                            "eta": eta[:16] if eta else "",
+                            "protocol": r.get("protocol", ""),
+                            "quality": (r.get("quality") or {}).get("quality", {}).get("name", ""),
+                        })
+                    sources.append("Sonarr")
+                except Exception:
+                    pass
+
+        if intent.media_type == "movie" or intent.media_type == "tv":
+            if settings.radarr_url and settings.radarr_api_key:
+                try:
+                    from ..clients.radarr import RadarrClient
+                    c = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+                    resp = await c.get_queue()
+                    await c.close()
+                    for r in (resp.get("records") or []):
+                        movie = r.get("movie") or {}
+                        size = r.get("size", 0)
+                        size_left = r.get("sizeleft", 0)
+                        pct = int((size - size_left) / size * 100) if size else 0
+                        eta = r.get("estimatedCompletionTime", "")
+                        items.append({
+                            "kind": "movie",
+                            "show": "",
+                            "episode": "",
+                            "title": movie.get("title") or r.get("title", ""),
+                            "status": r.get("status", ""),
+                            "progress": pct,
+                            "eta": eta[:16] if eta else "",
+                            "protocol": r.get("protocol", ""),
+                            "quality": (r.get("quality") or {}).get("quality", {}).get("name", ""),
+                        })
+                    if "Radarr" not in sources:
+                        sources.append("Radarr")
+                except Exception:
+                    pass
+
+        if not items:
+            return ExecutionResult(
+                success=True,
+                message="The download queue is empty.",
+                data={"data_type": "queue", "items": [], "total": 0},
+            )
+        src_str = " + ".join(sources) if sources else "queue"
+        return ExecutionResult(
+            success=True,
+            message=f"{len(items)} item(s) currently downloading ({src_str})",
+            data={"data_type": "queue", "items": items, "total": len(items)},
+        )
+
+    async def _execute_history(self, intent: Intent) -> ExecutionResult:
+        """Show recent download/import history from Sonarr and/or Radarr."""
+        EVENT_LABELS = {
+            "grabbed": "Grabbed",
+            "downloadFolderImported": "Imported",
+            "downloadFailed": "Failed",
+            "episodeFileDeleted": "Deleted",
+            "episodeFileRenamed": "Renamed",
+            "downloadIgnored": "Ignored",
+        }
+        items: List[dict] = []
+
+        if intent.media_type != "movie":
+            if settings.sonarr_url and settings.sonarr_api_key:
+                try:
+                    from ..clients.sonarr import SonarrClient
+                    c = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+                    resp = await c.get_history(page_size=20)
+                    await c.close()
+                    for r in (resp.get("records") or []):
+                        series = r.get("series") or {}
+                        ep = r.get("episode") or {}
+                        items.append({
+                            "kind": "tv",
+                            "show": series.get("title", ""),
+                            "episode": f"S{ep.get('seasonNumber',0):02d}E{ep.get('episodeNumber',0):02d}" if ep else "",
+                            "title": r.get("sourceTitle", ""),
+                            "event": EVENT_LABELS.get(r.get("eventType", ""), r.get("eventType", "")),
+                            "date": (r.get("date") or "")[:10],
+                            "quality": (r.get("quality") or {}).get("quality", {}).get("name", ""),
+                        })
+                except Exception:
+                    pass
+
+        if intent.media_type != "tv":
+            if settings.radarr_url and settings.radarr_api_key:
+                try:
+                    from ..clients.radarr import RadarrClient
+                    c = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+                    resp = await c.get_history(page_size=20)
+                    await c.close()
+                    for r in (resp.get("records") or []):
+                        movie = r.get("movie") or {}
+                        items.append({
+                            "kind": "movie",
+                            "show": "",
+                            "episode": "",
+                            "title": movie.get("title") or r.get("sourceTitle", ""),
+                            "event": EVENT_LABELS.get(r.get("eventType", ""), r.get("eventType", "")),
+                            "date": (r.get("date") or "")[:10],
+                            "quality": (r.get("quality") or {}).get("quality", {}).get("name", ""),
+                        })
+                except Exception:
+                    pass
+
+        # Sort combined results by date descending
+        items.sort(key=lambda x: x.get("date", ""), reverse=True)
+        items = items[:30]
+
+        if not items:
+            return ExecutionResult(success=True, message="No recent download history found.")
+        return ExecutionResult(
+            success=True,
+            message=f"{len(items)} recent download event(s)",
+            data={"data_type": "history", "items": items, "total": len(items)},
+        )
+
+    async def _execute_wanted(self, intent: Intent) -> ExecutionResult:
+        """Show monitored media that is missing or below quality cutoff."""
+        items: List[dict] = []
+
+        if intent.media_type != "movie":
+            if settings.sonarr_url and settings.sonarr_api_key:
+                try:
+                    from ..clients.sonarr import SonarrClient
+                    c = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+                    resp = await c.get_wanted_missing(page_size=30)
+                    await c.close()
+                    for r in (resp.get("records") or []):
+                        series = r.get("series") or {}
+                        items.append({
+                            "kind": "tv",
+                            "show": series.get("title", ""),
+                            "episode": f"S{r.get('seasonNumber',0):02d}E{r.get('episodeNumber',0):02d}",
+                            "title": r.get("title", ""),
+                            "air_date": (r.get("airDate") or "")[:10],
+                        })
+                except Exception:
+                    pass
+
+        if intent.media_type != "tv":
+            if settings.radarr_url and settings.radarr_api_key:
+                try:
+                    from ..clients.radarr import RadarrClient
+                    c = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+                    resp = await c.get_wanted_cutoff(page_size=30)
+                    await c.close()
+                    for r in (resp.get("records") or []):
+                        items.append({
+                            "kind": "movie",
+                            "show": "",
+                            "episode": "",
+                            "title": r.get("title", ""),
+                            "air_date": (r.get("inCinemas") or r.get("physicalRelease") or "")[:10],
+                        })
+                except Exception:
+                    pass
+
+        if not items:
+            return ExecutionResult(success=True, message="Nothing is missing — great!")
+        return ExecutionResult(
+            success=True,
+            message=f"{len(items)} item(s) missing or below quality cutoff",
+            data={"data_type": "wanted", "items": items, "total": len(items)},
+        )
+
+    async def _execute_monitor(
+        self, intent: Intent, client: BaseMediaClient, monitored: bool
+    ) -> ExecutionResult:
+        """Monitor or unmonitor a series/movie/season."""
+        verb = "Monitoring" if monitored else "Unmonitoring"
+        if intent.media_type == "tv":
+            if not intent.series_id:
+                return ExecutionResult(
+                    success=False, message=f"Could not find '{intent.title}' in Sonarr"
+                )
+            if intent.season is not None:
+                # Monitor/unmonitor specific season
+                series = await client.get_item(intent.series_id)
+                for s in series.get("seasons", []):
+                    if s.get("seasonNumber") == intent.season:
+                        s["monitored"] = monitored
+                from ..clients.sonarr import SonarrClient
+                await client._put(f"api/v3/series/{intent.series_id}", data=series)
+                return ExecutionResult(
+                    success=True,
+                    message=f"{verb} '{intent.title}' Season {intent.season}",
+                )
+            else:
+                await client.set_series_monitored(intent.series_id, monitored)
+                return ExecutionResult(
+                    success=True, message=f"{verb} '{intent.title}'"
+                )
+        elif intent.media_type == "movie":
+            if not intent.item_id:
+                return ExecutionResult(
+                    success=False, message=f"Could not find '{intent.title}' in Radarr"
+                )
+            await client.set_movie_monitored(intent.item_id, monitored)
+            return ExecutionResult(
+                success=True, message=f"{verb} '{intent.title}'"
+            )
+        return ExecutionResult(
+            success=False, message=f"Monitor not supported for {intent.media_type}"
+        )
+
+    async def _execute_rename(
+        self, intent: Intent, client: BaseMediaClient
+    ) -> ExecutionResult:
+        """Trigger file rename for a series or movie."""
+        if intent.media_type == "tv":
+            if not intent.series_id:
+                return ExecutionResult(
+                    success=False, message=f"Could not find '{intent.title}' in Sonarr"
+                )
+            from ..clients.sonarr import SonarrClient
+            result = await client.trigger_rename_series(intent.series_id)
+            return ExecutionResult(
+                success=True,
+                message=f"Rename triggered for '{intent.title}' — files will be renamed to match your naming convention",
+            )
+        elif intent.media_type == "movie":
+            if not intent.item_id:
+                return ExecutionResult(
+                    success=False, message=f"Could not find '{intent.title}' in Radarr"
+                )
+            from ..clients.radarr import RadarrClient
+            result = await client.trigger_rename_movie(intent.item_id)
+            return ExecutionResult(
+                success=True,
+                message=f"Rename triggered for '{intent.title}'",
+            )
+        return ExecutionResult(
+            success=False, message=f"Rename not supported for {intent.media_type}"
+        )
+
+    async def _execute_rescan(
+        self, intent: Intent, client: BaseMediaClient
+    ) -> ExecutionResult:
+        """Trigger disk rescan for a series or movie."""
+        if intent.media_type == "tv":
+            if not intent.series_id:
+                return ExecutionResult(
+                    success=False, message=f"Could not find '{intent.title}' in Sonarr"
+                )
+            from ..clients.sonarr import SonarrClient
+            await client.rescan_series(intent.series_id)
+            return ExecutionResult(
+                success=True,
+                message=f"Disk rescan started for '{intent.title}'",
+            )
+        elif intent.media_type == "movie":
+            if not intent.item_id:
+                return ExecutionResult(
+                    success=False, message=f"Could not find '{intent.title}' in Radarr"
+                )
+            from ..clients.radarr import RadarrClient
+            await client.rescan_movie(intent.item_id)
+            return ExecutionResult(
+                success=True,
+                message=f"Disk rescan started for '{intent.title}'",
+            )
+        return ExecutionResult(
+            success=False, message=f"Rescan not supported for {intent.media_type}"
+        )
 
 
 def _fmt_bytes(n: int) -> str:

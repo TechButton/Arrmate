@@ -31,6 +31,13 @@ class ActionType(str, Enum):
     TRANSCODE = "transcode"
     RATE = "rate"
     BUTLER = "butler"
+    QUEUE = "queue"
+    HISTORY = "history"
+    WANTED = "wanted"
+    MONITOR = "monitor"
+    UNMONITOR = "unmonitor"
+    RENAME = "rename"
+    RESCAN = "rescan"
 
 
 class Intent(BaseModel):
