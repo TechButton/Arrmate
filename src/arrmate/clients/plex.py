@@ -240,20 +240,26 @@ class PlexClient(BaseExternalService):
             return []
 
     async def get_history(
-        self, account_id: Optional[int] = None, limit: int = 50
+        self,
+        account_id: Optional[int] = None,
+        limit: int = 50,
+        min_date: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Get playback history, optionally filtered by user account.
+        """Get playback history, optionally filtered by user account and date.
 
         Args:
             account_id: Filter by Plex account ID (from get_accounts). None = all users.
             limit: Maximum number of history items to return.
+            min_date: Unix timestamp — only return items viewed after this time.
 
         Returns:
             List of history item dicts with viewedAt, title, type, user info
         """
-        params: dict = {"X-Plex-Container-Size": limit}
+        params: dict = {"X-Plex-Container-Size": limit, "sort": "viewedAt:desc"}
         if account_id:
             params["accountID"] = account_id
+        if min_date:
+            params["minDate"] = min_date
         data = await self._get("/status/sessions/history/all", params=params)
         return data.get("MediaContainer", {}).get("Metadata", [])
 
@@ -300,20 +306,22 @@ class PlexClient(BaseExternalService):
         return data.get("MediaContainer", {}).get("Metadata", [])
 
     async def terminate_session(
-        self, session_key: str, reason: str = "Terminated by Arrmate"
+        self, session_id: str, reason: str = "Terminated by Arrmate"
     ) -> bool:
         """Terminate an active streaming session.
 
         Args:
-            session_key: The sessionKey from get_sessions()
+            session_id: The Session.id UUID from get_sessions() (not sessionKey)
             reason: Message shown to the user on their player
 
         Returns:
             True if termination was accepted
         """
         try:
-            url = f"{self.base_url}/status/sessions/{session_key}/terminate"
-            response = await self.client.delete(url, params={"reason": reason})
+            url = f"{self.base_url}/status/sessions/terminate"
+            response = await self.client.delete(
+                url, params={"sessionId": session_id, "reason": reason}
+            )
             return response.status_code in (200, 204)
         except Exception:
             return False
@@ -369,36 +377,63 @@ class PlexClient(BaseExternalService):
             return False
 
     async def detect_intro(self, rating_key: str) -> bool:
-        """Trigger intro detection for an item (show, season, or episode).
+        """Trigger media analysis for an item (queues intro/chapter marker detection).
 
         Args:
             rating_key: Plex ratingKey — can be a series, season, or episode
 
         Returns:
-            True if detection was queued
+            True if analysis was queued
         """
         try:
-            url = f"{self.base_url}/library/metadata/{rating_key}/detect/intro"
+            url = f"{self.base_url}/library/metadata/{rating_key}/analyze"
             response = await self.client.put(url)
             return response.status_code in (200, 204)
         except Exception:
             return False
 
     async def detect_credits(self, rating_key: str) -> bool:
-        """Trigger credit/end-card detection for an item.
+        """Trigger media analysis for an item (queues end-credit marker detection).
+
+        Uses the same /analyze endpoint as intro detection — Plex queues all
+        marker types (intro, credits, chapter thumbnails) together.
 
         Args:
             rating_key: Plex ratingKey — can be a series, season, or episode
 
         Returns:
-            True if detection was queued
+            True if analysis was queued
         """
         try:
-            url = f"{self.base_url}/library/metadata/{rating_key}/detect/creditDetect"
+            url = f"{self.base_url}/library/metadata/{rating_key}/analyze"
             response = await self.client.put(url)
             return response.status_code in (200, 204)
         except Exception:
             return False
+
+    async def get_playlists(self) -> List[Dict[str, Any]]:
+        """Get all playlists on this server.
+
+        Returns:
+            List of playlist dicts with ratingKey, title, playlistType, duration, leafCount
+        """
+        try:
+            data = await self._get("/playlists/all")
+            return data.get("MediaContainer", {}).get("Metadata", [])
+        except Exception:
+            return []
+
+    async def get_playlist_items(self, playlist_id: str) -> List[Dict[str, Any]]:
+        """Get items in a playlist.
+
+        Args:
+            playlist_id: Playlist ratingKey
+
+        Returns:
+            List of media item dicts
+        """
+        data = await self._get(f"/playlists/{playlist_id}/items")
+        return data.get("MediaContainer", {}).get("Metadata", [])
 
     async def mark_watched(self, rating_key: str) -> bool:
         """Mark a media item as watched.

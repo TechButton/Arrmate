@@ -1439,6 +1439,11 @@ BUTLER_TASKS = [
     {"name": "GenerateAutoTags", "label": "Generate Auto Tags", "desc": "Auto-tag music files"},
     {"name": "UpgradeMediaAnalysis", "label": "Upgrade Media Analysis", "desc": "Update media analysis data"},
     {"name": "GenerateChapterImageThumbnails", "label": "Chapter Thumbnails", "desc": "Generate chapter image thumbnails"},
+    {"name": "ScanAndAnalyzeFiles", "label": "Scan & Analyze Files", "desc": "Scan all files and run media analysis"},
+    {"name": "GenerateIntroVideoMarkers", "label": "Detect Intros", "desc": "Detect intro sequences across all libraries"},
+    {"name": "GenerateEndCreditsMarkers", "label": "Detect Credits", "desc": "Detect end-credit sequences (PlexPass)"},
+    {"name": "GenerateMediaIndexFiles", "label": "Generate Index Files", "desc": "Generate media index files for faster seeking"},
+    {"name": "RecheckPendingIntroVideoMarkers", "label": "Recheck Intro Markers", "desc": "Re-check pending intro detection tasks"},
 ]
 
 
@@ -1662,14 +1667,14 @@ async def plex_history(
             raw = await plex.get_history(
                 account_id=account_id if account_id else None,
                 limit=fetch_limit,
+                min_date=cutoff if cutoff else None,
             )
             for item in raw:
                 viewed_at = item.get("viewedAt", 0)
                 # Skip items with no timestamp
                 if viewed_at == 0:
                     continue
-                # Skip items older than the cutoff (don't break — multi-user results
-                # may not be strictly newest-first across all accounts)
+                # Secondary client-side guard (server already filters but be safe)
                 if cutoff and viewed_at < cutoff:
                     continue
                 media_type = item.get("type", "")
@@ -1890,13 +1895,13 @@ async def run_plex_butler_task(request: Request, task_name: str):
         await plex.close()
 
 
-@router.delete("/plex/session/{session_key}", response_class=HTMLResponse)
+@router.delete("/plex/session/{session_id}", response_class=HTMLResponse)
 async def terminate_plex_session(
     request: Request,
-    session_key: str,
+    session_id: str,
     reason: str = Query(default="Session terminated by Arrmate"),
 ):
-    """Terminate an active Plex streaming session."""
+    """Terminate an active Plex streaming session (session_id = Session.id UUID)."""
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
@@ -1904,7 +1909,7 @@ async def terminate_plex_session(
             {"request": request, "type": "error", "message": "Plex is not configured"},
         )
     try:
-        ok = await plex.terminate_session(session_key, reason)
+        ok = await plex.terminate_session(session_id, reason)
         return templates.TemplateResponse(
             "components/toast.html",
             {
@@ -1991,6 +1996,160 @@ async def plex_detect_credits(request: Request, rating_key: str):
         )
     finally:
         await plex.close()
+
+
+@router.post("/plex/watched/{rating_key}", response_class=HTMLResponse)
+async def plex_mark_watched(request: Request, rating_key: str):
+    """Mark a Plex item as watched."""
+    plex = _plex_client()
+    if not plex:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        ok = await plex.mark_watched(rating_key)
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "error",
+                "message": "Marked as watched" if ok else "Failed to mark as watched",
+            },
+        )
+    finally:
+        await plex.close()
+
+
+@router.post("/plex/unwatched/{rating_key}", response_class=HTMLResponse)
+async def plex_mark_unwatched(request: Request, rating_key: str):
+    """Mark a Plex item as unwatched."""
+    plex = _plex_client()
+    if not plex:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        ok = await plex.mark_unwatched(rating_key)
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success" if ok else "error",
+                "message": "Marked as unwatched" if ok else "Failed to mark as unwatched",
+            },
+        )
+    finally:
+        await plex.close()
+
+
+@router.get("/plex/playlists", response_class=HTMLResponse)
+async def plex_playlists(request: Request):
+    """HTMX partial: playlist list."""
+    playlists = []
+    error = None
+    plex = _plex_client()
+    if plex:
+        try:
+            raw = await plex.get_playlists()
+            for pl in raw:
+                duration_ms = pl.get("duration", 0) or 0
+                duration_h = duration_ms // 3_600_000
+                duration_m = (duration_ms % 3_600_000) // 60_000
+                duration_str = (
+                    f"{duration_h}h {duration_m}m" if duration_h else f"{duration_m}m"
+                ) if duration_ms else ""
+                thumb_path = pl.get("thumb") or pl.get("composite")
+                playlists.append({
+                    "id": pl.get("ratingKey"),
+                    "title": pl.get("title", "Untitled"),
+                    "playlist_type": pl.get("playlistType", "video"),
+                    "item_count": pl.get("leafCount", 0),
+                    "duration": duration_str,
+                    "thumb": _plex_thumb_url(thumb_path) if thumb_path else None,
+                    "summary": pl.get("summary", ""),
+                })
+        except Exception as e:
+            error = str(e)
+        finally:
+            await plex.close()
+    else:
+        error = "Plex is not configured"
+    return templates.TemplateResponse(
+        "partials/plex_playlists.html",
+        {"request": request, "playlists": playlists, "error": error},
+    )
+
+
+@router.get("/plex/sessions", response_class=HTMLResponse)
+async def plex_sessions_panel(request: Request):
+    """HTMX partial: active streaming sessions with transcode/bandwidth detail."""
+    sessions = []
+    error = None
+    plex = _plex_client()
+    if plex:
+        try:
+            raw = await plex.get_sessions()
+            for s in raw:
+                media_type = s.get("type", "")
+                if media_type == "episode":
+                    title = s.get("grandparentTitle", "")
+                    subtitle = (
+                        f"S{s.get('parentIndex', 0):02d}E{s.get('index', 0):02d}"
+                        f" — {s.get('title', '')}"
+                    )
+                else:
+                    title = s.get("title", "Unknown")
+                    subtitle = str(s.get("year", "")) if s.get("year") else ""
+                duration = s.get("duration", 0)
+                offset = s.get("viewOffset", 0)
+                pct = int(offset / duration * 100) if duration else 0
+                # Transcode info
+                tc = s.get("TranscodeSession") or {}
+                video_decision = tc.get("videoDecision", "directplay")
+                audio_decision = tc.get("audioDecision", "directplay")
+                # Source codec
+                media_list = s.get("Media") or [{}]
+                src = media_list[0] if media_list else {}
+                src_video = src.get("videoCodec", "")
+                src_audio = src.get("audioCodec", "")
+                src_res = f"{src.get('width', '')}×{src.get('height', '')}" if src.get("width") else ""
+                # Bandwidth
+                bandwidth = s.get("Session", {}).get("bandwidth", 0) or 0
+                bw_str = f"{bandwidth // 1000} Mbps" if bandwidth >= 1000 else (f"{bandwidth} Kbps" if bandwidth else "")
+                sessions.append({
+                    "title": title,
+                    "subtitle": subtitle,
+                    "type": media_type,
+                    "pct": pct,
+                    "user": s.get("User", {}).get("title", ""),
+                    "user_thumb": s.get("User", {}).get("thumb", ""),
+                    "player": s.get("Player", {}).get("title", ""),
+                    "platform": s.get("Player", {}).get("platform", ""),
+                    "state": s.get("Player", {}).get("state", "playing"),
+                    "location": s.get("Session", {}).get("location", ""),
+                    "bandwidth": bw_str,
+                    "video_decision": video_decision,
+                    "audio_decision": audio_decision,
+                    "src_video": src_video,
+                    "src_audio": src_audio,
+                    "src_res": src_res,
+                    "dst_video": tc.get("videoCodec", src_video),
+                    "dst_audio": tc.get("audioCodec", src_audio),
+                    "session_id": s.get("Session", {}).get("id", ""),
+                    "thumb": _plex_thumb_url(s.get("thumb") or s.get("grandparentThumb", "")) if (s.get("thumb") or s.get("grandparentThumb")) else None,
+                })
+        except Exception as e:
+            error = str(e)
+        finally:
+            await plex.close()
+    else:
+        error = "Plex is not configured"
+    return templates.TemplateResponse(
+        "partials/plex_sessions.html",
+        {"request": request, "sessions": sessions, "error": error},
+    )
 
 
 # ===== Plex Share Server =====
@@ -2192,6 +2351,8 @@ async def plex_now_playing(request: Request):
                     "pct": pct,
                     "type": media_type,
                     "session_key": s.get("sessionKey", ""),
+                    # Session.id is the UUID required by DELETE /status/sessions/terminate
+                    "session_id": s.get("Session", {}).get("id", ""),
                 })
         except Exception:
             pass

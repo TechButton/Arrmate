@@ -60,15 +60,17 @@
                     {% endif %}
                     {% if item.rating_key %}
                     <div class="hidden group-hover:flex justify-end gap-1 mt-1">
+                        <button hx-post="/web/plex/unwatched/{{ item.rating_key }}"
+                                hx-target="#toast-container" hx-swap="beforeend"
+                                title="Mark unwatched"
+                                class="px-1.5 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
+                            ○ Unwatch
+                        </button>
                         <button hx-post="/web/plex/detect/{{ item.rating_key }}/intro"
                                 hx-target="#toast-container" hx-swap="beforeend"
+                                title="Analyze for intro/credit markers"
                                 class="px-1.5 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
-                            Intros
-                        </button>
-                        <button hx-post="/web/plex/detect/{{ item.rating_key }}/credits"
-                                hx-target="#toast-container" hx-swap="beforeend"
-                                class="px-1.5 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
-                            Credits
+                            Analyze
                         </button>
                     </div>
                     {% endif %}

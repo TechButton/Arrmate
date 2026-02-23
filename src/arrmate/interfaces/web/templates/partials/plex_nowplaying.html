@@ -28,7 +28,7 @@
             </div>
             <span class="text-xs text-gray-500 flex-shrink-0">{{ s.pct }}%</span>
             {% endif %}
-            {% if s.session_key %}
+            {% if s.session_id %}
             <button x-show="!confirming"
                     @click="confirming = true"
                     title="Terminate session"
@@ -39,7 +39,7 @@
             </button>
             <span x-show="confirming" class="flex items-center gap-1 flex-shrink-0">
                 <span class="text-xs text-red-400">Kill?</span>
-                <button hx-delete="/web/plex/session/{{ s.session_key }}"
+                <button hx-delete="/web/plex/session/{{ s.session_id }}"
                         hx-target="#plex-nowplaying"
                         hx-swap="innerHTML"
                         class="text-xs text-red-400 hover:text-red-300 font-medium">Yes</button>

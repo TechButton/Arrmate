@@ -20,11 +20,13 @@
     <div x-data="{ tab: 'continue' }" class="space-y-6">
         <div class="flex flex-wrap gap-1 border-b border-gray-700 pb-0">
             {% set tabs = [
-                ('continue', '▶ Continue Watching'),
-                ('ondeck',   '⏭ On Deck'),
-                ('recent',   '✨ Recently Added'),
-                ('history',  '📋 Watch History'),
-                ('butler',   '🔧 Maintenance'),
+                ('continue',  '▶ Continue Watching'),
+                ('ondeck',    '⏭ On Deck'),
+                ('recent',    '✨ Recently Added'),
+                ('history',   '📋 Watch History'),
+                ('sessions',  '📡 Sessions'),
+                ('playlists', '🎵 Playlists'),
+                ('butler',    '🔧 Maintenance'),
             ] %}
             {% for id, label in tabs %}
             <button @click="tab = '{{ id }}'"
@@ -139,6 +141,39 @@
                  hx-get="/web/plex/history"
                  hx-trigger="intersect once, refresh"
                  hx-include="[name='account_id'],[name='days']"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-16 text-gray-500">
+                    <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Sessions -->
+        <div x-show="tab === 'sessions'" x-cloak>
+            <div class="flex items-center justify-between mb-4">
+                <p class="text-sm text-gray-400">Live view of all active streams on this server.</p>
+                <button @click="htmx.trigger('#plex-sessions', 'refresh')"
+                        class="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                    ↻ Refresh
+                </button>
+            </div>
+            <div id="plex-sessions"
+                 hx-get="/web/plex/sessions"
+                 hx-trigger="intersect once, refresh"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-16 text-gray-500">
+                    <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+
+        <!-- Playlists -->
+        <div x-show="tab === 'playlists'" x-cloak>
+            <div id="plex-playlists"
+                 hx-get="/web/plex/playlists"
+                 hx-trigger="intersect once"
                  hx-swap="innerHTML">
                 <div class="flex items-center justify-center py-16 text-gray-500">
                     <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
