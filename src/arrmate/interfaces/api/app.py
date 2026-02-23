@@ -1,14 +1,15 @@
 """FastAPI REST API interface for Arrmate."""
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from ...auth.dependencies import AuthRedirectException, require_api_auth
+from ...auth.dependencies import AuthRedirectException, get_api_user
+from ...auth import user_db
 from ...clients.discovery import discover_services
 from ...config.service_config import apply_saved_config
 from ...config.settings import settings
@@ -18,31 +19,58 @@ from ...core.intent_engine import IntentEngine
 from ...core.models import ExecutionResult, ServiceInfo
 from ..web.routes import auth_router, router as web_router
 
-# API models
+
+# ── Request / Response models ─────────────────────────────────────────────────
+
+class TokenLoginRequest(BaseModel):
+    """Login with username + password to obtain an API token."""
+    username: str = Field(..., description="Arrmate username")
+    password: str = Field(..., description="Account password")
+    token_name: str = Field(default="API Token", description="Friendly name for this token")
+    expires_days: Optional[int] = Field(
+        default=None,
+        description="Token lifetime in days (omit or null for no expiry)",
+    )
+
+
+class TokenLoginResponse(BaseModel):
+    token: str = Field(description="Bearer token — store securely, shown only once")
+    token_id: str
+    username: str
+    role: str
+    expires_at: Optional[str] = None
+    note: str = "Store this token now — it will not be shown again."
+
+
 class CommandRequest(BaseModel):
     """Request model for command execution."""
-
     command: str = Field(..., description="Natural language command to execute")
-    dry_run: bool = Field(
-        default=False, description="Parse only, don't execute"
-    )
+    dry_run: bool = Field(default=False, description="Parse only, don't execute")
 
 
 class CommandResponse(BaseModel):
     """Response model for command execution."""
-
-    success: bool = Field(description="Whether execution was successful")
-    message: str = Field(description="Human-readable result message")
-    intent: Dict = Field(description="Parsed intent")
-    result: ExecutionResult | None = Field(
-        default=None, description="Execution result (if not dry run)"
-    )
+    success: bool
+    message: str
+    intent: Dict
+    result: ExecutionResult | None = None
 
 
-# Initialize FastAPI app
+class UserInfo(BaseModel):
+    user_id: str
+    username: str
+    role: str
+
+
+# ── FastAPI app ───────────────────────────────────────────────────────────────
+
 app = FastAPI(
     title="Arrmate API",
-    description="Natural language interface for media management",
+    description=(
+        "Natural language interface for media management.\n\n"
+        "**Authentication**: All `/api/v1/*` endpoints require a Bearer token.\n"
+        "Create tokens at `/web/api-tokens` or via `POST /api/v1/auth/token`."
+    ),
     version="0.7.5",
 )
 
@@ -55,22 +83,17 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 @app.exception_handler(AuthRedirectException)
 async def auth_redirect_handler(request: Request, exc: AuthRedirectException):
     if exc.is_htmx:
-        # Silently 204 must-change-password redirects — HTMX background polls
-        # (Plex now-playing strip, notification badge) would otherwise cause a
-        # full-page reload loop on the /web/change-password page.
         if exc.login_url == "/web/change-password":
             return Response(status_code=204)
         return Response(status_code=200, headers={"HX-Redirect": exc.login_url})
     return RedirectResponse(url=exc.login_url, status_code=303)
 
 
-# Include auth router first (unprotected login/logout routes)
+# Include web routers
 app.include_router(auth_router)
-
-# Include web router (protected routes)
 app.include_router(web_router)
 
-# Global components (initialized per request to avoid state issues)
+# Global components (initialized on startup)
 parser = None
 engine = None
 executor = None
@@ -78,18 +101,13 @@ executor = None
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    """Initialize components on startup."""
     global parser, engine, executor
-    # Load any settings saved via the UI (env vars already took priority via Pydantic)
     apply_saved_config()
-    # Initialize the multi-user database (and migrate auth.json if present)
     try:
-        from ...auth.user_db import init_db
-        init_db()
+        user_db.init_db()
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("user_db init failed: %s", e)
-    # Discover services so the LLM prompt knows which ones are available
     services = await discover_services()
     available = [name for name, info in services.items() if info.available]
     parser = CommandParser(available_services=available or None)
@@ -99,42 +117,90 @@ async def startup_event() -> None:
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
-    """Clean up on shutdown."""
     if parser:
         await parser.close()
 
 
-@app.get("/")
+# ── Public endpoints ──────────────────────────────────────────────────────────
+
+@app.get("/", include_in_schema=False)
 async def root():
-    """Root endpoint - redirect to web UI."""
     return RedirectResponse(url="/web/")
 
 
-@app.get("/health")
+@app.get("/health", tags=["meta"])
 async def health() -> Dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "ok"}
+    """Health check — no auth required."""
+    return {"status": "ok", "version": "0.7.5"}
 
 
-@app.post(
-    "/api/v1/execute",
-    response_model=CommandResponse,
-    dependencies=[Depends(require_api_auth)],
-)
-async def execute_command(request: CommandRequest) -> CommandResponse:
-    """Execute a natural language command.
+# ── Auth endpoints ────────────────────────────────────────────────────────────
 
-    Args:
-        request: Command request with NL command
+@app.post("/api/v1/auth/token", response_model=TokenLoginResponse, tags=["auth"])
+async def login_for_token(req: TokenLoginRequest) -> TokenLoginResponse:
+    """Exchange username + password for a long-lived API Bearer token.
 
-    Returns:
-        Command response with results
+    The token is shown **only once** in the response — store it securely.
+    Subsequent requests must include `Authorization: Bearer <token>`.
+    """
+    db_user = user_db.verify_user(req.username, req.password)
+    if not db_user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    if not db_user.get("enabled"):
+        raise HTTPException(status_code=403, detail="Account is disabled")
+
+    token_id, plain_token = user_db.create_api_token(
+        user_id=db_user["id"],
+        name=req.token_name,
+        expires_days=req.expires_days,
+    )
+    # Fetch the record to get expires_at
+    tokens = user_db.list_api_tokens(db_user["id"])
+    record = next((t for t in tokens if t["id"] == token_id), {})
+
+    return TokenLoginResponse(
+        token=plain_token,
+        token_id=token_id,
+        username=db_user["username"],
+        role=db_user["role"],
+        expires_at=record.get("expires_at"),
+    )
+
+
+@app.delete("/api/v1/auth/token", status_code=204, tags=["auth"])
+async def revoke_current_token(user: dict = Depends(get_api_user)) -> None:
+    """Revoke the token used to make this request (logout for API clients)."""
+    user_db.delete_api_token(user["token_id"], user["user_id"])
+
+
+# ── User endpoints ────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/user", response_model=UserInfo, tags=["user"])
+async def get_current_user(user: dict = Depends(get_api_user)) -> UserInfo:
+    """Return the authenticated user's info."""
+    return UserInfo(
+        user_id=user["user_id"],
+        username=user["username"],
+        role=user["role"],
+    )
+
+
+# ── Core endpoints ────────────────────────────────────────────────────────────
+
+@app.post("/api/v1/execute", response_model=CommandResponse, tags=["commands"])
+async def execute_command(
+    request: CommandRequest,
+    user: dict = Depends(get_api_user),
+) -> CommandResponse:
+    """Execute a natural language media command.
+
+    Roles:
+    - **admin / power_user**: full access
+    - **user**: read-only commands only (destructive actions blocked)
     """
     try:
-        # Parse command
         intent = await parser.parse(request.command)
 
-        # If dry run, return parsed intent only
         if request.dry_run:
             return CommandResponse(
                 success=True,
@@ -143,10 +209,7 @@ async def execute_command(request: CommandRequest) -> CommandResponse:
                 result=None,
             )
 
-        # Enrich intent
         enriched_intent = await engine.enrich(intent)
-
-        # Validate
         errors = engine.validate(enriched_intent)
         if errors:
             raise HTTPException(
@@ -154,9 +217,16 @@ async def execute_command(request: CommandRequest) -> CommandResponse:
                 detail={"message": "Validation failed", "errors": errors},
             )
 
-        # Execute
-        result = await executor.execute(enriched_intent)
+        # Block destructive actions for regular users
+        from ...core.models import ActionType
+        destructive = {ActionType.REMOVE, ActionType.DELETE}
+        if enriched_intent.action in destructive and user.get("role") == "user":
+            raise HTTPException(
+                status_code=403,
+                detail="Your role does not allow destructive commands",
+            )
 
+        result = await executor.execute(enriched_intent)
         return CommandResponse(
             success=result.success,
             message=result.message,
@@ -164,6 +234,8 @@ async def execute_command(request: CommandRequest) -> CommandResponse:
             result=result,
         )
 
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -173,37 +245,24 @@ async def execute_command(request: CommandRequest) -> CommandResponse:
 @app.get(
     "/api/v1/services",
     response_model=Dict[str, ServiceInfo],
-    dependencies=[Depends(require_api_auth)],
+    tags=["services"],
 )
-async def get_services() -> Dict[str, ServiceInfo]:
-    """Get status of all configured media services.
-
-    Returns:
-        Dictionary of service name to ServiceInfo
-    """
+async def get_services(user: dict = Depends(get_api_user)) -> Dict[str, ServiceInfo]:
+    """Get status of all configured media services."""
     try:
-        services = await discover_services()
-        return services
+        return await discover_services()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get(
-    "/api/v1/config",
-    dependencies=[Depends(require_api_auth)],
-)
-async def get_config() -> Dict[str, str]:
-    """Get current configuration (sanitized).
-
-    Returns:
-        Configuration dictionary
-    """
+@app.get("/api/v1/config", tags=["meta"])
+async def get_config(user: dict = Depends(get_api_user)) -> Dict[str, str]:
+    """Get current application configuration (sanitized, no secrets)."""
     config = {
         "llm_provider": settings.llm_provider,
         "log_level": settings.log_level,
         "api_port": str(settings.api_port),
     }
-
     if settings.llm_provider == "ollama":
         config["ollama_url"] = settings.ollama_base_url
         config["ollama_model"] = settings.ollama_model
@@ -211,13 +270,11 @@ async def get_config() -> Dict[str, str]:
         config["openai_model"] = settings.openai_model
     elif settings.llm_provider == "anthropic":
         config["anthropic_model"] = settings.anthropic_model
-
     return config
 
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(
         app,
         host=settings.api_host,

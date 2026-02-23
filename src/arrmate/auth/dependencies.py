@@ -1,10 +1,8 @@
 """FastAPI dependencies for route protection."""
 
-import base64
-import binascii
 from urllib.parse import urlparse
 
-from fastapi import HTTPException, Request
+from fastapi import Header, HTTPException, Request
 
 from . import auth_manager
 from .session import SESSION_COOKIE, validate_session_token
@@ -97,23 +95,30 @@ async def require_power_user(request: Request) -> None:
         raise HTTPException(status_code=403, detail="Power user or admin access required")
 
 
-async def require_api_auth(request: Request) -> None:
-    """API route dependency — HTTP Basic Auth when auth is required."""
-    if not auth_manager.is_auth_required():
-        return
+async def get_api_user(authorization: str | None = Header(default=None)) -> dict:
+    """API dependency — validate Bearer token and return the authenticated user dict.
 
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Basic "):
-        try:
-            decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
-            username, password = decoded.split(":", 1)
-            if auth_manager.verify(username, password):
-                return
-        except (binascii.Error, ValueError, UnicodeDecodeError):
-            pass
+    Usage::
 
-    raise HTTPException(
-        status_code=401,
-        detail="Authentication required",
-        headers={"WWW-Authenticate": 'Basic realm="Arrmate API"'},
-    )
+        @app.get("/api/v1/something")
+        async def handler(user: dict = Depends(get_api_user)):
+            ...
+
+    The returned dict contains: user_id, username, role, token_id.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Bearer token required. Create a token at /web/api-tokens.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = authorization[7:].strip()
+    from .user_db import validate_api_token
+    user = validate_api_token(token)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid, expired, or revoked API token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user

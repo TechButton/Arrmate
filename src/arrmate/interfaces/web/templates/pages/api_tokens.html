@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}API Tokens — Arrmate{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-white mb-1">API Tokens</h1>
+        <p class="text-gray-400">Create long-lived tokens to access Arrmate from external apps (e.g. an Android client).</p>
+    </div>
+
+    <!-- One-time new token display -->
+    {% if new_token %}
+    <div class="card border-green-700/60 mb-6" x-data="{ copied: false }">
+        <div class="flex items-center gap-2 mb-3">
+            <span class="text-green-400 text-lg">✓</span>
+            <h3 class="text-green-400 font-semibold">Token created: {{ new_token_name }}</h3>
+        </div>
+        <p class="text-yellow-300 text-sm mb-3 bg-yellow-900/20 border border-yellow-700/40 rounded-lg px-3 py-2">
+            ⚠ This is the <strong>only time</strong> this token will be shown. Copy it now and store it securely.
+        </p>
+        <div class="flex items-center gap-2">
+            <code id="new-token-text"
+                  class="flex-1 block bg-gray-900 border border-gray-600 rounded-lg px-3 py-2.5 text-sm font-mono text-green-300 break-all select-all">{{ new_token }}</code>
+            <button @click="navigator.clipboard.writeText('{{ new_token }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                    class="flex-shrink-0 px-3 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-lg text-sm transition-colors">
+                <span x-show="!copied">📋 Copy</span>
+                <span x-show="copied" x-cloak class="text-green-400">✓ Copied</span>
+            </button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">
+            Use this token in HTTP requests: <code class="text-gray-400">Authorization: Bearer {{ new_token[:20] }}…</code>
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Create new token form -->
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Create New Token</h2>
+        <form method="post" action="/web/api-tokens/create" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Token name <span class="text-red-400">*</span></label>
+                    <input type="text" name="name" required
+                           placeholder="e.g. Android App, Home Server…"
+                           class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">
+                        Expires in days
+                        <span class="text-gray-600 text-xs">(leave blank = never)</span>
+                    </label>
+                    <input type="number" name="expires_days" min="1" max="3650"
+                           placeholder="e.g. 365"
+                           class="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary-500">
+                </div>
+            </div>
+            <button type="submit"
+                    class="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors">
+                + Create Token
+            </button>
+        </form>
+    </div>
+
+    <!-- Token list -->
+    <div id="token-list">
+        {% include "partials/api_tokens_list.html" %}
+    </div>
+
+    <!-- API quick-start -->
+    <div class="card mt-6 bg-gray-900/50">
+        <h2 class="text-sm font-semibold text-gray-300 mb-3">Quick-start for Android / API clients</h2>
+        <div class="space-y-3 text-xs text-gray-400">
+            <div>
+                <p class="text-gray-500 mb-1">1. Get a token (or create one above):</p>
+                <pre class="bg-gray-950 rounded-lg p-3 overflow-x-auto text-green-400">POST /api/v1/auth/token
+Content-Type: application/json
+
+{
+  "username": "your-username",
+  "password": "your-password",
+  "token_name": "Android App"
+}</pre>
+            </div>
+            <div>
+                <p class="text-gray-500 mb-1">2. Use the token in every request:</p>
+                <pre class="bg-gray-950 rounded-lg p-3 overflow-x-auto text-green-400">POST /api/v1/execute
+Authorization: Bearer amt_your-token-here
+Content-Type: application/json
+
+{
+  "command": "add Interstellar to Radarr"
+}</pre>
+            </div>
+            <div>
+                <p class="text-gray-500 mb-1">3. Other useful endpoints:</p>
+                <pre class="bg-gray-950 rounded-lg p-3 overflow-x-auto text-blue-400">GET  /api/v1/user           → current user info
+GET  /api/v1/services       → configured services &amp; status
+GET  /api/v1/config         → app configuration
+DELETE /api/v1/auth/token   → revoke current token (logout)</pre>
+            </div>
+            <p class="text-gray-600">
+                Interactive API docs: <a href="/docs" class="text-primary-400 hover:text-primary-300">/docs</a>
+                (Swagger UI) ·
+                <a href="/redoc" class="text-primary-400 hover:text-primary-300">/redoc</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

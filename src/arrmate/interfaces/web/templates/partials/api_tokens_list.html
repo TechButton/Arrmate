@@ -1,0 +1,67 @@
+{% if not tokens %}
+<div class="card text-center py-10 text-gray-500">
+    <div class="text-4xl mb-3">🔑</div>
+    <p class="text-sm">No API tokens yet.</p>
+    <p class="text-xs text-gray-600 mt-1">Create one above to get started.</p>
+</div>
+{% else %}
+<div class="card">
+    <h2 class="text-lg font-semibold text-white mb-4">Your Tokens <span class="text-gray-500 text-sm font-normal">({{ tokens | length }})</span></h2>
+    <div class="space-y-2">
+        {% for token in tokens %}
+        <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-800 border border-gray-700 group"
+             x-data="{ confirming: false }">
+
+            <!-- Status dot -->
+            <div class="flex-shrink-0 w-2 h-2 rounded-full {{ 'bg-green-500' if token.enabled else 'bg-gray-600' }}"></div>
+
+            <!-- Info -->
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-white text-sm font-medium">{{ token.name }}</span>
+                    <code class="text-xs text-gray-500 font-mono bg-gray-900 px-1.5 py-0.5 rounded">{{ token.token_prefix }}…</code>
+                    {% if not token.enabled %}
+                    <span class="text-xs text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">Revoked</span>
+                    {% endif %}
+                </div>
+                <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500">
+                    <span>Created {{ token.created_at[:10] }}</span>
+                    {% if token.last_used_at %}
+                    <span>Last used {{ token.last_used_at[:10] }}</span>
+                    {% else %}
+                    <span class="text-gray-600">Never used</span>
+                    {% endif %}
+                    {% if token.expires_at %}
+                    <span>Expires {{ token.expires_at[:10] }}</span>
+                    {% else %}
+                    <span class="text-gray-600">Never expires</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Delete button -->
+            <div class="flex-shrink-0">
+                <button x-show="!confirming"
+                        @click="confirming = true"
+                        class="px-2 py-1 text-xs bg-gray-700 hover:bg-red-900/50 text-gray-400 hover:text-red-400 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                    Delete
+                </button>
+                <div x-show="confirming" x-cloak class="flex items-center gap-1">
+                    <span class="text-xs text-red-400">Delete?</span>
+                    <button hx-delete="/web/api-tokens/{{ token.id }}"
+                            hx-target="#token-list"
+                            hx-swap="innerHTML"
+                            class="px-2 py-1 text-xs bg-red-700 hover:bg-red-600 text-white rounded transition-colors">
+                        Yes
+                    </button>
+                    <button @click="confirming = false"
+                            class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
+                        No
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

@@ -1,5 +1,6 @@
 """SQLite user database for multi-user authentication."""
 
+import hashlib
 import json
 import logging
 import secrets
@@ -110,6 +111,18 @@ def init_db() -> None:
                 read INTEGER NOT NULL DEFAULT 0,
                 request_id TEXT,
                 created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS api_tokens (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                token_hash TEXT UNIQUE NOT NULL,
+                token_prefix TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                last_used_at TEXT,
+                expires_at TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1
             );
         """)
         conn.commit()
@@ -500,3 +513,129 @@ def get_admin_and_power_user_ids() -> list[str]:
             return [r[0] for r in rows]
     except Exception:
         return []
+
+
+# ===== API Tokens =====
+
+def _hash_token(plain_token: str) -> str:
+    return hashlib.sha256(plain_token.encode()).hexdigest()
+
+
+def create_api_token(
+    user_id: str,
+    name: str,
+    expires_days: int | None = None,
+) -> tuple[str, str]:
+    """Create an API token for a user.
+
+    Returns (token_id, plain_token). The plain token is only available at
+    creation time — store it immediately, it cannot be recovered later.
+    """
+    _ensure_db()
+    plain_token = "amt_" + secrets.token_urlsafe(32)
+    token_hash = _hash_token(plain_token)
+    token_prefix = plain_token[:12]  # "amt_XXXXXXXX" — safe to display
+    token_id = _new_id()
+    expires_at = None
+    if expires_days:
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=expires_days)).isoformat()
+    with _get_conn() as conn:
+        conn.execute(
+            """INSERT INTO api_tokens
+               (id, user_id, name, token_hash, token_prefix, created_at, expires_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (token_id, user_id, name, token_hash, token_prefix, _now(), expires_at),
+        )
+        conn.commit()
+    return token_id, plain_token
+
+
+def validate_api_token(plain_token: str) -> dict | None:
+    """Validate a Bearer token.
+
+    Returns a user-like dict {user_id, username, role, token_id} on success,
+    or None if the token is invalid, disabled, or expired.
+    Also updates last_used_at on every successful validation.
+    """
+    try:
+        token_hash = _hash_token(plain_token)
+        with _get_conn() as conn:
+            row = conn.execute(
+                """SELECT t.id AS token_id, t.enabled AS token_enabled, t.expires_at,
+                          u.id AS user_id, u.username, u.role, u.enabled AS user_enabled
+                   FROM api_tokens t
+                   JOIN users u ON t.user_id = u.id
+                   WHERE t.token_hash = ?""",
+                (token_hash,),
+            ).fetchone()
+            if not row:
+                return None
+            row = dict(row)
+            if not row["token_enabled"] or not row["user_enabled"]:
+                return None
+            if row["expires_at"]:
+                exp = datetime.fromisoformat(row["expires_at"])
+                if exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) > exp:
+                    return None
+            conn.execute(
+                "UPDATE api_tokens SET last_used_at = ? WHERE id = ?",
+                (_now(), row["token_id"]),
+            )
+            conn.commit()
+        return {
+            "user_id": row["user_id"],
+            "username": row["username"],
+            "role": row["role"],
+            "token_id": row["token_id"],
+        }
+    except Exception:
+        return None
+
+
+def list_api_tokens(user_id: str) -> list[dict]:
+    """List all tokens for a user (never returns the hash or plain token)."""
+    _ensure_db()
+    with _get_conn() as conn:
+        rows = conn.execute(
+            """SELECT id, name, token_prefix, created_at, last_used_at, expires_at, enabled
+               FROM api_tokens
+               WHERE user_id = ?
+               ORDER BY created_at DESC""",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def delete_api_token(token_id: str, user_id: str) -> bool:
+    """Permanently delete a token. Only the owner can delete their own tokens."""
+    with _get_conn() as conn:
+        cursor = conn.execute(
+            "DELETE FROM api_tokens WHERE id = ? AND user_id = ?",
+            (token_id, user_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def admin_delete_api_token(token_id: str) -> bool:
+    """Admin-level delete — can remove any token regardless of owner."""
+    with _get_conn() as conn:
+        cursor = conn.execute("DELETE FROM api_tokens WHERE id = ?", (token_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def list_all_api_tokens() -> list[dict]:
+    """Admin view — list all tokens with username."""
+    _ensure_db()
+    with _get_conn() as conn:
+        rows = conn.execute(
+            """SELECT t.id, t.name, t.token_prefix, t.created_at, t.last_used_at,
+                      t.expires_at, t.enabled, u.username
+               FROM api_tokens t
+               JOIN users u ON t.user_id = u.id
+               ORDER BY t.created_at DESC""",
+        ).fetchall()
+        return [dict(r) for r in rows]

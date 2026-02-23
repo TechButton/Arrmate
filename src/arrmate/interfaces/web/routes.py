@@ -3021,6 +3021,74 @@ async def prowlarr_send(
         )
 
 
+# ── API Token Management ──────────────────────────────────────────────────────
+
+@router.get("/api-tokens", response_class=HTMLResponse)
+async def api_tokens_page(request: Request):
+    """API token management page — shows the current user's tokens."""
+    user = get_current_user(request)
+    if not user:
+        raise AuthRedirectException("/web/login?next=/web/api-tokens")
+    tokens = user_db.list_api_tokens(user["user_id"])
+    return templates.TemplateResponse(
+        "pages/api_tokens.html",
+        {"request": request, "tokens": tokens, "new_token": None, **_base_ctx(request)},
+    )
+
+
+@router.post("/api-tokens/create", response_class=HTMLResponse)
+async def api_tokens_create(
+    request: Request,
+    name: str = Form(...),
+    expires_days: str = Form(default=""),
+):
+    """Create a new API token for the current user."""
+    user = get_current_user(request)
+    if not user:
+        raise AuthRedirectException("/web/login")
+
+    exp_days = None
+    if expires_days.strip():
+        try:
+            exp_days = int(expires_days.strip())
+            if exp_days <= 0:
+                exp_days = None
+        except ValueError:
+            exp_days = None
+
+    _name = name.strip() or "API Token"
+    _token_id, plain_token = user_db.create_api_token(
+        user_id=user["user_id"],
+        name=_name,
+        expires_days=exp_days,
+    )
+    tokens = user_db.list_api_tokens(user["user_id"])
+    return templates.TemplateResponse(
+        "pages/api_tokens.html",
+        {
+            "request": request,
+            "tokens": tokens,
+            "new_token": plain_token,
+            "new_token_name": _name,
+            **_base_ctx(request),
+        },
+    )
+
+
+@router.delete("/api-tokens/{token_id}", response_class=HTMLResponse)
+async def api_tokens_delete(request: Request, token_id: str):
+    """Delete one of the current user's tokens."""
+    user = get_current_user(request)
+    if not user:
+        raise AuthRedirectException("/web/login")
+    user_db.delete_api_token(token_id, user["user_id"])
+    tokens = user_db.list_api_tokens(user["user_id"])
+    return templates.TemplateResponse(
+        "partials/api_tokens_list.html",
+        {"request": request, "tokens": tokens, **_base_ctx(request)},
+    )
+
+
 # ── Discover (TMDB) ──────────────────────────────────────────────────────────
 
 _DISCOVER_CATEGORIES = {
