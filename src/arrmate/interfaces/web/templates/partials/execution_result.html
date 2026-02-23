@@ -1,5 +1,5 @@
 <div class="card {% if result.success %}border-green-700/50{% else %}border-red-700/50{% endif %}">
-    <div class="flex items-start space-x-3 mb-4">
+    <div class="flex items-start space-x-3 {% if result.data %}mb-4{% endif %}">
         <span class="text-3xl">{% if result.success %}✅{% else %}❌{% endif %}</span>
         <div class="flex-1">
             <h3 class="text-lg font-semibold {% if result.success %}text-green-400{% else %}text-red-400{% endif %} mb-1">
@@ -10,17 +10,117 @@
     </div>
 
     {% if result.data %}
-    <div class="bg-gray-900 rounded-lg border border-gray-700 mb-4 overflow-hidden">
-        <div class="px-4 py-2 border-b border-gray-700 flex items-center justify-between">
-            <h4 class="text-xs font-medium text-gray-400 uppercase tracking-wider">Details</h4>
-            <span class="text-xs text-gray-600">JSON</span>
+    {# ── List of titles (list/search results) ── #}
+    {% if result.data.titles is defined %}
+    <div class="mt-2">
+        {% if result.data.titles | length > 0 %}
+        <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-700 divide-y divide-gray-700/50">
+            {% for title in result.data.titles %}
+            <div class="px-3 py-2 text-sm text-gray-300 hover:bg-gray-700/30">{{ title }}</div>
+            {% endfor %}
         </div>
-        <pre class="p-4 text-xs text-green-300 overflow-x-auto font-mono leading-relaxed">{{ result.data | pretty_json }}</pre>
+        {% else %}
+        <p class="text-sm text-gray-500 italic">No items found.</p>
+        {% endif %}
     </div>
+
+    {# ── External search results ── #}
+    {% elif result.data.results is defined %}
+    <div class="mt-2 space-y-2">
+        {% for item in result.data.results %}
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-gray-300">
+            <span class="font-medium text-white">{{ item.title or item.get('artistName', '?') }}</span>
+            {% if item.year %}<span class="ml-2 text-gray-500">({{ item.year }})</span>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {# ── Transcode job started ── #}
+    {% elif result.data.job_id is defined %}
+    <div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700">
+            <div class="text-xs text-gray-500 mb-0.5">Files queued</div>
+            <div class="text-sm font-semibold text-white">{{ result.data.files_queued }}</div>
+        </div>
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700">
+            <div class="text-xs text-gray-500 mb-0.5">Total size</div>
+            <div class="text-sm font-semibold text-white">{{ result.data.total_size }}</div>
+        </div>
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 sm:col-span-1 col-span-2">
+            <div class="text-xs text-gray-500 mb-0.5">Job ID</div>
+            <div class="text-sm font-semibold text-white font-mono">{{ result.data.job_id }}</div>
+        </div>
+    </div>
+    <a href="/web/transcode" class="mt-2 inline-block text-xs text-primary-400 hover:text-primary-300">
+        View progress →
+    </a>
+
+    {# ── Added item (Sonarr/Radarr add response has title + id) ── #}
+    {% elif result.data.title is defined and result.data.id is defined %}
+    <div class="mt-2 grid grid-cols-2 gap-2">
+        {% if result.data.title %}
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700">
+            <div class="text-xs text-gray-500 mb-0.5">Title</div>
+            <div class="text-sm font-semibold text-white">{{ result.data.title }}</div>
+        </div>
+        {% endif %}
+        {% if result.data.year %}
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700">
+            <div class="text-xs text-gray-500 mb-0.5">Year</div>
+            <div class="text-sm font-semibold text-white">{{ result.data.year }}</div>
+        </div>
+        {% endif %}
+        {% if result.data.status %}
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700">
+            <div class="text-xs text-gray-500 mb-0.5">Status</div>
+            <div class="text-sm font-semibold text-white capitalize">{{ result.data.status }}</div>
+        </div>
+        {% endif %}
+        {% if result.data.path %}
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 col-span-2">
+            <div class="text-xs text-gray-500 mb-0.5">Path</div>
+            <div class="text-sm font-mono text-gray-300 truncate">{{ result.data.path }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── Everything else with user-visible keys: skip raw internal API fields ── #}
+    {% elif result.data.deleted_count is not defined and result.data.task is not defined %}
+    {# Only surface keys a user would care about, skip raw Sonarr/Radarr command blobs #}
+    {% set useful = [] %}
+    {% for k, v in result.data.items() %}
+      {% if k not in ('id','commandName','sendUpdatesTo','requiresDiskAccess',
+                      'isNewSeries','isExclusive','isTypeExclusive','trigger',
+                      'suppressMessages','clientUserAgent','started','queued',
+                      'message','body','priority','status','lastExecutionTime',
+                      'lastStartTime','changeProcessorPriority','updateScheduledTask',
+                      'definition','type') %}
+        {% if v is not none and v != '' and v != [] and v != {} %}
+          {% set _ = useful.append((k, v)) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% if useful %}
+    <div class="mt-2 grid grid-cols-2 gap-2">
+        {% for k, v in useful %}
+        <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 {% if v is string and v|length > 30 %}col-span-2{% endif %}">
+            <div class="text-xs text-gray-500 mb-0.5">{{ k | replace('_', ' ') | title }}</div>
+            <div class="text-sm text-white {% if v is iterable and v is not string %}{% endif %}">
+                {% if v is iterable and v is not string %}
+                    {{ v | join(', ') if v | length <= 5 else (v[:5] | join(', ') ~ ' … and ' ~ (v | length - 5) ~ ' more') }}
+                {% else %}
+                    {{ v }}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
     {% endif %}
 
     {% if result.errors %}
-    <div class="space-y-2">
+    <div class="space-y-2 mt-3">
         <h4 class="text-sm font-medium text-red-300">Errors:</h4>
         <ul class="list-disc list-inside space-y-1">
             {% for error in result.errors %}
