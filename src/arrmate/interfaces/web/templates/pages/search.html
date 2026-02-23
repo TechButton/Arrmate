@@ -35,6 +35,7 @@
                 type="text"
                 id="search-query"
                 name="query"
+                x-ref="searchInput"
                 placeholder="Enter title (e.g., Breaking Bad, The Matrix)..."
                 class="w-full px-4 py-3 pr-12 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500"
                 hx-get="/web/search/results"
@@ -52,6 +53,29 @@
         <p class="text-xs text-gray-500 mt-2">
             Search automatically as you type (with 500ms debounce)
         </p>
+
+        <!-- Example searches -->
+        <div class="mt-4 pt-4 border-t border-gray-700">
+            <p class="text-xs text-gray-500 mb-2">Try searching for:</p>
+            <div class="flex flex-wrap gap-2">
+                {% set tv_examples = ['Breaking Bad', 'The Office', 'Succession', 'Severance', 'The Bear', 'Shogun'] %}
+                {% set movie_examples = ['The Matrix', 'Inception', 'Interstellar', 'Dune', 'Parasite', 'Everything Everywhere'] %}
+                {% for example in tv_examples %}
+                <button
+                    @click="mediaType = 'tv'; $refs.searchInput.value = '{{ example }}'; $refs.searchInput.dispatchEvent(new Event('keyup'))"
+                    class="px-3 py-1 text-xs bg-purple-900/30 hover:bg-purple-800/50 text-purple-400 hover:text-purple-200 rounded-full border border-purple-800/50 hover:border-purple-600 transition-colors">
+                    📺 {{ example }}
+                </button>
+                {% endfor %}
+                {% for example in movie_examples %}
+                <button
+                    @click="mediaType = 'movie'; $refs.searchInput.value = '{{ example }}'; $refs.searchInput.dispatchEvent(new Event('keyup'))"
+                    class="px-3 py-1 text-xs bg-green-900/30 hover:bg-green-800/50 text-green-400 hover:text-green-200 rounded-full border border-green-800/50 hover:border-green-600 transition-colors">
+                    🎬 {{ example }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
     <!-- Search Results -->
@@ -59,7 +83,7 @@
         <div class="p-12 text-center">
             <span class="text-6xl mb-4 block opacity-60">🎬</span>
             <p class="text-xl text-gray-400 mb-2">Start searching</p>
-            <p class="text-sm text-gray-500">Enter a title above to find TV shows or movies</p>
+            <p class="text-sm text-gray-500">Click an example above or type a title to find TV shows or movies</p>
         </div>
     </div>
 </div>

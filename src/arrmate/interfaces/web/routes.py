@@ -1218,6 +1218,32 @@ async def upgrade_item(
         )
 
 
+@router.post("/library/moreseasons", response_class=HTMLResponse)
+async def more_seasons(
+    request: Request,
+    item_id: int = Form(...),
+    title: str = Form(...),
+):
+    """Monitor all seasons of a series and trigger a full search for new episodes."""
+    try:
+        client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+        try:
+            await client.monitor_all_seasons(item_id)
+            await client.trigger_series_search(item_id)
+        finally:
+            await client.close()
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "success",
+             "message": f"All seasons monitored and search triggered for '{title}'"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": str(e)},
+        )
+
+
 @router.post("/library/remove", response_class=HTMLResponse)
 async def remove_item(
     request: Request,

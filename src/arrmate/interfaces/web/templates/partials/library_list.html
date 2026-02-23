@@ -71,13 +71,13 @@
             </button>
 
             {% if item.media_type == 'tv' %}
-            <!-- More seasons (trigger full series search) -->
-            <button hx-post="/web/library/upgrade"
-                    hx-vals='{"item_id": "{{ item.id }}", "media_type": "tv", "title": "{{ item.title | replace('"', '&quot;') }}"}'
+            <!-- More seasons: monitor all + search -->
+            <button hx-post="/web/library/moreseasons"
+                    hx-vals='{"item_id": "{{ item.id }}", "title": "{{ item.title | replace('"', '&quot;') }}"}'
                     hx-target="#toast-container"
                     hx-swap="beforeend"
                     class="w-full py-1.5 px-2 text-xs bg-green-800/90 hover:bg-green-700 text-white rounded-lg transition-colors"
-                    title="Search for new seasons">
+                    title="Monitor all seasons and search for new episodes">
                 + More Seasons
             </button>
             {% endif %}

@@ -182,6 +182,21 @@ class SonarrClient(BaseMediaClient):
             data={"name": "EpisodeSearch", "episodeIds": episode_ids},
         )
 
+    async def monitor_all_seasons(self, series_id: int) -> Dict[str, Any]:
+        """Set all seasons of a series to monitored and save.
+
+        Args:
+            series_id: Series ID
+
+        Returns:
+            Updated series dict
+        """
+        series = await self._get(f"api/v3/series/{series_id}")
+        for season in series.get("seasons", []):
+            if season.get("seasonNumber", 0) > 0:
+                season["monitored"] = True
+        return await self._put(f"api/v3/series/{series_id}", data=series)
+
     async def get_quality_profiles(self) -> List[Dict[str, Any]]:
         """Get available quality profiles.
 

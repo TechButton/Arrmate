@@ -390,6 +390,12 @@ class Executor:
         Returns:
             Execution result
         """
+        # If the item is already in the library, route to upgrade/search instead
+        if intent.series_id and intent.media_type == "tv":
+            return await self._execute_upgrade(intent, client)
+        if intent.item_id and intent.media_type == "movie":
+            return await self._execute_upgrade(intent, client)
+
         # Get quality profiles and root folders
         profiles = await client.get_quality_profiles()
         root_folders = await client.get_root_folders()
