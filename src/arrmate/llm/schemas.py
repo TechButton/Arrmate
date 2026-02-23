@@ -37,7 +37,10 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                     "'remove'/'delete' = delete files from library, "
                     "'search' = search for media or trigger a library search, "
                     "'add' = add to library, "
-                    "'upgrade' = upgrade media quality, "
+                    "'upgrade' = search for a better/replacement copy of existing media — use this "
+                    "for ANY quality or playback complaint (green screen, pink tint, bad audio, "
+                    "audio out of sync, wrong audio track, corrupted video, buffering issues, "
+                    "'fix', 'broken', 'not playing correctly', 'weird video', 'audio off', etc.), "
                     "'list' = list items (library contents, Plex sessions, libraries, etc.), "
                     "'info' = get details about a specific item, "
                     "'download_subtitle' = download missing subtitles via Bazarr, "
@@ -198,9 +201,18 @@ Standard *arr examples:
 - "delete The Office and all its files" → action=delete, media_type=tv, title="The Office"
 - "redownload Ghosts season 1 episode 1" → action=search, media_type=tv, title="Ghosts", season=1, episodes=[1]
 - "re-download a new version of The Wire S02E05" → action=search, media_type=tv, title="The Wire", season=2, episodes=[5]
-- "get a better copy of Inception" → action=search, media_type=movie, title="Inception"
+- "get a better copy of Inception" → action=upgrade, media_type=movie, title="Inception"
 - "upgrade The Matrix to 4K" → action=upgrade, media_type=movie, title="The Matrix", criteria={{quality: "4K"}}
-- "check for new versions of Firefly" → action=search, media_type=tv, title="Firefly"
+- "check for new versions of Firefly" → action=upgrade, media_type=tv, title="Firefly"
+- "fix Interstellar, the video is all green and pink" → action=upgrade, media_type=movie, title="Interstellar"
+- "fix Inception, the audio is off" → action=upgrade, media_type=movie, title="Inception"
+- "Interstellar isn't playing correctly, the video is weird" → action=upgrade, media_type=movie, title="Interstellar"
+- "the audio is out of sync for The Dark Knight" → action=upgrade, media_type=movie, title="The Dark Knight"
+- "Avengers has a green screen issue" → action=upgrade, media_type=movie, title="Avengers"
+- "fix episode 1 of season 2 for High Potential, the audio is off" → action=upgrade, media_type=tv, title="High Potential", season=2, episodes=[1]
+- "The Office S03E04 has bad video quality" → action=upgrade, media_type=tv, title="The Office", season=3, episodes=[4]
+- "Breaking Bad season 2 episode 5 isn't playing right" → action=upgrade, media_type=tv, title="Breaking Bad", season=2, episodes=[5]
+- "the colors are wrong on Blade Runner 2049" → action=upgrade, media_type=movie, title="Blade Runner 2049"
 
 Plex examples:
 - "what's playing on Plex" → action=list, media_type=tv, criteria={{service: "plex", operation: "sessions"}}
@@ -273,10 +285,11 @@ Monitor / unmonitor examples:
 - "start monitoring The Matrix" → action=monitor, media_type=movie, title="The Matrix"
 - "unmonitor season 5 of Dexter" → action=unmonitor, media_type=tv, title="Dexter", season=5
 
-Rename examples:
+Rename examples (ONLY use rename for filename/naming convention issues, NOT for playback problems):
 - "rename Breaking Bad files" → action=rename, media_type=tv, title="Breaking Bad"
 - "rename Inception" → action=rename, media_type=movie, title="Inception"
-- "fix filenames for The Wire" → action=rename, media_type=tv, title="The Wire"
+- "fix the filenames for The Wire" → action=rename, media_type=tv, title="The Wire"
+- "rename files to match naming convention" → action=rename, media_type=tv
 
 Rescan examples:
 - "rescan Breaking Bad" → action=rescan, media_type=tv, title="Breaking Bad"
