@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Generator
 
-from passlib.hash import bcrypt
+import bcrypt as _bcrypt
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +139,7 @@ def init_db() -> None:
 def _create_default_admin() -> None:
     """Create the default admin/changeme123 account on fresh installs."""
     try:
-        password_hash = bcrypt.hash("changeme123")
+        password_hash = _bcrypt.hashpw(b"changeme123", _bcrypt.gensalt()).decode()
         with _get_conn() as conn:
             conn.execute(
                 """INSERT OR IGNORE INTO users
@@ -191,7 +191,7 @@ def create_user(
     if role not in VALID_ROLES:
         role = "user"
     user_id = _new_id()
-    password_hash = bcrypt.hash(password)
+    password_hash = _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
     try:
         with _get_conn() as conn:
             conn.execute(
@@ -226,7 +226,7 @@ def verify_user(username: str, password: str) -> dict | None:
     if not user or not user.get("enabled"):
         return None
     try:
-        if bcrypt.verify(password, user["password_hash"]):
+        if _bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
             return user
     except Exception:
         pass
@@ -259,7 +259,7 @@ def update_user(user_id: str, **kwargs) -> bool:
 
 def change_password(user_id: str, new_password: str) -> bool:
     """Change a user's password and clear must_change_password flag. Returns True on success."""
-    password_hash = bcrypt.hash(new_password)
+    password_hash = _bcrypt.hashpw(new_password.encode(), _bcrypt.gensalt()).decode()
     with _get_conn() as conn:
         cursor = conn.execute(
             "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",

@@ -7,7 +7,7 @@ import secrets
 import tempfile
 from pathlib import Path
 
-from passlib.hash import bcrypt
+import bcrypt as _bcrypt
 
 from ..config.settings import settings
 
@@ -63,7 +63,7 @@ class AuthManager:
         """Create or replace credentials. Automatically enables auth."""
         data = self._read()
         data["username"] = username
-        data["password_hash"] = bcrypt.hash(password)
+        data["password_hash"] = _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
         data["enabled"] = True
         self._write(data)
         logger.info("Auth credentials set for user: %s", username)
@@ -77,7 +77,7 @@ class AuthManager:
             return False
         if username != stored_user:
             return False
-        return bcrypt.verify(password, stored_hash)
+        return _bcrypt.checkpw(password.encode(), stored_hash.encode())
 
     def enable(self) -> None:
         """Enable authentication (credentials must exist)."""
