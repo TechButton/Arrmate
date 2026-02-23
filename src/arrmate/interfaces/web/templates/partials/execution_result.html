@@ -10,9 +10,12 @@
     </div>
 
     {% if result.data %}
-    <div class="p-4 bg-gray-800 rounded-lg border border-gray-700 mb-4">
-        <h4 class="text-sm font-medium text-gray-300 mb-2">Details:</h4>
-        <pre class="text-xs text-gray-400 overflow-x-auto whitespace-pre-wrap">{{ result.data }}</pre>
+    <div class="bg-gray-900 rounded-lg border border-gray-700 mb-4 overflow-hidden">
+        <div class="px-4 py-2 border-b border-gray-700 flex items-center justify-between">
+            <h4 class="text-xs font-medium text-gray-400 uppercase tracking-wider">Details</h4>
+            <span class="text-xs text-gray-600">JSON</span>
+        </div>
+        <pre class="p-4 text-xs text-green-300 overflow-x-auto font-mono leading-relaxed">{{ result.data | pretty_json }}</pre>
     </div>
     {% endif %}
 

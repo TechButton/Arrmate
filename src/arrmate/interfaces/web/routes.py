@@ -79,6 +79,18 @@ def _timestamp_to_relative(ts: int) -> str:
 
 templates.env.filters["timestamp_to_relative"] = _timestamp_to_relative
 
+
+def _pretty_json(value) -> str:
+    """Render any value as indented, human-readable JSON."""
+    import json
+    try:
+        return json.dumps(value, indent=2, ensure_ascii=False, default=str)
+    except Exception:
+        return str(value)
+
+
+templates.env.filters["pretty_json"] = _pretty_json
+
 # Global components (shared with API)
 parser: Optional[CommandParser] = None
 engine: Optional[IntentEngine] = None

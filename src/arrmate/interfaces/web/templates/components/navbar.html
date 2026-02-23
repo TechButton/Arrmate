@@ -2,7 +2,7 @@
 {% set cur_role = cur_user.role if cur_user else None %}
 
 <nav class="fixed top-0 left-0 right-0 bg-gray-800 border-b border-gray-700 shadow-lg z-40"
-     x-data="{ mobileOpen: false, moreOpen: false }">
+     x-data="{ mobileOpen: false }">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
 
@@ -14,95 +14,66 @@
                 </a>
             </div>
 
-            <!-- Desktop: primary nav links -->
-            <div class="hidden md:flex items-center space-x-1 ml-4">
+            <!-- Desktop: all nav links flat in the top bar -->
+            <div class="hidden md:flex items-center space-x-1 ml-4 flex-1">
                 <a href="/web/"
-                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
                     Dashboard
                 </a>
                 <a href="/web/command"
-                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
                     Command
                 </a>
                 <a href="/web/library"
-                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
                     Library
                 </a>
                 <a href="/web/search"
-                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
                     Search
                 </a>
                 <a href="/web/plex"
-                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
                     Plex
                 </a>
-
-                <!-- More dropdown (hamburger) -->
-                <div class="relative" x-data="{ open: false }">
-                    <button @click="open = !open"
-                            @click.outside="open = false"
-                            class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm">
-                        <!-- Hamburger icon -->
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M4 6h16M4 12h16M4 18h16"/>
-                        </svg>
-                        <span>More</span>
-                        <svg class="w-3 h-3 transition-transform" :class="open ? 'rotate-180' : ''"
-                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-
-                    <div x-show="open"
-                         x-transition:enter="transition ease-out duration-100"
-                         x-transition:enter-start="opacity-0 scale-95"
-                         x-transition:enter-end="opacity-100 scale-100"
-                         x-transition:leave="transition ease-in duration-75"
-                         x-transition:leave-start="opacity-100 scale-100"
-                         x-transition:leave-end="opacity-0 scale-95"
-                         class="absolute left-0 mt-2 w-44 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden py-1">
-                        <a href="/web/services"
-                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                            <span class="text-base">⚙️</span> Services
-                        </a>
-                        {% if not cur_user or cur_role in ('admin', 'power_user') %}
-                        <a href="/web/downloads"
-                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                            <span class="text-base">⬇️</span> Downloads
-                        </a>
-                        {% if settings.prowlarr_url %}
-                        <a href="/web/prowlarr"
-                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                            <span class="text-base">🔍</span> Prowlarr
-                        </a>
-                        {% endif %}
-                        <a href="/web/transcode"
-                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                            <span class="text-base">🎞️</span> Transcode
-                        </a>
-                        {% endif %}
-                        <a href="/web/requests"
-                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                            <span class="text-base">📋</span> Requests
-                        </a>
-                        <a href="/web/help"
-                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                            <span class="text-base">❓</span> Help
-                        </a>
-                        {% if not cur_user or cur_role == 'admin' %}
-                        <div class="border-t border-gray-700 my-1"></div>
-                        <a href="/web/settings"
-                           class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                            <span class="text-base">🔧</span> Settings
-                        </a>
-                        {% endif %}
-                    </div>
-                </div>
+                <a href="/web/services"
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
+                    Services
+                </a>
+                {% if not cur_user or cur_role in ('admin', 'power_user') %}
+                <a href="/web/downloads"
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
+                    Downloads
+                </a>
+                {% if settings.prowlarr_url %}
+                <a href="/web/prowlarr"
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
+                    Prowlarr
+                </a>
+                {% endif %}
+                <a href="/web/transcode"
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
+                    Transcode
+                </a>
+                {% endif %}
+                <a href="/web/requests"
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
+                    Requests
+                </a>
+                <a href="/web/help"
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
+                    Help
+                </a>
+                {% if not cur_user or cur_role == 'admin' %}
+                <a href="/web/settings"
+                   class="px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm whitespace-nowrap">
+                    Settings
+                </a>
+                {% endif %}
             </div>
 
             <!-- Desktop: right-side controls -->
-            <div class="hidden md:flex items-center space-x-1 ml-auto">
+            <div class="hidden md:flex items-center space-x-1 ml-2 flex-shrink-0">
 
                 {% if cur_user %}
                 <!-- Notification Bell -->
@@ -257,30 +228,24 @@
              x-transition:leave-end="opacity-0 -translate-y-2"
              class="md:hidden pb-4">
             <div class="flex flex-col space-y-1">
-                <!-- Primary links -->
                 <a href="/web/" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Dashboard</a>
                 <a href="/web/command" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Command</a>
                 <a href="/web/library" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Library</a>
                 <a href="/web/search" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Search</a>
                 <a href="/web/plex" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Plex</a>
-
-                <!-- More section -->
-                <div class="border-t border-gray-700/50 pt-1">
-                    <p class="px-4 py-1 text-xs text-gray-500 uppercase tracking-wider font-medium">More</p>
-                    <a href="/web/services" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">⚙️ Services</a>
-                    {% if not cur_user or cur_role in ('admin', 'power_user') %}
-                    <a href="/web/downloads" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">⬇️ Downloads</a>
-                    {% if settings.prowlarr_url %}
-                    <a href="/web/prowlarr" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">🔍 Prowlarr</a>
-                    {% endif %}
-                    <a href="/web/transcode" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">🎞️ Transcode</a>
-                    {% endif %}
-                    <a href="/web/requests" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">📋 Requests</a>
-                    <a href="/web/help" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">❓ Help</a>
-                    {% if not cur_user or cur_role == 'admin' %}
-                    <a href="/web/settings" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors block" style="min-height:44px">🔧 Settings</a>
-                    {% endif %}
-                </div>
+                <a href="/web/services" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Services</a>
+                {% if not cur_user or cur_role in ('admin', 'power_user') %}
+                <a href="/web/downloads" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Downloads</a>
+                {% if settings.prowlarr_url %}
+                <a href="/web/prowlarr" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Prowlarr</a>
+                {% endif %}
+                <a href="/web/transcode" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Transcode</a>
+                {% endif %}
+                <a href="/web/requests" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Requests</a>
+                <a href="/web/help" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Help</a>
+                {% if not cur_user or cur_role == 'admin' %}
+                <a href="/web/settings" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Settings</a>
+                {% endif %}
 
                 <!-- User section -->
                 {% if cur_user %}
