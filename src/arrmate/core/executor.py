@@ -306,35 +306,35 @@ class Executor:
                             f"Season {intent.season} of '{intent.title}'"
                         ),
                     )
-                result = await client.trigger_episode_search(episode_ids)
+                await client.trigger_episode_search(episode_ids)
                 ep_str = ", ".join(str(e) for e in intent.episodes)
                 return ExecutionResult(
                     success=True,
                     message=f"Triggered search for '{intent.title}' S{intent.season:02d}E{ep_str}",
-                    data=result,
+                    data={"task": "EpisodeSearch"},
                 )
             elif intent.season is not None:
                 # Whole season
-                result = await client.trigger_season_search(intent.series_id, intent.season)
+                await client.trigger_season_search(intent.series_id, intent.season)
                 return ExecutionResult(
                     success=True,
                     message=f"Triggered search for '{intent.title}' Season {intent.season}",
-                    data=result,
+                    data={"task": "SeasonSearch"},
                 )
             else:
                 # Whole series
-                result = await client.trigger_series_search(intent.series_id)
+                await client.trigger_series_search(intent.series_id)
                 return ExecutionResult(
                     success=True,
                     message=f"Triggered search for '{intent.title}'",
-                    data=result,
+                    data={"task": "SeriesSearch"},
                 )
         elif intent.media_type == "movie" and intent.item_id:
-            result = await client.trigger_movie_search(intent.item_id)
+            await client.trigger_movie_search(intent.item_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
-                data=result,
+                data={"task": "MovieSearch"},
             )
         else:
             return ExecutionResult(
@@ -356,32 +356,32 @@ class Executor:
         """
         # For items already in library, trigger a search
         if intent.series_id and intent.media_type == "tv":
-            result = await client.trigger_series_search(intent.series_id)
+            await client.trigger_series_search(intent.series_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
-                data=result,
+                data={"task": "SeriesSearch"},
             )
         elif intent.item_id and intent.media_type == "movie":
-            result = await client.trigger_movie_search(intent.item_id)
+            await client.trigger_movie_search(intent.item_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
-                data=result,
+                data={"task": "MovieSearch"},
             )
         elif intent.item_id and intent.media_type == "music":
-            result = await client.trigger_artist_search(intent.item_id)
+            await client.trigger_artist_search(intent.item_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
-                data=result,
+                data={"task": "ArtistSearch"},
             )
         elif intent.item_id and intent.media_type in ("audiobook", "book"):
-            result = await client.trigger_author_search(intent.item_id)
+            await client.trigger_author_search(intent.item_id)
             return ExecutionResult(
                 success=True,
                 message=f"Triggered search for '{intent.title}'",
-                data=result,
+                data={"task": "AuthorSearch"},
             )
         else:
             # Search external sources

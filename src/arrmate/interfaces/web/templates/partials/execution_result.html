@@ -212,9 +212,12 @@
         {% for k, v in useful %}
         <div class="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 {% if v is string and v|length > 30 %}col-span-2{% endif %}">
             <div class="text-xs text-gray-500 mb-0.5">{{ k | replace('_', ' ') | title }}</div>
-            <div class="text-sm text-white {% if v is iterable and v is not string %}{% endif %}">
-                {% if v is iterable and v is not string %}
-                    {{ v | join(', ') if v | length <= 5 else (v[:5] | join(', ') ~ ' … and ' ~ (v | length - 5) ~ ' more') }}
+            <div class="text-sm text-white">
+                {% if v is mapping %}
+                    <span class="text-gray-500 italic">{{ v | length }} field(s)</span>
+                {% elif v is iterable and v is not string %}
+                    {% set _items = v | list %}
+                    {{ _items[:5] | join(', ') }}{% if _items | length > 5 %} … and {{ _items | length - 5 }} more{% endif %}
                 {% else %}
                     {{ v }}
                 {% endif %}
