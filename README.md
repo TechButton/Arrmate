@@ -65,7 +65,14 @@ Edit `.env` with your service URLs and API keys, then:
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Open `http://localhost:8000` — that's it.
+Open `http://localhost:8000` and sign in with the default credentials:
+
+```
+Username: admin
+Password: changeme123
+```
+
+You'll be prompted to set a new password on first login.
 
 ### Minimum config
 
@@ -113,11 +120,20 @@ Arrmate includes a full multi-user system with three roles:
 | **power_user** | Execute commands, approve/fulfill media requests |
 | **user** | Browse library, submit media requests (no execute/delete) |
 
-**First run:** navigate to `/web/register` to create the admin account. After that, invite additional users from the Admin Panel (`/web/admin`) — share the generated link and they register with a role you pick.
+**Default credentials:** On a fresh install, a default admin account is created automatically:
+
+```
+Username: admin
+Password: changeme123
+```
+
+The login page will display these credentials as a reminder until the password is changed. You'll be prompted to set a new password immediately after signing in.
+
+After that, invite additional users from the Admin Panel (`/web/admin`) — share the generated link and they register with a role you pick.
 
 Existing `auth.json` single-user setups are automatically migrated to the new system on first startup.
 
-Locked out? Delete `/data/users.db` and restart — you'll be prompted to create a new admin account.
+Locked out? Delete `/data/users.db` and restart — the default admin account will be recreated.
 
 Sessions persist across restarts when `SECRET_KEY` is set in your env.
 

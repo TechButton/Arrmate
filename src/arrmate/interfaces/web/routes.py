@@ -159,12 +159,22 @@ async def login_page(
     if no_users:
         return RedirectResponse(url="/web/register", status_code=303)
 
+    # Show default-credentials hint when the admin account still has the factory password
+    show_default_creds = False
+    try:
+        admin = user_db.get_user_by_username("admin")
+        if admin and admin.get("must_change_password"):
+            show_default_creds = True
+    except Exception:
+        pass
+
     return templates.TemplateResponse(
         "pages/login.html",
         {
             "request": request,
             "next": safe_next_url(next),
             "error": error,
+            "show_default_creds": show_default_creds,
         },
     )
 
@@ -1459,7 +1469,16 @@ async def plex_page(request: Request):
     accounts = []
     if plex:
         try:
-            accounts = await plex.get_accounts()
+            raw_accounts = await plex.get_accounts()
+            # Normalize: Plex returns `name` on /accounts but `title` on User objects in history
+            accounts = [
+                {
+                    "id": a.get("id"),
+                    "title": a.get("title") or a.get("name") or f"User {a.get('id', '')}",
+                }
+                for a in raw_accounts
+                if a.get("id") is not None
+            ]
         except Exception:
             pass
         finally:
@@ -1545,7 +1564,11 @@ async def plex_history(
                 if not title:
                     continue
                 thumb = _plex_thumb_url(item.get("thumb", "")) if item.get("thumb") else None
-                user_info = item.get("User", {})
+                user_info = item.get("User") or item.get("Account") or {}
+                user_name = (
+                    (user_info.get("title") or user_info.get("name") or "")
+                    if isinstance(user_info, dict) else ""
+                )
                 items.append({
                     "title": title,
                     "subtitle": subtitle,
@@ -1553,7 +1576,7 @@ async def plex_history(
                     "viewed_at": viewed_at,
                     "thumb": thumb,
                     "rating_key": item.get("ratingKey"),
-                    "user": user_info.get("title", "") if isinstance(user_info, dict) else "",
+                    "user": user_name,
                 })
         except Exception as e:
             error = str(e)

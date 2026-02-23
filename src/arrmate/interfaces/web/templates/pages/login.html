@@ -36,6 +36,13 @@
 
         <!-- Login Card -->
         <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 shadow-lg">
+            {% if show_default_creds %}
+            <div class="mb-4 p-3 rounded-lg bg-yellow-900/30 border border-yellow-700/50 text-yellow-300 text-sm">
+                <p class="font-medium mb-1">Default credentials active</p>
+                <p class="font-mono text-xs">Username: <strong>admin</strong> &nbsp; Password: <strong>changeme123</strong></p>
+                <p class="text-xs mt-1 text-yellow-400/70">You'll be prompted to set a new password after signing in.</p>
+            </div>
+            {% endif %}
             {% if error %}
             <div class="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700/50 text-red-300 text-sm">
                 {{ error }}
