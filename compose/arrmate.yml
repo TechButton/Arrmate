@@ -21,15 +21,16 @@ services:
       PGID: $PGID
 
       # LLM provider (ollama | openai | anthropic)
+      # Can also be configured via Settings page in web UI
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
 
-      # Media services — Arrmate auto-discovers these.
+      # Media services — auto-discovered; can also be set via Settings page in web UI.
       # Use Docker service names as hostnames when on the same network.
       SONARR_URL: ${SONARR_URL:-}
       SONARR_API_KEY: ${SONARR_API_KEY:-}
@@ -47,10 +48,27 @@ services:
       AUDIOBOOKSHELF_API_KEY: ${AUDIOBOOKSHELF_API_KEY:-}
       LAZYLIBRARIAN_URL: ${LAZYLIBRARIAN_URL:-}
       LAZYLIBRARIAN_API_KEY: ${LAZYLIBRARIAN_API_KEY:-}
-      READARR_URL: ${READARR_URL:-}
-      READARR_API_KEY: ${READARR_API_KEY:-}
       HUNTARR_URL: ${HUNTARR_URL:-}
       HUNTARR_API_KEY: ${HUNTARR_API_KEY:-}
+      READARR_URL: ${READARR_URL:-}
+      READARR_API_KEY: ${READARR_API_KEY:-}
+
+      # Download clients
+      SABNZBD_URL: ${SABNZBD_URL:-}
+      SABNZBD_API_KEY: ${SABNZBD_API_KEY:-}
+      NZBGET_URL: ${NZBGET_URL:-}
+      NZBGET_USERNAME: ${NZBGET_USERNAME:-}
+      NZBGET_PASSWORD: ${NZBGET_PASSWORD:-}
+      QBITTORRENT_URL: ${QBITTORRENT_URL:-}
+      QBITTORRENT_USERNAME: ${QBITTORRENT_USERNAME:-}
+      QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
+      TRANSMISSION_URL: ${TRANSMISSION_URL:-}
+      TRANSMISSION_USERNAME: ${TRANSMISSION_USERNAME:-}
+      TRANSMISSION_PASSWORD: ${TRANSMISSION_PASSWORD:-}
+
+      # Transcoding (FFmpeg H.265)
+      TRANSCODE_CRF: ${TRANSCODE_CRF:-28}
+      TRANSCODE_PRESET: ${TRANSCODE_PRESET:-medium}
 
       # Authentication (optional) — set up via Settings page in web UI
       SECRET_KEY: ${SECRET_KEY:-}

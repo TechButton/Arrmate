@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from ...auth.dependencies import AuthRedirectException, require_api_auth
 from ...clients.discovery import discover_services
+from ...config.service_config import apply_saved_config
 from ...config.settings import settings
 from ...core.command_parser import CommandParser
 from ...core.executor import Executor
@@ -74,6 +75,8 @@ executor = None
 async def startup_event() -> None:
     """Initialize components on startup."""
     global parser, engine, executor
+    # Load any settings saved via the UI (env vars already took priority via Pydantic)
+    apply_saved_config()
     # Discover services so the LLM prompt knows which ones are available
     services = await discover_services()
     available = [name for name, info in services.items() if info.available]

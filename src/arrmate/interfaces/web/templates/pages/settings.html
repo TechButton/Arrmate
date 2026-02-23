@@ -2,18 +2,192 @@
 
 {% block title %}Settings - Arrmate{% endblock %}
 
+{% macro field(label, name, value, placeholder="", type="text", help="") %}
+<div>
+    <label class="block text-sm font-medium text-gray-300 mb-1">{{ label }}</label>
+    <input type="{{ type }}" name="{{ name }}"
+           value="{{ value or '' }}"
+           placeholder="{{ placeholder }}"
+           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+    {% if help %}<p class="text-xs text-gray-500 mt-1">{{ help }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro service_section(title, emoji, url_name, url_val, key_name, key_val, default_port="", key_label="API Key") %}
+<div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+    <h3 class="text-sm font-semibold text-gray-200 mb-3">{{ emoji }} {{ title }}</h3>
+    <div class="grid sm:grid-cols-2 gap-3">
+        {{ field("URL", url_name, url_val, "http://hostname:" + default_port) }}
+        {{ field(key_label, key_name, key_val, type="password" if "password" in key_name else "text") }}
+    </div>
+</div>
+{% endmacro %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto">
+<div class="max-w-4xl mx-auto" x-data="{ tab: 'llm' }">
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-white mb-2">Settings</h1>
-        <p class="text-gray-400">Manage authentication and application settings</p>
+        <p class="text-gray-400">Configure services, LLM provider, and authentication</p>
     </div>
 
-    <!-- Authentication Section -->
-    <div class="card mb-6">
-        <h2 class="text-xl font-bold text-white mb-4">Authentication</h2>
-        <div id="auth-settings">
-            {% include "partials/auth_settings.html" %}
+    <!-- Tab Navigation -->
+    <div class="flex gap-1 mb-6 p-1 bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
+        {% for t, label in [('llm', '🤖 AI / LLM'), ('media', '📺 Media'), ('downloads', '⬇️ Downloads'), ('auth', '🔐 Auth')] %}
+        <button @click="tab = '{{ t }}'"
+                :class="tab === '{{ t }}' ? 'bg-primary-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'"
+                class="flex-1 min-w-fit px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap">
+            {{ label }}
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- Toast target -->
+    <div id="settings-toast"></div>
+
+    <!-- LLM Tab -->
+    <div x-show="tab === 'llm'" x-cloak>
+        <div class="card" x-data="{ provider: '{{ settings.llm_provider }}' }">
+            <h2 class="text-xl font-bold text-white mb-1">AI / LLM Configuration</h2>
+            <p class="text-sm text-gray-400 mb-4">The AI model that interprets your natural language commands.</p>
+
+            <form hx-post="/web/settings/services"
+                  hx-target="#settings-toast"
+                  hx-swap="innerHTML">
+
+                <!-- Provider selector -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Provider</label>
+                    <div class="flex gap-2 flex-wrap">
+                        {% for p, plabel in [('ollama', '🦙 Ollama (local)'), ('openai', '🌐 OpenAI'), ('anthropic', '🧠 Anthropic')] %}
+                        <label class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
+                               :class="provider === '{{ p }}' ? 'bg-primary-900/40 border-primary-600 text-primary-300' : 'bg-gray-800 border-gray-700 text-gray-400'">
+                            <input type="radio" name="llm_provider" value="{{ p }}"
+                                   @change="provider = '{{ p }}'"
+                                   {{ 'checked' if settings.llm_provider == p else '' }}
+                                   class="sr-only">
+                            <span class="text-sm font-medium">{{ plabel }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Ollama fields -->
+                <div x-show="provider === 'ollama'" class="space-y-3 mb-4">
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        {{ field("Ollama URL", "ollama_base_url", settings.ollama_base_url, "http://ollama:11434") }}
+                        {{ field("Model", "ollama_model", settings.ollama_model, "qwen2.5:7b", help="Must support tool calling (e.g. qwen2.5:7b, llama3.1:8b)") }}
+                    </div>
+                </div>
+
+                <!-- OpenAI fields -->
+                <div x-show="provider === 'openai'" class="space-y-3 mb-4">
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        {{ field("API Key", "openai_api_key", settings.openai_api_key, "sk-...") }}
+                        {{ field("Model", "openai_model", settings.openai_model, "gpt-4o") }}
+                    </div>
+                    {{ field("Custom Base URL (optional)", "openai_base_url", settings.openai_base_url, "https://api.openai.com/v1", help="Leave blank for official OpenAI API") }}
+                </div>
+
+                <!-- Anthropic fields -->
+                <div x-show="provider === 'anthropic'" class="space-y-3 mb-4">
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        {{ field("API Key", "anthropic_api_key", settings.anthropic_api_key, "sk-ant-...") }}
+                        {{ field("Model", "anthropic_model", settings.anthropic_model, "claude-sonnet-4-6") }}
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">Save LLM Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Media Services Tab -->
+    <div x-show="tab === 'media'" x-cloak>
+        <div class="card">
+            <h2 class="text-xl font-bold text-white mb-1">Media Services</h2>
+            <p class="text-sm text-gray-400 mb-4">
+                Connect Arrmate to your Sonarr, Radarr, and other media services.
+                Changes take effect immediately — no restart required.
+            </p>
+            <form hx-post="/web/settings/services"
+                  hx-target="#settings-toast"
+                  hx-swap="innerHTML"
+                  class="space-y-4">
+
+                {{ service_section("Sonarr", "📺", "sonarr_url", settings.sonarr_url, "sonarr_api_key", settings.sonarr_api_key, "8989") }}
+                {{ service_section("Radarr", "🎬", "radarr_url", settings.radarr_url, "radarr_api_key", settings.radarr_api_key, "7878") }}
+                {{ service_section("Lidarr", "🎵", "lidarr_url", settings.lidarr_url, "lidarr_api_key", settings.lidarr_api_key, "8686") }}
+                {{ service_section("Bazarr", "💬", "bazarr_url", settings.bazarr_url, "bazarr_api_key", settings.bazarr_api_key, "6767") }}
+
+                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🎞️ Plex Media Server</h3>
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        {{ field("URL", "plex_url", settings.plex_url, "http://hostname:32400") }}
+                        {{ field("Token (X-Plex-Token)", "plex_token", settings.plex_token) }}
+                    </div>
+                </div>
+
+                {{ service_section("AudioBookshelf", "📖", "audiobookshelf_url", settings.audiobookshelf_url, "audiobookshelf_api_key", settings.audiobookshelf_api_key, "13378") }}
+                {{ service_section("LazyLibrarian", "📚", "lazylibrarian_url", settings.lazylibrarian_url, "lazylibrarian_api_key", settings.lazylibrarian_api_key, "5299") }}
+                {{ service_section("Huntarr", "🎯", "huntarr_url", settings.huntarr_url, "huntarr_api_key", settings.huntarr_api_key, "3000") }}
+                {{ service_section("Whisparr", "🔞", "whisparr_url", settings.whisparr_url, "whisparr_api_key", settings.whisparr_api_key, "6969") }}
+
+                <button type="submit" class="btn-primary">Save Media Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Download Clients Tab -->
+    <div x-show="tab === 'downloads'" x-cloak>
+        <div class="card">
+            <h2 class="text-xl font-bold text-white mb-1">Download Clients</h2>
+            <p class="text-sm text-gray-400 mb-4">Connect to your NZB and torrent download managers.</p>
+            <form hx-post="/web/settings/services"
+                  hx-target="#settings-toast"
+                  hx-swap="innerHTML"
+                  class="space-y-4">
+
+                {{ service_section("SABnzbd", "📰", "sabnzbd_url", settings.sabnzbd_url, "sabnzbd_api_key", settings.sabnzbd_api_key, "8080") }}
+
+                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-200 mb-3">📰 NZBget</h3>
+                    <div class="grid sm:grid-cols-3 gap-3">
+                        {{ field("URL", "nzbget_url", settings.nzbget_url, "http://hostname:6789") }}
+                        {{ field("Username", "nzbget_username", settings.nzbget_username) }}
+                        {{ field("Password", "nzbget_password", settings.nzbget_password, type="password") }}
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🔵 qBittorrent</h3>
+                    <div class="grid sm:grid-cols-3 gap-3">
+                        {{ field("Web UI URL", "qbittorrent_url", settings.qbittorrent_url, "http://hostname:8080") }}
+                        {{ field("Username", "qbittorrent_username", settings.qbittorrent_username) }}
+                        {{ field("Password", "qbittorrent_password", settings.qbittorrent_password, type="password") }}
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🚂 Transmission</h3>
+                    <div class="grid sm:grid-cols-3 gap-3">
+                        {{ field("Web UI URL", "transmission_url", settings.transmission_url, "http://hostname:9091") }}
+                        {{ field("Username", "transmission_username", settings.transmission_username) }}
+                        {{ field("Password", "transmission_password", settings.transmission_password, type="password") }}
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">Save Download Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Authentication Tab -->
+    <div x-show="tab === 'auth'" x-cloak>
+        <div class="card">
+            <h2 class="text-xl font-bold text-white mb-4">Authentication</h2>
+            <div id="auth-settings">
+                {% include "partials/auth_settings.html" %}
+            </div>
         </div>
     </div>
 </div>

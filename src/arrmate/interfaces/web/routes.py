@@ -16,6 +16,7 @@ from ...auth.session import (
     set_session_cookie,
 )
 from ...clients.discovery import discover_services, get_client_for_media_type
+from ...config.service_config import save_service_config
 from ...clients.plex import PlexClient
 from ...clients.radarr import RadarrClient
 from ...clients.sonarr import SonarrClient
@@ -71,6 +72,12 @@ def get_executor() -> Executor:
     if executor is None:
         executor = Executor()
     return executor
+
+
+def reset_parser() -> None:
+    """Reset the cached parser so the next command re-initialises it with current services."""
+    global parser
+    parser = None
 
 
 # ===== Auth Routes (unprotected) =====
@@ -223,6 +230,7 @@ async def settings_page(request: Request):
         "pages/settings.html",
         {
             "request": request,
+            "settings": settings,
         },
     )
 
@@ -306,6 +314,22 @@ async def auth_delete(request: Request):
     )
     clear_session_cookie(response)
     return response
+
+
+# ===== Service Settings =====
+
+
+@router.post("/settings/services", response_class=HTMLResponse)
+async def save_services(request: Request):
+    """Save service URLs and API keys to persistent config."""
+    form = await request.form()
+    save_service_config(dict(form))
+    # Reset parser so the next command re-discovers available services
+    reset_parser()
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {"request": request, "type": "success", "message": "Settings saved"},
+    )
 
 
 # ===== HTMX Partial Routes =====

@@ -5,14 +5,75 @@
 {% block content %}
 <div class="max-w-7xl mx-auto">
     <!-- Welcome Header -->
-    <div class="mb-8">
+    <div class="mb-6">
         <h1 class="text-4xl font-bold text-white mb-2">Welcome to Arrmate</h1>
         <p class="text-lg text-gray-400">Your AI companion for managing Sonarr, Radarr, and Lidarr</p>
     </div>
 
+    <!-- Command — Hero Section -->
+    <div class="card mb-6 bg-gradient-to-br from-primary-900/30 to-indigo-900/20 border-primary-700/50">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xl font-bold text-white">What would you like to do?</h2>
+            <a href="/web/command" class="text-sm text-primary-400 hover:text-primary-300">Full command page (+ voice) &rarr;</a>
+        </div>
+        <form id="dashboard-command-form">
+            <textarea
+                id="command-input"
+                name="command"
+                rows="3"
+                placeholder="Type a command in plain English — e.g. &quot;add Breaking Bad&quot; or &quot;download season 2 of Severance&quot;"
+                class="w-full px-4 py-3 bg-gray-800/70 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500 resize-none"
+                style="min-height: 80px;"
+            ></textarea>
+            <div class="flex gap-3 mt-3 flex-wrap">
+                <button type="button"
+                        hx-post="/web/command/parse"
+                        hx-include="#command-input"
+                        hx-target="#dash-preview-area"
+                        hx-swap="innerHTML"
+                        class="btn-secondary"
+                        style="min-height: 44px;">
+                    📋 Parse Preview
+                </button>
+                <button type="button"
+                        hx-post="/web/command/execute"
+                        hx-include="#command-input"
+                        hx-target="#dash-result-area"
+                        hx-swap="innerHTML"
+                        class="btn-primary"
+                        style="min-height: 44px;">
+                    ▶️ Execute
+                </button>
+            </div>
+        </form>
+
+        <!-- Example command chips -->
+        <div class="mt-4 pt-3 border-t border-primary-800/40">
+            <p class="text-xs text-gray-500 mb-2">Try an example:</p>
+            <div class="flex flex-wrap gap-2">
+                {% for cmd in [
+                    "list my TV shows",
+                    "add Breaking Bad to my library",
+                    "download missing episodes of The Bear",
+                    "remove season 1 of Angel",
+                    "what's playing on Plex",
+                    "convert all movies to H265",
+                ] %}
+                <button onclick="document.getElementById('command-input').value = '{{ cmd }}'"
+                        class="px-3 py-1 text-xs bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white rounded-full border border-gray-700 hover:border-primary-600 transition-colors">
+                    {{ cmd }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Preview + Result areas -->
+        <div id="dash-preview-area" class="mt-3"></div>
+        <div id="dash-result-area" class="mt-2"></div>
+    </div>
+
     <!-- Quick Stats -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <!-- Services Status -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div class="card bg-gradient-to-br from-blue-900/30 to-blue-800/20 border-blue-700/50">
             <div class="flex items-center justify-between">
                 <div>
@@ -24,7 +85,6 @@
             </div>
         </div>
 
-        <!-- TV Shows -->
         <div class="card bg-gradient-to-br from-purple-900/30 to-purple-800/20 border-purple-700/50">
             <div class="flex items-center justify-between">
                 <div>
@@ -36,7 +96,6 @@
             </div>
         </div>
 
-        <!-- Movies -->
         <div class="card bg-gradient-to-br from-green-900/30 to-green-800/20 border-green-700/50">
             <div class="flex items-center justify-between">
                 <div>
@@ -49,63 +108,26 @@
         </div>
     </div>
 
-    <!-- Search Bar -->
-    <div class="card mb-6" x-data="{ mediaType: 'tv' }">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-bold text-white">Find &amp; Add Media</h2>
-            <a href="/web/search" class="text-sm text-primary-400 hover:text-primary-300">Advanced Search &rarr;</a>
-        </div>
-        <div class="flex gap-2 mb-3">
-            <button @click="mediaType = 'tv'"
-                :class="mediaType === 'tv' ? 'bg-primary-900/40 text-primary-300 border-primary-600' : 'bg-gray-800 text-gray-400 border-gray-700'"
-                class="px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors">
-                📺 TV
-            </button>
-            <button @click="mediaType = 'movie'"
-                :class="mediaType === 'movie' ? 'bg-primary-900/40 text-primary-300 border-primary-600' : 'bg-gray-800 text-gray-400 border-gray-700'"
-                class="px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors">
-                🎬 Movies
-            </button>
-        </div>
-        <div class="relative">
-            <input type="text"
-                   id="dashboard-search"
-                   placeholder="Search for a show or movie to add..."
-                   class="w-full px-4 py-3 pr-12 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500"
-                   hx-get="/web/search/results"
-                   hx-trigger="keyup changed delay:500ms"
-                   hx-target="#dashboard-search-results"
-                   hx-swap="innerHTML"
-                   :hx-vals="JSON.stringify({media_type: mediaType})">
-            <div class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-            </div>
-        </div>
-        <div id="dashboard-search-results" class="mt-3"></div>
-    </div>
-
     <!-- Quick Actions -->
-    <div class="card mb-8">
+    <div class="card mb-6">
         <h2 class="text-xl font-bold text-white mb-4">Quick Actions</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <a href="/web/command" class="p-4 bg-blue-900/20 rounded-lg hover:bg-blue-800/30 transition-colors border border-transparent hover:border-blue-600/50" style="min-height: 44px;">
-                <div class="flex items-center space-x-3">
-                    <span class="text-2xl">💬</span>
-                    <div>
-                        <p class="font-semibold text-white">Command</p>
-                        <p class="text-xs text-gray-400">Natural language</p>
-                    </div>
-                </div>
-            </a>
-
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <a href="/web/library" class="p-4 bg-purple-900/20 rounded-lg hover:bg-purple-800/30 transition-colors border border-transparent hover:border-purple-600/50" style="min-height: 44px;">
                 <div class="flex items-center space-x-3">
                     <span class="text-2xl">📚</span>
                     <div>
                         <p class="font-semibold text-white">Library</p>
                         <p class="text-xs text-gray-400">Browse media</p>
+                    </div>
+                </div>
+            </a>
+
+            <a href="/web/search" class="p-4 bg-blue-900/20 rounded-lg hover:bg-blue-800/30 transition-colors border border-transparent hover:border-blue-600/50" style="min-height: 44px;">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl">🔍</span>
+                    <div>
+                        <p class="font-semibold text-white">Search</p>
+                        <p class="text-xs text-gray-400">Find & add media</p>
                     </div>
                 </div>
             </a>
@@ -148,33 +170,10 @@
             <div class="col-span-full p-8 text-center">
                 <span class="text-4xl mb-4 block">⚠️</span>
                 <p class="text-gray-400 mb-2">No services configured yet</p>
-                <p class="text-sm text-gray-500">Configure your services in the .env file to get started</p>
-                <a href="/web/services" class="btn-primary mt-4 inline-block">Configure Services &rarr;</a>
+                <p class="text-sm text-gray-500">Add your service URLs and API keys in Settings to get started</p>
+                <a href="/web/settings" class="btn-primary mt-4 inline-block">Open Settings &rarr;</a>
             </div>
             {% endif %}
-        </div>
-    </div>
-
-    <!-- Getting Started -->
-    <div class="card mt-8 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 border-indigo-700/50">
-        <h2 class="text-xl font-bold text-indigo-300 mb-4">Getting Started</h2>
-        <div class="space-y-3 text-indigo-300">
-            <div class="flex items-start space-x-3">
-                <span class="font-bold text-indigo-400">1.</span>
-                <p>Configure your media services in the <code class="bg-indigo-900/30 px-2 py-0.5 rounded text-sm">.env</code> file</p>
-            </div>
-            <div class="flex items-start space-x-3">
-                <span class="font-bold text-indigo-400">2.</span>
-                <p>Check that services are online in the <a href="/web/services" class="underline hover:text-indigo-200">Services</a> page</p>
-            </div>
-            <div class="flex items-start space-x-3">
-                <span class="font-bold text-indigo-400">3.</span>
-                <p>Use the <a href="/web/command" class="underline hover:text-indigo-200">Command</a> page to manage your library with natural language</p>
-            </div>
-            <div class="flex items-start space-x-3">
-                <span class="font-bold text-indigo-400">4.</span>
-                <p>Browse your <a href="/web/library" class="underline hover:text-indigo-200">Library</a> or <a href="/web/search" class="underline hover:text-indigo-200">Search</a> for new content</p>
-            </div>
         </div>
     </div>
 </div>
