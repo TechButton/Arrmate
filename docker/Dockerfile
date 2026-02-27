@@ -1,5 +1,5 @@
 # Arrmate Dockerfile
-FROM python:3.11-slim
+FROM python:3.15-rc-alpine3.22
 
 # Set working directory
 WORKDIR /app
