@@ -5,9 +5,7 @@ FROM python:3.15-rc-alpine3.22
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 # Copy requirements first for better caching
 COPY requirements.txt .

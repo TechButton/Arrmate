@@ -10,11 +10,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
+COPY requirements.txt ./
 COPY pyproject.toml ./
 COPY src/ ./src/
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -e .
+# Install Python dependencies (requirements.txt first to pin security-patched versions)
+RUN pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir -e .
 
 # Create data directory
 RUN mkdir -p /data
