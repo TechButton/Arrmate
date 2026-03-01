@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 try:
     _VERSION = _pkg_version("arrmate")
 except Exception:
-    _VERSION = "0.9.2"
+    _VERSION = "0.9.3"
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response

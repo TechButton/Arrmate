@@ -455,14 +455,12 @@ class Executor:
                     message=f"Could not find '{intent.title}' to add",
                 )
 
-            # Add the first result
+            # Add the first result using full lookup object so all required fields are present
             show = results[0]
-            added = await client.add_series(
-                tvdb_id=show["tvdbId"],
-                title=show["title"],
+            added = await client.add_series_from_lookup(
+                lookup_result=show,
                 quality_profile_id=profile_id,
                 root_folder_path=root_folder,
-                seasons=show.get("seasons", []),
             )
 
             return ExecutionResult(

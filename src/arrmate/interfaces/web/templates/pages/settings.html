@@ -113,16 +113,22 @@
                         <select x-model="preset" @change="applyPreset()"
                                 class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="custom">Custom / already configured</option>
-                            <option value="openai">OpenAI</option>
-                            <option value="groq">Groq — fast inference, free tier</option>
-                            <option value="openrouter">OpenRouter — 200+ models, free tier</option>
-                            <option value="mistral">Mistral AI</option>
-                            <option value="together">Together AI</option>
-                            <option value="lmstudio">LM Studio (local)</option>
-                            <option value="localai">LocalAI (local, self-hosted)</option>
-                            <option value="jan">Jan (local)</option>
-                            <option value="xai">xAI / Grok</option>
-                            <option value="gemini">Google Gemini — free tier</option>
+                            <optgroup label="── Local (free, private) ──">
+                                <option value="lmstudio">LM Studio</option>
+                                <option value="localai">LocalAI (self-hosted)</option>
+                                <option value="jan">Jan</option>
+                            </optgroup>
+                            <optgroup label="── Cloud: Free tier ──">
+                                <option value="groq">Groq — fast inference</option>
+                                <option value="openrouter">OpenRouter — 200+ models</option>
+                                <option value="gemini">Google Gemini</option>
+                            </optgroup>
+                            <optgroup label="── Cloud: Paid ──">
+                                <option value="openai">OpenAI</option>
+                                <option value="mistral">Mistral AI</option>
+                                <option value="together">Together AI</option>
+                                <option value="xai">xAI / Grok</option>
+                            </optgroup>
                         </select>
                     </div>
 
@@ -192,35 +198,58 @@
         <div class="card">
             <h2 class="text-xl font-bold text-white mb-1">Media Services</h2>
             <p class="text-sm text-gray-400 mb-4">
-                Connect Arrmate to your Sonarr, Radarr, and other media services.
+                Connect Arrmate to your media services. Only configure what you use — unconfigured services won't appear in the UI.
                 Changes take effect immediately — no restart required.
             </p>
             <form hx-post="/web/settings/services"
                   hx-target="#settings-toast"
                   hx-swap="innerHTML"
-                  class="space-y-4">
+                  class="space-y-6">
 
-                {{ service_section("Sonarr", "📺", "sonarr_url", settings.sonarr_url, "sonarr_api_key", settings.sonarr_api_key, "8989") }}
-                {{ service_section("Radarr", "🎬", "radarr_url", settings.radarr_url, "radarr_api_key", settings.radarr_api_key, "7878") }}
-                {{ service_section("Lidarr", "🎵", "lidarr_url", settings.lidarr_url, "lidarr_api_key", settings.lidarr_api_key, "8686") }}
-                {{ service_section("Bazarr", "💬", "bazarr_url", settings.bazarr_url, "bazarr_api_key", settings.bazarr_api_key, "6767") }}
-
-                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🎞️ Plex Media Server</h3>
-                    <div class="grid sm:grid-cols-2 gap-3">
-                        {{ field("URL", "plex_url", settings.plex_url, "http://hostname:32400") }}
-                        {{ field("Token (X-Plex-Token)", "plex_token", settings.plex_token) }}
+                <!-- TV & Movies -->
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">TV &amp; Movies</p>
+                    <div class="space-y-3">
+                        {{ service_section("Sonarr", "📺", "sonarr_url", settings.sonarr_url, "sonarr_api_key", settings.sonarr_api_key, "8989") }}
+                        {{ service_section("Radarr", "🎬", "radarr_url", settings.radarr_url, "radarr_api_key", settings.radarr_api_key, "7878") }}
+                        <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                            <h3 class="text-sm font-semibold text-gray-200 mb-3">🎞️ Plex Media Server</h3>
+                            <div class="grid sm:grid-cols-2 gap-3">
+                                {{ field("URL", "plex_url", settings.plex_url, "http://hostname:32400") }}
+                                {{ field("Token (X-Plex-Token)", "plex_token", settings.plex_token) }}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {{ service_section("AudioBookshelf", "📖", "audiobookshelf_url", settings.audiobookshelf_url, "audiobookshelf_api_key", settings.audiobookshelf_api_key, "13378") }}
-                {{ service_section("LazyLibrarian", "📚", "lazylibrarian_url", settings.lazylibrarian_url, "lazylibrarian_api_key", settings.lazylibrarian_api_key, "5299") }}
-                {{ service_section("ReadMeABook", "🎙️", "readmeabook_url", settings.readmeabook_url, "readmeabook_api_key", settings.readmeabook_api_key, "3030", "API Token") }}
-                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🎬 TMDB (The Movie Database)</h3>
-                    <div class="max-w-sm">
-                        {{ field("API Key", "tmdb_api_key", settings.tmdb_api_key,
-                                 help="Powers the Discover page. Get a free key at themoviedb.org/settings/api") }}
+                <!-- Music & Subtitles -->
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Music &amp; Subtitles</p>
+                    <div class="space-y-3">
+                        {{ service_section("Lidarr", "🎵", "lidarr_url", settings.lidarr_url, "lidarr_api_key", settings.lidarr_api_key, "8686") }}
+                        {{ service_section("Bazarr", "💬", "bazarr_url", settings.bazarr_url, "bazarr_api_key", settings.bazarr_api_key, "6767") }}
+                    </div>
+                </div>
+
+                <!-- Books & Audiobooks -->
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Books &amp; Audiobooks</p>
+                    <div class="space-y-3">
+                        {{ service_section("AudioBookshelf", "📖", "audiobookshelf_url", settings.audiobookshelf_url, "audiobookshelf_api_key", settings.audiobookshelf_api_key, "13378") }}
+                        {{ service_section("ReadMeABook", "🎙️", "readmeabook_url", settings.readmeabook_url, "readmeabook_api_key", settings.readmeabook_api_key, "3030", "API Token") }}
+                        {{ service_section("LazyLibrarian", "📚", "lazylibrarian_url", settings.lazylibrarian_url, "lazylibrarian_api_key", settings.lazylibrarian_api_key, "5299") }}
+                    </div>
+                </div>
+
+                <!-- Discovery -->
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Discovery</p>
+                    <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                        <h3 class="text-sm font-semibold text-gray-200 mb-1">🎬 TMDB (The Movie Database)</h3>
+                        <p class="text-xs text-gray-500 mb-3">Powers the Discover page. Get a free key at <a href="https://www.themoviedb.org/settings/api" target="_blank" class="underline hover:text-gray-400">themoviedb.org/settings/api</a></p>
+                        <div class="max-w-sm">
+                            {{ field("API Key", "tmdb_api_key", settings.tmdb_api_key) }}
+                        </div>
                     </div>
                 </div>
 
@@ -233,38 +262,48 @@
     <div x-show="tab === 'downloads'" x-cloak>
         <div class="card">
             <h2 class="text-xl font-bold text-white mb-1">Download Clients</h2>
-            <p class="text-sm text-gray-400 mb-4">Connect to your NZB and torrent download managers.</p>
+            <p class="text-sm text-gray-400 mb-4">Connect to your NZB and torrent download managers. Configure only the ones you use.</p>
             <form hx-post="/web/settings/services"
                   hx-target="#settings-toast"
                   hx-swap="innerHTML"
-                  class="space-y-4">
+                  class="space-y-6">
 
-                {{ service_section("SABnzbd", "📰", "sabnzbd_url", settings.sabnzbd_url, "sabnzbd_api_key", settings.sabnzbd_api_key, "8080") }}
-
-                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                    <h3 class="text-sm font-semibold text-gray-200 mb-3">📰 NZBget</h3>
-                    <div class="grid sm:grid-cols-3 gap-3">
-                        {{ field("URL", "nzbget_url", settings.nzbget_url, "http://hostname:6789") }}
-                        {{ field("Username", "nzbget_username", settings.nzbget_username) }}
-                        {{ field("Password", "nzbget_password", settings.nzbget_password, type="password") }}
+                <!-- Usenet / NZB -->
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Usenet / NZB</p>
+                    <div class="space-y-3">
+                        {{ service_section("SABnzbd", "📰", "sabnzbd_url", settings.sabnzbd_url, "sabnzbd_api_key", settings.sabnzbd_api_key, "8080") }}
+                        <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                            <h3 class="text-sm font-semibold text-gray-200 mb-3">📰 NZBget</h3>
+                            <div class="grid sm:grid-cols-3 gap-3">
+                                {{ field("URL", "nzbget_url", settings.nzbget_url, "http://hostname:6789") }}
+                                {{ field("Username", "nzbget_username", settings.nzbget_username) }}
+                                {{ field("Password", "nzbget_password", settings.nzbget_password, type="password") }}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🔵 qBittorrent</h3>
-                    <div class="grid sm:grid-cols-3 gap-3">
-                        {{ field("Web UI URL", "qbittorrent_url", settings.qbittorrent_url, "http://hostname:8080") }}
-                        {{ field("Username", "qbittorrent_username", settings.qbittorrent_username) }}
-                        {{ field("Password", "qbittorrent_password", settings.qbittorrent_password, type="password") }}
-                    </div>
-                </div>
-
-                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🚂 Transmission</h3>
-                    <div class="grid sm:grid-cols-3 gap-3">
-                        {{ field("Web UI URL", "transmission_url", settings.transmission_url, "http://hostname:9091") }}
-                        {{ field("Username", "transmission_username", settings.transmission_username) }}
-                        {{ field("Password", "transmission_password", settings.transmission_password, type="password") }}
+                <!-- Torrents -->
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Torrents</p>
+                    <div class="space-y-3">
+                        <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                            <h3 class="text-sm font-semibold text-gray-200 mb-3">🔵 qBittorrent</h3>
+                            <div class="grid sm:grid-cols-3 gap-3">
+                                {{ field("Web UI URL", "qbittorrent_url", settings.qbittorrent_url, "http://hostname:8080") }}
+                                {{ field("Username", "qbittorrent_username", settings.qbittorrent_username) }}
+                                {{ field("Password", "qbittorrent_password", settings.qbittorrent_password, type="password") }}
+                            </div>
+                        </div>
+                        <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                            <h3 class="text-sm font-semibold text-gray-200 mb-3">🚂 Transmission</h3>
+                            <div class="grid sm:grid-cols-3 gap-3">
+                                {{ field("Web UI URL", "transmission_url", settings.transmission_url, "http://hostname:9091") }}
+                                {{ field("Username", "transmission_username", settings.transmission_username) }}
+                                {{ field("Password", "transmission_password", settings.transmission_password, type="password") }}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -1389,12 +1389,17 @@ async def add_to_library(
             item = results[0]
 
             if media_type == "tv":
-                await client.add_series(
-                    tvdb_id=item["tvdbId"],
-                    title=item["title"],
+                # Re-search with tvdb: prefix to get full object (seasons, titleSlug, etc.)
+                tvdb_id = item.get("tvdbId")
+                if tvdb_id:
+                    full_lookup = await client.search(f"tvdb:{tvdb_id}")
+                    lookup_item = full_lookup[0] if full_lookup else item
+                else:
+                    lookup_item = item
+                await client.add_series_from_lookup(
+                    lookup_result=lookup_item,
                     quality_profile_id=profile_id,
                     root_folder_path=root_folder,
-                    seasons=item.get("seasons", []),
                 )
             elif media_type == "movie":
                 await client.add_movie(
