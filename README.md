@@ -10,7 +10,7 @@ Arrmate is a natural language interface for your media server stack. Type plain 
 "backup Plex database"
 ```
 
-Works with Sonarr, Radarr, Lidarr, Bazarr, Plex, SABnzbd, qBittorrent, and more. Uses your choice of local (Ollama) or cloud LLM.
+Works with Sonarr, Radarr, Lidarr, Bazarr, Plex, AudioBookshelf, ReadMeABook, SABnzbd, qBittorrent, and more. Uses your choice of local (Ollama, LM Studio, LocalAI) or cloud LLM (OpenAI, Anthropic, Groq, OpenRouter, Mistral, and any OpenAI-compatible API).
 
 ## Screenshots
 
@@ -40,6 +40,7 @@ Works with Sonarr, Radarr, Lidarr, Bazarr, Plex, SABnzbd, qBittorrent, and more.
 | Plex | Media server | History, continue watching, on deck, recently added, rate items, Butler maintenance, terminate sessions |
 | Bazarr | Subtitles | Download and sync subtitles by language |
 | AudioBookshelf | Audiobooks | Browse and search libraries |
+| ReadMeABook | Audiobooks | Search, request, and manage audiobook acquisition |
 | LazyLibrarian | Books | Search and manage book libraries |
 | Prowlarr | Indexer aggregator | Search all indexers, send results to download managers |
 | SABnzbd | Downloads | Queue, speed control, per-item priority/pause/resume, add by URL |
@@ -92,11 +93,51 @@ Use Docker container names as hostnames when services are on the same Docker net
 
 ## LLM Providers
 
+Arrmate supports three built-in providers, plus any OpenAI-compatible API via the `openai` provider with a custom base URL.
+
+### Built-in providers
+
 | Provider | Set in .env | Notes |
 |----------|-------------|-------|
 | Ollama | `LLM_PROVIDER=ollama` | Runs locally, free. `qwen2.5:7b` recommended. |
 | OpenAI | `LLM_PROVIDER=openai` | Requires `OPENAI_API_KEY`. Defaults to `gpt-4o`. |
 | Anthropic | `LLM_PROVIDER=anthropic` | Requires `ANTHROPIC_API_KEY`. Defaults to `claude-3-5-sonnet`. |
+
+### OpenAI-compatible providers
+
+Any service with an OpenAI-compatible API works by setting `LLM_PROVIDER=openai`, a custom `OPENAI_BASE_URL`, and the matching `OPENAI_MODEL`. **The model must support tool/function calling.**
+
+| Provider | `OPENAI_BASE_URL` | Good models | Notes |
+|----------|-------------------|-------------|-------|
+| **[Groq](https://groq.com)** | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Very fast inference, free tier available |
+| **[OpenRouter](https://openrouter.ai)** | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` | Routes to 200+ models; free tier on many |
+| **[Mistral AI](https://mistral.ai)** | `https://api.mistral.ai/v1` | `mistral-large-latest`, `mistral-small-latest` | European provider, strong reasoning |
+| **[Together AI](https://together.ai)** | `https://api.together.xyz/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | Many open models, fast inference |
+| **[LM Studio](https://lmstudio.ai)** | `http://localhost:1234/v1` | *(any tool-calling model you load)* | Local GUI app, Windows/Mac/Linux |
+| **[LocalAI](https://localai.io)** | `http://localhost:8080/v1` | *(any tool-calling model you load)* | Self-hosted, Docker-friendly |
+| **[Jan](https://jan.ai)** | `http://localhost:1337/v1` | *(any tool-calling model you load)* | Local GUI app, fully offline |
+| **[xAI / Grok](https://x.ai)** | `https://api.x.ai/v1` | `grok-2-latest` | OpenAI-compatible API |
+| **[Google Gemini](https://ai.google.dev)** | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.0-flash` | Requires Google AI Studio API key |
+
+**Example — using Groq:**
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=gsk_your-groq-api-key
+OPENAI_BASE_URL=https://api.groq.com/openai/v1
+OPENAI_MODEL=llama-3.3-70b-versatile
+```
+
+**Example — using LM Studio locally:**
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=lm-studio  # any non-empty string
+OPENAI_BASE_URL=http://host.docker.internal:1234/v1
+OPENAI_MODEL=your-loaded-model-name
+```
+
+> **Important:** The model must support **tool/function calling**. For Ollama, `qwen2.5:7b` and `llama3.1:8b` are reliable choices. For local apps like LM Studio or Jan, look for models tagged with "tool use" or "function calling" support.
 
 ## H.265 Transcoding
 
