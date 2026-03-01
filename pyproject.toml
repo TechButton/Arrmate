@@ -38,6 +38,10 @@ dependencies = [
     "python-multipart>=0.0.6",
     "bcrypt>=4.0.0",
     "itsdangerous>=2.1.0",
+    # Security pins for transitive deps (keep in sync with requirements.txt)
+    "h11>=0.16.0",
+    "anyio>=4.4.0",
+    "zipp>=3.19.1",
 ]
 
 [project.optional-dependencies]
