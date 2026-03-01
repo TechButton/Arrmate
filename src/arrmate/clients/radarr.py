@@ -259,3 +259,61 @@ class RadarrClient(BaseMediaClient):
             "api/v3/command",
             data={"name": "RescanMovie", "movieId": movie_id},
         )
+
+    async def get_tags(self) -> List[Dict[str, Any]]:
+        """Get all tags defined in Radarr."""
+        return await self._get("api/v3/tag")
+
+    async def create_tag(self, label: str) -> Dict[str, Any]:
+        """Create a new tag.
+
+        Args:
+            label: Tag name
+
+        Returns:
+            Created tag dict with id and label
+        """
+        return await self._post("api/v3/tag", data={"label": label})
+
+    async def delete_tag(self, tag_id: int) -> bool:
+        """Delete a tag.
+
+        Args:
+            tag_id: Tag ID to delete
+
+        Returns:
+            True if successful
+        """
+        await self._delete(f"api/v3/tag/{tag_id}")
+        return True
+
+    async def add_tag_to_movie(self, movie_id: int, tag_id: int) -> Dict[str, Any]:
+        """Add a tag to a movie (no-op if already present).
+
+        Args:
+            movie_id: Movie ID
+            tag_id: Tag ID to add
+
+        Returns:
+            Updated movie dict
+        """
+        movie = await self.get_item(movie_id)
+        existing = movie.get("tags", [])
+        if tag_id not in existing:
+            movie["tags"] = existing + [tag_id]
+            return await self._put(f"api/v3/movie/{movie_id}", data=movie)
+        return movie
+
+    async def remove_tag_from_movie(self, movie_id: int, tag_id: int) -> Dict[str, Any]:
+        """Remove a tag from a movie.
+
+        Args:
+            movie_id: Movie ID
+            tag_id: Tag ID to remove
+
+        Returns:
+            Updated movie dict
+        """
+        movie = await self.get_item(movie_id)
+        movie["tags"] = [t for t in movie.get("tags", []) if t != tag_id]
+        return await self._put(f"api/v3/movie/{movie_id}", data=movie)

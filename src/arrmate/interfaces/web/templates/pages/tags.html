@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Tags — Arrmate{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-white mb-1">Tags</h1>
+        <p class="text-gray-400">Manage tags for Sonarr (TV) and Radarr (Movies)</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Sonarr Tags -->
+        {% if sonarr_configured %}
+        <div class="card" x-data="{ newTag: '' }">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-white">📺 Sonarr Tags</h2>
+            </div>
+
+            <!-- Create tag form -->
+            <form hx-post="/web/tags/create"
+                  hx-target="#sonarr-tag-toast"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="this.reset()"
+                  class="flex gap-2 mb-4">
+                <input type="hidden" name="service" value="sonarr">
+                <input type="text"
+                       name="label"
+                       x-model="newTag"
+                       placeholder="New tag name…"
+                       class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder-gray-500">
+                <button type="submit"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm rounded-lg transition-colors">
+                    Add
+                </button>
+            </form>
+            <div id="sonarr-tag-toast"></div>
+
+            <!-- Tag list -->
+            <div id="sonarr-tags"
+                 hx-get="/web/tags/list?service=sonarr"
+                 hx-trigger="load, tags-updated-sonarr from:body"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-8 text-gray-500">
+                    <div class="inline-block w-5 h-5 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-2"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card text-center py-10">
+            <p class="text-gray-400 text-sm">Sonarr is not configured.</p>
+        </div>
+        {% endif %}
+
+        <!-- Radarr Tags -->
+        {% if radarr_configured %}
+        <div class="card" x-data="{ newTag: '' }">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-white">🎬 Radarr Tags</h2>
+            </div>
+
+            <!-- Create tag form -->
+            <form hx-post="/web/tags/create"
+                  hx-target="#radarr-tag-toast"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="this.reset()"
+                  class="flex gap-2 mb-4">
+                <input type="hidden" name="service" value="radarr">
+                <input type="text"
+                       name="label"
+                       x-model="newTag"
+                       placeholder="New tag name…"
+                       class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder-gray-500">
+                <button type="submit"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm rounded-lg transition-colors">
+                    Add
+                </button>
+            </form>
+            <div id="radarr-tag-toast"></div>
+
+            <!-- Tag list -->
+            <div id="radarr-tags"
+                 hx-get="/web/tags/list?service=radarr"
+                 hx-trigger="load, tags-updated-radarr from:body"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-8 text-gray-500">
+                    <div class="inline-block w-5 h-5 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-2"></div>
+                    Loading…
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card text-center py-10">
+            <p class="text-gray-400 text-sm">Radarr is not configured.</p>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <div class="mt-6 card">
+        <p class="text-sm text-gray-400">
+            Tags can be applied to shows and movies directly in Sonarr and Radarr. Use tags to
+            organise your library, drive custom quality profiles, or control indexer restrictions.
+        </p>
+    </div>
+</div>
+{% endblock %}

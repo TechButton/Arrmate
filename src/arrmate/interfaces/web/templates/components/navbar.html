@@ -71,6 +71,9 @@
                          class="absolute left-0 mt-1 w-44 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
                         <a href="/web/library" @click="open=false" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">📚 Browse Library</a>
                         <a href="/web/search"  @click="open=false" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">🔎 Search</a>
+                        {% if not cur_user or cur_role in ('admin', 'power_user') %}
+                        <a href="/web/tags"    @click="open=false" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">🏷 Tags</a>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -306,6 +309,9 @@
                 <div class="px-4 pt-2 pb-0.5 text-xs text-gray-500 uppercase tracking-wider font-medium">Library</div>
                 <a href="/web/library" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors pl-6" style="min-height:44px">📚 Browse Library</a>
                 <a href="/web/search" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors pl-6" style="min-height:44px">🔎 Search</a>
+                {% if not cur_user or cur_role in ('admin', 'power_user') %}
+                <a href="/web/tags" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors pl-6" style="min-height:44px">🏷 Tags</a>
+                {% endif %}
 
                 <a href="/web/plex" class="px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors" style="min-height:44px">Plex</a>
 

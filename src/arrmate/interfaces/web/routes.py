@@ -1053,6 +1053,7 @@ async def execute_command(
     request: Request,
     command: str = Form(...),
     mode: str = Form(default=""),
+    confirmed: str = Form(default=""),
 ):
     """Execute command and return result HTML with toast.
 
@@ -1108,6 +1109,26 @@ async def execute_command(
                     "show_toast": True,
                     "toast_type": "error",
                     "toast_message": "Validation failed: " + "; ".join(errors),
+                },
+            )
+
+        # Require explicit confirmation for destructive actions (admin/power_user only)
+        if enriched.action in _USER_BLOCKED_ACTIONS and confirmed != "true":
+            title = enriched.title or "this item"
+            if enriched.episodes and enriched.season:
+                ep_str = ", ".join(f"E{e:02d}" for e in sorted(enriched.episodes))
+                delete_description = f"{title} – Season {enriched.season} ({ep_str})"
+            elif enriched.season:
+                delete_description = f"{title} – Season {enriched.season}"
+            else:
+                delete_description = title
+            return templates.TemplateResponse(
+                "partials/delete_confirm.html",
+                {
+                    "request": request,
+                    "delete_description": delete_description,
+                    "command": command,
+                    "mode": mode,
                 },
             )
 
@@ -1462,6 +1483,28 @@ def _plex_tv_client() -> PlexTVClient | None:
     return None
 
 
+async def _plex_client_for_user(user_id: int) -> PlexClient | None:
+    """Return a PlexClient scoped to a home user's token when user_id > 0.
+
+    Calls plex.tv to exchange the admin token for a managed-user token.
+    Falls back to the admin token if the switch fails or user_id is 0.
+    """
+    if not settings.plex_url or not settings.plex_token:
+        return None
+    if user_id:
+        tv = _plex_tv_client()
+        if tv:
+            try:
+                token = await tv.switch_home_user(user_id)
+                if token:
+                    return PlexClient(settings.plex_url, token)
+            except Exception:
+                pass
+            finally:
+                await tv.close()
+    return PlexClient(settings.plex_url, settings.plex_token)
+
+
 def _plex_thumb_url(path: str) -> str:
     """Build a proxied Plex thumbnail URL (keeps token server-side)."""
     import urllib.parse
@@ -1594,6 +1637,7 @@ async def plex_page(request: Request):
     plex = _plex_client()
     configured = plex is not None
     accounts = []
+    home_users = []
     if plex:
         try:
             raw_accounts = await plex.get_accounts()
@@ -1610,6 +1654,24 @@ async def plex_page(request: Request):
             pass
         finally:
             await plex.close()
+    # Load home users from plex.tv for the user switcher (managed users only)
+    tv = _plex_tv_client()
+    if tv:
+        try:
+            raw_users = await tv.get_home_users()
+            home_users = [
+                {
+                    "id": u.get("id"),
+                    "title": u.get("title") or u.get("name") or f"User {u.get('id', '')}",
+                    "thumb": u.get("thumb"),
+                }
+                for u in raw_users
+                if u.get("id") is not None and not u.get("admin", False)
+            ]
+        except Exception:
+            pass
+        finally:
+            await tv.close()
     return templates.TemplateResponse(
         "pages/plex.html",
         {
@@ -1617,6 +1679,7 @@ async def plex_page(request: Request):
             **_base_ctx(request),
             "configured": configured,
             "accounts": accounts,
+            "home_users": home_users,
             "butler_tasks": BUTLER_TASKS,
         },
     )
@@ -1718,11 +1781,14 @@ async def plex_history(
 
 
 @router.get("/plex/continue", response_class=HTMLResponse)
-async def plex_continue_watching(request: Request):
+async def plex_continue_watching(
+    request: Request,
+    user_id: int = Query(default=0),
+):
     """HTMX partial: continue watching list."""
     items = []
     error = None
-    plex = _plex_client()
+    plex = await _plex_client_for_user(user_id)
     if plex:
         try:
             raw = await plex.get_continue_watching()
@@ -1760,11 +1826,14 @@ async def plex_continue_watching(request: Request):
 
 
 @router.get("/plex/ondeck", response_class=HTMLResponse)
-async def plex_on_deck(request: Request):
+async def plex_on_deck(
+    request: Request,
+    user_id: int = Query(default=0),
+):
     """HTMX partial: on deck items."""
     items = []
     error = None
-    plex = _plex_client()
+    plex = await _plex_client_for_user(user_id)
     if plex:
         try:
             raw = await plex.get_on_deck()
@@ -1841,6 +1910,142 @@ async def plex_recently_added(
         "partials/plex_recent.html",
         {"request": request, "items": items, "error": error},
     )
+
+
+@router.get("/plex/bytitle", response_class=HTMLResponse)
+async def plex_by_title(
+    request: Request,
+    bt_search: str = Query(default=""),
+    bt_letter: str = Query(default=""),
+    bt_media_type: str = Query(default="all"),
+):
+    """HTMX partial: watch history grouped and sorted by title (served from local cache)."""
+    from ...cache import plex_cache
+
+    error = None
+    last_synced = None
+
+    # Seed the cache on first load (if empty or stale)
+    if plex_cache.is_stale():
+        plex = _plex_client()
+        if plex:
+            try:
+                raw = await plex.get_history(limit=5000)
+                plex_cache.populate_cache(raw)
+            except Exception as e:
+                error = str(e)
+            finally:
+                await plex.close()
+        else:
+            error = "Plex is not configured"
+
+    last_synced = plex_cache.get_last_synced()
+    cached = plex_cache.get_cached_history()
+
+    groups: dict = {}
+    for item in cached:
+        media_type_str = item.get("type", "")
+        kind = "tv" if media_type_str in ("episode", "season") else "movie"
+
+        if bt_media_type == "tv" and kind != "tv":
+            continue
+        if bt_media_type == "movie" and kind != "movie":
+            continue
+
+        if kind == "tv":
+            group_title = item.get("grandparent_title") or item.get("title") or ""
+            thumb = item.get("grandparent_thumb") or item.get("thumb")
+        else:
+            group_title = item.get("title") or ""
+            thumb = item.get("thumb")
+
+        if not group_title:
+            continue
+
+        # Letter filter
+        sort_title = group_title
+        for prefix in ("The ", "A ", "An "):
+            if sort_title.startswith(prefix):
+                sort_title = sort_title[len(prefix):]
+                break
+        first = sort_title[0].upper() if sort_title else "?"
+        if bt_letter == "#":
+            if first.isalpha():
+                continue
+        elif bt_letter:
+            if first != bt_letter:
+                continue
+
+        if bt_search and bt_search.lower() not in group_title.lower():
+            continue
+
+        if group_title not in groups:
+            groups[group_title] = {
+                "title": group_title,
+                "kind": kind,
+                "thumb": _plex_thumb_url(thumb) if thumb else None,
+                "count": 0,
+                "last_watched": 0,
+                "unique_accounts": set(),
+            }
+        groups[group_title]["count"] += 1
+        viewed_at = item.get("viewed_at") or 0
+        if viewed_at > groups[group_title]["last_watched"]:
+            groups[group_title]["last_watched"] = viewed_at
+        acct = item.get("account_id")
+        if acct:
+            groups[group_title]["unique_accounts"].add(acct)
+
+    # Convert sets to counts for template
+    for g in groups.values():
+        g["user_count"] = len(g.pop("unique_accounts"))
+
+    sorted_groups = sorted(groups.values(), key=lambda g: g["title"].lower())
+    return templates.TemplateResponse(
+        "partials/plex_bytitle.html",
+        {
+            "request": request,
+            "groups": sorted_groups,
+            "error": error,
+            "search": bt_search,
+            "letter": bt_letter,
+            "media_type": bt_media_type,
+            "last_synced": last_synced,
+            "total_cached": len(cached),
+        },
+    )
+
+
+@router.post("/plex/bytitle/sync", response_class=HTMLResponse)
+async def plex_bytitle_sync(request: Request):
+    """Force-refresh the Plex history cache and return updated content."""
+    from ...cache import plex_cache
+
+    plex = _plex_client()
+    if not plex:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": "Plex is not configured"},
+        )
+    try:
+        raw = await plex.get_history(limit=5000)
+        count = plex_cache.populate_cache(raw)
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {
+                "request": request,
+                "type": "success",
+                "message": f"History synced — {count} items cached",
+            },
+            headers={"HX-Trigger": "plexBytitleSynced"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": f"Sync failed: {e}"},
+        )
+    finally:
+        await plex.close()
 
 
 @router.get("/plex/butler", response_class=HTMLResponse)
@@ -3293,6 +3498,174 @@ async def discover_add(
             "tmdb_id": tmdb_id,
             "title": title,
         },
+    )
+
+
+# ===== Tags Management =====
+
+
+@router.get("/tags", response_class=HTMLResponse, dependencies=[Depends(require_power_user)])
+async def tags_page(request: Request):
+    """Tag management page for Sonarr and Radarr."""
+    sonarr_configured = bool(settings.sonarr_url and settings.sonarr_api_key)
+    radarr_configured = bool(settings.radarr_url and settings.radarr_api_key)
+    return templates.TemplateResponse(
+        "pages/tags.html",
+        {
+            "request": request,
+            **_base_ctx(request),
+            "sonarr_configured": sonarr_configured,
+            "radarr_configured": radarr_configured,
+        },
+    )
+
+
+@router.get("/tags/list", response_class=HTMLResponse, dependencies=[Depends(require_power_user)])
+async def tags_list(
+    request: Request,
+    service: str = Query(default="radarr"),
+):
+    """HTMX partial: list tags for a service with item counts."""
+    tags = []
+    error = None
+    try:
+        if service == "sonarr" and settings.sonarr_url and settings.sonarr_api_key:
+            client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            try:
+                raw_tags = await client.get_tags()
+                all_series = await client.get_all_series()
+                # Build a lookup: tag_id -> count of series using it
+                tag_counts: dict = {}
+                for s in all_series:
+                    for tid in s.get("tags", []):
+                        tag_counts[tid] = tag_counts.get(tid, 0) + 1
+                tags = [
+                    {"id": t["id"], "label": t["label"], "count": tag_counts.get(t["id"], 0)}
+                    for t in raw_tags
+                ]
+            finally:
+                await client.close()
+        elif service == "radarr" and settings.radarr_url and settings.radarr_api_key:
+            client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            try:
+                raw_tags = await client.get_tags()
+                all_movies = await client.get_all_movies()
+                tag_counts: dict = {}
+                for m in all_movies:
+                    for tid in m.get("tags", []):
+                        tag_counts[tid] = tag_counts.get(tid, 0) + 1
+                tags = [
+                    {"id": t["id"], "label": t["label"], "count": tag_counts.get(t["id"], 0)}
+                    for t in raw_tags
+                ]
+            finally:
+                await client.close()
+        else:
+            error = f"{service.capitalize()} is not configured"
+    except Exception as e:
+        error = str(e)
+
+    return templates.TemplateResponse(
+        "partials/tags_list.html",
+        {
+            "request": request,
+            "tags": tags,
+            "service": service,
+            "error": error,
+        },
+    )
+
+
+@router.post("/tags/create", response_class=HTMLResponse, dependencies=[Depends(require_power_user)])
+async def tags_create(
+    request: Request,
+    label: str = Form(...),
+    service: str = Form(...),
+):
+    """Create a new tag in Sonarr or Radarr."""
+    error = None
+    try:
+        label = label.strip().lower()
+        if not label:
+            error = "Tag name cannot be empty"
+        elif service == "sonarr" and settings.sonarr_url and settings.sonarr_api_key:
+            client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            try:
+                await client.create_tag(label)
+            finally:
+                await client.close()
+        elif service == "radarr" and settings.radarr_url and settings.radarr_api_key:
+            client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            try:
+                await client.create_tag(label)
+            finally:
+                await client.close()
+        else:
+            error = f"{service.capitalize()} is not configured"
+    except Exception as e:
+        error = str(e)
+
+    if error:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": error},
+        )
+
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {
+            "request": request,
+            "type": "success",
+            "message": f"Tag '{label}' created in {service.capitalize()}",
+        },
+        headers={"HX-Trigger": f"tags-updated-{service}"},
+    )
+
+
+@router.delete(
+    "/tags/{service}/{tag_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_power_user)],
+)
+async def tags_delete(
+    request: Request,
+    service: str,
+    tag_id: int,
+):
+    """Delete a tag from Sonarr or Radarr."""
+    error = None
+    try:
+        if service == "sonarr" and settings.sonarr_url and settings.sonarr_api_key:
+            client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            try:
+                await client.delete_tag(tag_id)
+            finally:
+                await client.close()
+        elif service == "radarr" and settings.radarr_url and settings.radarr_api_key:
+            client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            try:
+                await client.delete_tag(tag_id)
+            finally:
+                await client.close()
+        else:
+            error = f"{service.capitalize()} is not configured"
+    except Exception as e:
+        error = str(e)
+
+    if error:
+        return templates.TemplateResponse(
+            "components/toast.html",
+            {"request": request, "type": "error", "message": error},
+        )
+
+    return templates.TemplateResponse(
+        "components/toast.html",
+        {
+            "request": request,
+            "type": "success",
+            "message": "Tag deleted",
+        },
+        headers={"HX-Trigger": f"tags-updated-{service}"},
     )
 
 

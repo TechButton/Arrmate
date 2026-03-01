@@ -1,0 +1,39 @@
+<!-- Hidden form data for the confirmed submission -->
+<form id="delete-confirm-data" style="display:none">
+    <input type="hidden" name="command" value="{{ command | e }}">
+    <input type="hidden" name="confirmed" value="true">
+    <input type="hidden" name="mode" value="{{ mode | e }}">
+</form>
+
+<div class="card border-red-700/60">
+    <div class="flex items-start space-x-3 mb-5">
+        <span class="text-3xl">⚠️</span>
+        <div class="flex-1">
+            <h3 class="text-lg font-semibold text-red-400 mb-1">Confirm Deletion</h3>
+            <p class="text-gray-300 text-sm">
+                You are about to permanently delete
+                <strong class="text-white">{{ delete_description }}</strong>
+                and remove all associated files from disk.
+            </p>
+            <p class="text-red-400/80 text-xs mt-2">This action cannot be undone.</p>
+        </div>
+    </div>
+
+    <div class="flex gap-3">
+        <button
+            type="button"
+            onclick="document.getElementById('result-area').innerHTML = ''"
+            class="btn-secondary flex-1">
+            Cancel
+        </button>
+        <button
+            type="button"
+            hx-post="/web/command/execute"
+            hx-include="#delete-confirm-data"
+            hx-target="#result-area"
+            hx-swap="innerHTML"
+            class="flex-1 px-4 py-2 bg-red-700 hover:bg-red-600 text-white font-medium rounded-lg transition-colors">
+            Yes, Delete Permanently
+        </button>
+    </div>
+</div>

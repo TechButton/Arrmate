@@ -1,0 +1,77 @@
+<!-- Cache status bar -->
+<div class="flex items-center justify-between mb-3 text-xs text-gray-500">
+    <span>
+        {% if total_cached %}
+            {{ total_cached }} cached item{% if total_cached != 1 %}s{% endif %}
+            {% if last_synced %} · synced {{ last_synced | timestamp_to_relative }}{% endif %}
+        {% elif not error %}
+            No history cached yet.
+        {% endif %}
+    </span>
+    <button hx-post="/web/plex/bytitle/sync"
+            hx-target="#sync-toast"
+            hx-swap="innerHTML"
+            hx-on:htmx:after-request="htmx.trigger('#plex-bytitle', 'refresh')"
+            class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
+        ↻ Sync now
+    </button>
+</div>
+<div id="sync-toast"></div>
+
+{% if error %}
+<div class="card border-red-700/50">
+    <p class="text-red-400 text-sm">{{ error }}</p>
+</div>
+{% elif not groups %}
+<div class="card text-center py-12">
+    <p class="text-gray-400">
+        {% if search %}
+            No titles matching <strong class="text-white">{{ search }}</strong>.
+        {% elif letter %}
+            No titles starting with <strong class="text-white">{{ letter }}</strong>.
+        {% else %}
+            No watch history found. Click <strong class="text-white">↻ Sync now</strong> to pull history from Plex.
+        {% endif %}
+    </p>
+</div>
+{% else %}
+<p class="text-xs text-gray-500 mb-3">{{ groups | length }} title{% if groups | length != 1 %}s{% endif %}</p>
+<div class="divide-y divide-gray-700/50 rounded-xl border border-gray-700 overflow-hidden">
+    {% for g in groups %}
+    <div class="flex items-center gap-3 px-3 py-2.5 bg-gray-800/40 hover:bg-gray-800/70 transition-colors">
+        <!-- Thumb -->
+        <div class="w-10 h-14 rounded shrink-0 overflow-hidden bg-gray-700 flex items-center justify-center">
+            {% if g.thumb %}
+            <img src="{{ g.thumb }}" class="w-full h-full object-cover" alt="" loading="lazy">
+            {% else %}
+            <span class="text-gray-500 text-lg">{% if g.kind == 'tv' %}📺{% else %}🎬{% endif %}</span>
+            {% endif %}
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-white truncate">{{ g.title }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">
+                <span class="px-1.5 py-0.5 rounded text-xs
+                    {% if g.kind == 'tv' %}bg-blue-900/40 text-blue-400{% else %}bg-purple-900/40 text-purple-400{% endif %}">
+                    {% if g.kind == 'tv' %}TV{% else %}Movie{% endif %}
+                </span>
+            </p>
+        </div>
+
+        <!-- View count + users + last watched -->
+        <div class="text-right shrink-0 space-y-0.5">
+            <p class="text-sm font-semibold text-white">{{ g.count }}
+                <span class="text-xs font-normal text-gray-400">view{% if g.count != 1 %}s{% endif %}</span>
+            </p>
+            {% if g.user_count > 1 %}
+            <p class="text-xs text-indigo-400">{{ g.user_count }} users</p>
+            {% endif %}
+            {% if g.last_watched %}
+            <p class="text-xs text-gray-500">{{ g.last_watched | timestamp_to_relative }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

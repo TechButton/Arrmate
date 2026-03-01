@@ -54,6 +54,10 @@ class Intent(BaseModel):
         default=None,
         description="Search/filter criteria (language, quality, etc.)",
     )
+    keywords: List[str] = Field(
+        default_factory=list,
+        description="Thematic keywords for topic-based searches (e.g. ['christmas', 'holiday'])",
+    )
     item_id: Optional[int] = Field(
         default=None, description="Internal ID of the media item (populated during enrichment)"
     )

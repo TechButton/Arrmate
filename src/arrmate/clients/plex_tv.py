@@ -93,3 +93,33 @@ class PlexTVClient:
         """
         resp = await self.client.delete(f"{PLEX_TV}/api/v2/friends/{friend_id}")
         return resp.status_code in (200, 204)
+
+    async def get_home_users(self) -> List[Dict[str, Any]]:
+        """Return all Plex home users (managed users on this account).
+
+        Returns:
+            List of user dicts with id, title, thumb, admin, managed fields.
+        """
+        resp = await self.client.get(f"{PLEX_TV}/api/v2/home/users")
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("users", []) if isinstance(data, dict) else data
+
+    async def switch_home_user(self, user_id: int) -> Optional[str]:
+        """Switch to a home user and return their auth token.
+
+        For non-PIN-protected managed users only. Returns None on failure.
+
+        Args:
+            user_id: The numeric id from get_home_users().
+
+        Returns:
+            Auth token string for that user, or None on failure.
+        """
+        try:
+            resp = await self.client.post(f"{PLEX_TV}/api/v2/home/users/{user_id}/switch")
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("authToken") or data.get("auth_token")
+        except Exception:
+            return None

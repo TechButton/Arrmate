@@ -343,3 +343,61 @@ class SonarrClient(BaseMediaClient):
             "api/v3/command",
             data={"name": "RescanSeries", "seriesId": series_id},
         )
+
+    async def get_tags(self) -> List[Dict[str, Any]]:
+        """Get all tags defined in Sonarr."""
+        return await self._get("api/v3/tag")
+
+    async def create_tag(self, label: str) -> Dict[str, Any]:
+        """Create a new tag.
+
+        Args:
+            label: Tag name
+
+        Returns:
+            Created tag dict with id and label
+        """
+        return await self._post("api/v3/tag", data={"label": label})
+
+    async def delete_tag(self, tag_id: int) -> bool:
+        """Delete a tag.
+
+        Args:
+            tag_id: Tag ID to delete
+
+        Returns:
+            True if successful
+        """
+        await self._delete(f"api/v3/tag/{tag_id}")
+        return True
+
+    async def add_tag_to_series(self, series_id: int, tag_id: int) -> Dict[str, Any]:
+        """Add a tag to a series (no-op if already present).
+
+        Args:
+            series_id: Series ID
+            tag_id: Tag ID to add
+
+        Returns:
+            Updated series dict
+        """
+        series = await self._get(f"api/v3/series/{series_id}")
+        existing = series.get("tags", [])
+        if tag_id not in existing:
+            series["tags"] = existing + [tag_id]
+            return await self._put(f"api/v3/series/{series_id}", data=series)
+        return series
+
+    async def remove_tag_from_series(self, series_id: int, tag_id: int) -> Dict[str, Any]:
+        """Remove a tag from a series.
+
+        Args:
+            series_id: Series ID
+            tag_id: Tag ID to remove
+
+        Returns:
+            Updated series dict
+        """
+        series = await self._get(f"api/v3/series/{series_id}")
+        series["tags"] = [t for t in series.get("tags", []) if t != tag_id]
+        return await self._put(f"api/v3/series/{series_id}", data=series)

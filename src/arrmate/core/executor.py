@@ -383,8 +383,25 @@ class Executor:
                 message=f"Triggered search for '{intent.title}'",
                 data={"task": "AuthorSearch"},
             )
+        elif intent.keywords and not intent.title:
+            # Topic/thematic search — search each keyword and deduplicate
+            seen: set = set()
+            all_results: list = []
+            for kw in intent.keywords[:4]:
+                kw_results = await client.search(kw)
+                for item in kw_results:
+                    uid = item.get("tmdbId") or item.get("tvdbId") or item.get("title", "")
+                    if uid and uid not in seen:
+                        seen.add(uid)
+                        all_results.append(item)
+            topic = ", ".join(intent.keywords[:2])
+            return ExecutionResult(
+                success=True,
+                message=f"Found {len(all_results)} result(s) for topic '{topic}'",
+                data={"results": all_results[:10]},
+            )
         else:
-            # Search external sources
+            # Search external sources by title
             results = await client.search(intent.title or "")
             return ExecutionResult(
                 success=True,

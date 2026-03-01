@@ -1,0 +1,27 @@
+{% if error %}
+<div class="text-red-400 text-sm py-2">{{ error }}</div>
+{% elif not tags %}
+<p class="text-gray-500 text-sm py-4 text-center">No tags yet. Create one above.</p>
+{% else %}
+<div class="divide-y divide-gray-700/50 rounded-lg border border-gray-700 overflow-hidden">
+    {% for tag in tags | sort(attribute='label') %}
+    <div class="flex items-center justify-between px-3 py-2 bg-gray-800/40 hover:bg-gray-800/70 transition-colors"
+         id="tag-row-{{ service }}-{{ tag.id }}">
+        <div class="flex items-center gap-2 min-w-0">
+            <span class="text-sm text-white">{{ tag.label }}</span>
+            {% if tag.count %}
+            <span class="text-xs text-gray-500 shrink-0">{{ tag.count }} item{% if tag.count != 1 %}s{% endif %}</span>
+            {% endif %}
+        </div>
+        <button hx-delete="/web/tags/{{ service }}/{{ tag.id }}"
+                hx-target="#{{ service }}-tag-toast"
+                hx-swap="innerHTML"
+                hx-confirm="Delete tag '{{ tag.label }}'? It will be removed from all {{ tag.count }} item{% if tag.count != 1 %}s{% endif %}."
+                class="text-gray-500 hover:text-red-400 transition-colors text-xs px-2 py-1 rounded hover:bg-red-900/20 shrink-0">
+            Delete
+        </button>
+    </div>
+    {% endfor %}
+</div>
+<p class="text-xs text-gray-600 mt-2">{{ tags | length }} tag{% if tags | length != 1 %}s{% endif %}</p>
+{% endif %}

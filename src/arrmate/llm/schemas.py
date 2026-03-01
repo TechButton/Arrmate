@@ -86,6 +86,19 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                     "(e.g., 'episodes 1 and 2' = [1, 2], 'episode 5' = [5])."
                 ),
             },
+            "keywords": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "Thematic/related search terms for topic-based discovery. "
+                    "Use ONLY when the user is searching by theme, genre, or topic rather than a "
+                    "specific title (e.g. 'find christmas movies' → ['christmas', 'holiday', 'xmas']; "
+                    "'scary shows' → ['horror', 'scary', 'thriller']; "
+                    "'space adventure films' → ['space', 'sci-fi', 'scifi', 'galactic']; "
+                    "'romantic comedies' → ['romance', 'romantic', 'comedy', 'romcom']). "
+                    "Leave empty when the user provides a specific title."
+                ),
+            },
             "criteria": {
                 "type": "object",
                 "description": "Additional filter, search, or service-routing criteria",
@@ -295,6 +308,15 @@ Rescan examples:
 - "rescan Breaking Bad" → action=rescan, media_type=tv, title="Breaking Bad"
 - "refresh Inception" → action=rescan, media_type=movie, title="Inception"
 - "rescan disk for The Sopranos" → action=rescan, media_type=tv, title="The Sopranos"
+
+Topic/thematic search examples (use keywords, no title):
+- "find christmas movies" → action=search, media_type=movie, keywords=["christmas", "holiday", "xmas"]
+- "find christmas movies from 2024" → action=search, media_type=movie, keywords=["christmas", "holiday", "xmas"], criteria={{year: 2024}}
+- "show me horror shows" → action=search, media_type=tv, keywords=["horror", "scary", "thriller"]
+- "what sci-fi movies are available?" → action=search, media_type=movie, keywords=["sci-fi", "scifi", "space", "science fiction"]
+- "romantic comedies" → action=search, media_type=movie, keywords=["romance", "romantic", "comedy", "romcom"]
+- "action movies" → action=search, media_type=movie, keywords=["action", "thriller", "adventure"]
+- "find documentaries about nature" → action=search, media_type=tv, keywords=["nature", "documentary", "wildlife"]
 
 Always use the parse_media_command function to return structured data."""
 
