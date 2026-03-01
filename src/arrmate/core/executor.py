@@ -457,6 +457,7 @@ class Executor:
                 title=show["title"],
                 quality_profile_id=profile_id,
                 root_folder_path=root_folder,
+                seasons=show.get("seasons", []),
             )
 
             return ExecutionResult(

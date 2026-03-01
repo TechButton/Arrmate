@@ -70,6 +70,7 @@ class SonarrClient(BaseMediaClient):
         title: str,
         quality_profile_id: int,
         root_folder_path: str,
+        seasons: Optional[List] = None,
         monitored: bool = True,
         search_for_missing: bool = True,
     ) -> Dict[str, Any]:
@@ -80,6 +81,7 @@ class SonarrClient(BaseMediaClient):
             title: Series title
             quality_profile_id: Quality profile ID
             root_folder_path: Root folder path
+            seasons: Season list from lookup result (required by Sonarr v3)
             monitored: Whether to monitor the series
             search_for_missing: Whether to search for missing episodes
 
@@ -92,6 +94,7 @@ class SonarrClient(BaseMediaClient):
             "qualityProfileId": quality_profile_id,
             "rootFolderPath": root_folder_path,
             "monitored": monitored,
+            "seasons": seasons or [],
             "addOptions": {"searchForMissingEpisodes": search_for_missing},
         }
         return await self._post("api/v3/series", data=data)

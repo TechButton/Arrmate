@@ -1376,6 +1376,7 @@ async def add_to_library(
                     title=item["title"],
                     quality_profile_id=profile_id,
                     root_folder_path=root_folder,
+                    seasons=item.get("seasons", []),
                 )
             elif media_type == "movie":
                 await client.add_movie(
@@ -3465,11 +3466,15 @@ async def discover_add(
             root_folders = await sonarr.get_root_folders()
             if not profiles or not root_folders:
                 raise ValueError("Sonarr has no quality profiles or root folders configured")
+            # Lookup the series to get the seasons array required by Sonarr v3
+            lookup = await sonarr.search(f"tvdb:{tvdb_id}")
+            seasons = lookup[0].get("seasons", []) if lookup else []
             added = await sonarr.add_series(
                 tvdb_id=tvdb_id,
                 title=title,
                 quality_profile_id=profiles[0]["id"],
                 root_folder_path=root_folders[0]["path"],
+                seasons=seasons,
             )
             await sonarr.close()
             msg = f"Added '{added.get('title', title)}' to Sonarr"
