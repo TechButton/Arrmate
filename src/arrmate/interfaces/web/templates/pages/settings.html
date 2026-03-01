@@ -79,13 +79,99 @@
                     </div>
                 </div>
 
-                <!-- OpenAI fields -->
-                <div x-show="provider === 'openai'" class="space-y-3 mb-4">
-                    <div class="grid sm:grid-cols-2 gap-3">
-                        {{ field("API Key", "openai_api_key", settings.openai_api_key, "sk-...") }}
-                        {{ field("Model", "openai_model", settings.openai_model, "gpt-4o") }}
+                <!-- OpenAI / OpenAI-compatible fields -->
+                <div x-show="provider === 'openai'"
+                     x-data="{
+                       preset: 'custom',
+                       baseUrl: '{{ settings.openai_base_url or "" }}',
+                       model: '{{ settings.openai_model or "gpt-4o" }}',
+                       presets: {
+                         openai:     {url:'',                                                           model:'gpt-4o',                                      key:'platform.openai.com/api-keys',          free:false, local:false},
+                         groq:       {url:'https://api.groq.com/openai/v1',                            model:'llama-3.3-70b-versatile',                     key:'console.groq.com/keys',                 free:true,  local:false},
+                         openrouter: {url:'https://openrouter.ai/api/v1',                              model:'meta-llama/llama-3.3-70b-instruct:free',      key:'openrouter.ai/settings/keys',           free:true,  local:false},
+                         mistral:    {url:'https://api.mistral.ai/v1',                                 model:'mistral-small-latest',                        key:'console.mistral.ai/api-keys',           free:false, local:false},
+                         together:   {url:'https://api.together.xyz/v1',                               model:'meta-llama/Llama-3.3-70B-Instruct-Turbo',     key:'api.together.ai/settings/api-keys',     free:false, local:false},
+                         lmstudio:   {url:'http://host.docker.internal:1234/v1',                       model:'',                                            key:'',                                      free:true,  local:true},
+                         localai:    {url:'http://host.docker.internal:8080/v1',                       model:'',                                            key:'',                                      free:true,  local:true},
+                         jan:        {url:'http://host.docker.internal:1337/v1',                       model:'',                                            key:'',                                      free:true,  local:true},
+                         xai:        {url:'https://api.x.ai/v1',                                      model:'grok-2-latest',                               key:'console.x.ai',                          free:false, local:false},
+                         gemini:     {url:'https://generativelanguage.googleapis.com/v1beta/openai/',  model:'gemini-2.0-flash',                            key:'aistudio.google.com/app/apikey',        free:true,  local:false},
+                         custom:     {url:'',                                                           model:'',                                            key:'',                                      free:false, local:false}
+                       },
+                       applyPreset() {
+                         const p = this.presets[this.preset];
+                         if (!p || this.preset === 'custom') return;
+                         this.baseUrl = p.url;
+                         if (p.model) this.model = p.model;
+                       }
+                     }"
+                     class="space-y-3 mb-4">
+
+                    <!-- Provider preset picker -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Provider preset</label>
+                        <select x-model="preset" @change="applyPreset()"
+                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <option value="custom">Custom / already configured</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="groq">Groq — fast inference, free tier</option>
+                            <option value="openrouter">OpenRouter — 200+ models, free tier</option>
+                            <option value="mistral">Mistral AI</option>
+                            <option value="together">Together AI</option>
+                            <option value="lmstudio">LM Studio (local)</option>
+                            <option value="localai">LocalAI (local, self-hosted)</option>
+                            <option value="jan">Jan (local)</option>
+                            <option value="xai">xAI / Grok</option>
+                            <option value="gemini">Google Gemini — free tier</option>
+                        </select>
                     </div>
-                    {{ field("Custom Base URL (optional)", "openai_base_url", settings.openai_base_url, "https://api.openai.com/v1", help="Leave blank for official OpenAI API") }}
+
+                    <!-- Context-sensitive help -->
+                    <div x-show="preset !== 'custom'" class="p-3 rounded-lg text-xs"
+                         :class="presets[preset]?.local
+                           ? 'bg-green-900/20 border border-green-700/40 text-green-300'
+                           : 'bg-blue-900/20 border border-blue-700/40 text-blue-300'">
+                        <template x-if="presets[preset]?.local">
+                            <span>🖥️ <strong>Local provider</strong> — no API key required, use any non-empty value (e.g. <code>local</code>).
+                            Load a tool-calling model in the app, then use <code>host.docker.internal</code> as the hostname when running in Docker.</span>
+                        </template>
+                        <template x-if="!presets[preset]?.local">
+                            <span>
+                                <span x-show="presets[preset]?.free">🆓 <strong>Free tier available.</strong> </span>
+                                Get your API key at <strong x-text="presets[preset]?.key"></strong>
+                            </span>
+                        </template>
+                    </div>
+
+                    <!-- API Key + Model -->
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">API Key</label>
+                            <input type="text" name="openai_api_key"
+                                   value="{{ settings.openai_api_key or '' }}"
+                                   :placeholder="presets[preset]?.local ? 'local (any value)' : 'sk-...'"
+                                   class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Model</label>
+                            <input type="text" name="openai_model"
+                                   x-model="model"
+                                   :placeholder="presets[preset]?.model || 'gpt-4o'"
+                                   class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Base URL -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">
+                            Base URL <span class="text-gray-500 font-normal text-xs">(leave blank for official OpenAI)</span>
+                        </label>
+                        <input type="text" name="openai_base_url"
+                               x-model="baseUrl"
+                               placeholder="https://api.openai.com/v1"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+                        <p class="text-xs text-gray-500 mt-1">Must support tool/function calling. See README for compatible providers.</p>
+                    </div>
                 </div>
 
                 <!-- Anthropic fields -->
