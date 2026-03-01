@@ -1141,6 +1141,7 @@ async def execute_command(
             {
                 "request": request,
                 "result": result,
+                "original_command": command,
                 "show_toast": True,
                 "toast_type": "success" if result.success else "error",
                 "toast_message": result.message,
@@ -1148,18 +1149,35 @@ async def execute_command(
         )
 
     except Exception as e:
+        logger.exception("Unhandled error in execute_command for %r", command)
+        # Produce a user-friendly message for common failure modes
+        raw = str(e)
+        if "400" in raw:
+            friendly = "The media service rejected the request (HTTP 400). The item may already exist or have invalid data."
+        elif any(c in raw for c in ("401", "403")):
+            friendly = "Authentication failed — check your API key in Settings."
+        elif any(c in raw for c in ("502", "503", "504")):
+            friendly = "A service is temporarily unavailable. Try again in a moment."
+        elif any(kw in raw.lower() for kw in ("connection", "connect", "timed out", "timeout")):
+            friendly = "Could not reach one of your services. Check that it is running and the URL is correct."
+        elif "failed to parse" in raw.lower():
+            friendly = "The AI had trouble understanding that request. Try rephrasing it."
+        else:
+            friendly = f"Something went wrong: {raw}"
+
         return templates.TemplateResponse(
             "partials/execution_result.html",
             {
                 "request": request,
                 "result": {
                     "success": False,
-                    "message": f"Error: {str(e)}",
-                    "errors": [str(e)],
+                    "message": friendly,
+                    "errors": [raw],
                 },
+                "original_command": command,
                 "show_toast": True,
                 "toast_type": "error",
-                "toast_message": f"Error: {str(e)}",
+                "toast_message": friendly,
             },
         )
 

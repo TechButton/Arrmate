@@ -231,12 +231,173 @@
 
     {% if result.errors %}
     <div class="space-y-2 mt-3">
-        <h4 class="text-sm font-medium text-red-300">Errors:</h4>
+        <h4 class="text-sm font-medium text-red-300">Details:</h4>
         <ul class="list-disc list-inside space-y-1">
             {% for error in result.errors %}
-            <li class="text-sm text-red-400">{{ error }}</li>
+            <li class="text-sm text-red-400 font-mono">{{ error }}</li>
             {% endfor %}
         </ul>
+    </div>
+    {% endif %}
+
+    {% if not result.success %}
+    {# ── Categorise error and offer help ── #}
+    {% set m = result.message | lower %}
+    {% set is_not_found  = 'could not find' in m or 'not found' in m %}
+    {% set is_config_err = 'quality profile' in m or 'root folder' in m %}
+    {% set is_conn_err   = ('connection' in m or 'timed out' in m or 'unreachable' in m or 'unavailable' in m or '502' in m or '503' in m) and not is_not_found %}
+    {% set is_auth_err   = '401' in m or '403' in m or 'authentication' in m or 'api key' in m %}
+    {% set is_parse_err  = 'trouble understanding' in m or 'failed to parse' in m or 'invalid intent' in m %}
+    {% set is_exists     = 'already' in m %}
+    {% set is_perm       = 'permission' in m %}
+
+    <div class="mt-4 pt-4 border-t border-gray-700/50 space-y-3">
+
+        {# Context help banner #}
+        {% if is_config_err %}
+        <div class="flex items-start gap-2 p-3 rounded-lg bg-yellow-900/20 border border-yellow-700/30 text-yellow-300 text-xs">
+            <span class="mt-0.5">⚙️</span>
+            <span><strong>Configuration needed.</strong> Sonarr/Radarr may not have quality profiles or root folders set up.
+            <a href="/web/settings" class="underline ml-1">Open Settings →</a></span>
+        </div>
+
+        {% elif is_auth_err %}
+        <div class="flex items-start gap-2 p-3 rounded-lg bg-yellow-900/20 border border-yellow-700/30 text-yellow-300 text-xs">
+            <span class="mt-0.5">🔑</span>
+            <span><strong>Authentication failed.</strong> Your API key may be wrong or expired.
+            <a href="/web/settings" class="underline ml-1">Check Settings →</a></span>
+        </div>
+
+        {% elif is_conn_err %}
+        <div class="flex items-start gap-2 p-3 rounded-lg bg-yellow-900/20 border border-yellow-700/30 text-yellow-300 text-xs">
+            <span class="mt-0.5">🔌</span>
+            <span><strong>Service unreachable.</strong> Check that it is running and the URL is correct.
+            <a href="/web/services" class="underline ml-1">Check Services →</a></span>
+        </div>
+
+        {% elif is_not_found %}
+        <div class="flex items-start gap-2 p-3 rounded-lg bg-blue-900/20 border border-blue-700/30 text-blue-300 text-xs">
+            <span class="mt-0.5">🔍</span>
+            <span><strong>Title not found.</strong> Check the spelling or try a shorter version of the name — e.g. "Breaking Bad" instead of "Breaking Bad season 2".</span>
+        </div>
+
+        {% elif is_exists %}
+        <div class="flex items-start gap-2 p-3 rounded-lg bg-blue-900/20 border border-blue-700/30 text-blue-300 text-xs">
+            <span class="mt-0.5">📚</span>
+            <span><strong>Already in your library.</strong> You can search for a better quality version instead.</span>
+        </div>
+
+        {% elif is_parse_err %}
+        <div class="flex items-start gap-2 p-3 rounded-lg bg-blue-900/20 border border-blue-700/30 text-blue-300 text-xs">
+            <span class="mt-0.5">🤔</span>
+            <span><strong>Couldn't understand that.</strong> Try being more specific — include the title and what you want done.</span>
+        </div>
+
+        {% elif not is_perm %}
+        <div class="flex items-start gap-2 p-3 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 text-xs">
+            <span class="mt-0.5">💡</span>
+            <span>Try rephrasing your request, or check the <a href="/web/services" class="underline">Services</a> page to make sure everything is connected.</span>
+        </div>
+        {% endif %}
+
+        {# ── Rephrase & try again ── #}
+        {% if original_command and not is_config_err and not is_conn_err and not is_auth_err and not is_perm %}
+        <div>
+            <p class="text-xs text-gray-500 mb-1.5">Rephrase and try again:</p>
+            <form hx-post="/web/command/execute"
+                  hx-target="#result-area"
+                  hx-swap="innerHTML"
+                  class="flex gap-2">
+                <input type="text" name="command"
+                       value="{{ original_command | e }}"
+                       class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm
+                              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <button type="submit"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium
+                               rounded-lg transition-colors whitespace-nowrap">
+                    Try Again ▶
+                </button>
+            </form>
+        </div>
+
+        {# ── Quick suggestion chips ── #}
+        {% if is_not_found or is_exists or is_parse_err %}
+        <div>
+            <p class="text-xs text-gray-500 mb-1.5">Or try one of these:</p>
+            <div class="flex flex-wrap gap-2">
+
+                {% if is_not_found %}
+                {# Hidden inputs for each suggestion command #}
+                <input type="hidden" id="sug-search"  name="command" value="search for {{ original_command | e }}">
+                <input type="hidden" id="sug-tv"      name="command" value="add {{ original_command | e }} tv show">
+                <input type="hidden" id="sug-movie"   name="command" value="add {{ original_command | e }} movie">
+
+                <button type="button"
+                        hx-post="/web/command/execute"
+                        hx-include="#sug-search"
+                        hx-target="#result-area" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border border-gray-600 transition-colors">
+                    🔍 Search instead
+                </button>
+                <button type="button"
+                        hx-post="/web/command/execute"
+                        hx-include="#sug-tv"
+                        hx-target="#result-area" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border border-gray-600 transition-colors">
+                    📺 Try as TV show
+                </button>
+                <button type="button"
+                        hx-post="/web/command/execute"
+                        hx-include="#sug-movie"
+                        hx-target="#result-area" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border border-gray-600 transition-colors">
+                    🎬 Try as movie
+                </button>
+                {% endif %}
+
+                {% if is_exists %}
+                <input type="hidden" id="sug-upgrade" name="command" value="upgrade {{ original_command | e }}">
+                <button type="button"
+                        hx-post="/web/command/execute"
+                        hx-include="#sug-upgrade"
+                        hx-target="#result-area" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border border-gray-600 transition-colors">
+                    ⬆️ Search for better version
+                </button>
+                {% endif %}
+
+                {% if is_parse_err %}
+                <input type="hidden" id="sug-list-tv"    name="command" value="list my tv shows">
+                <input type="hidden" id="sug-list-movie" name="command" value="list my movies">
+                <input type="hidden" id="sug-queue"      name="command" value="what's downloading">
+                <button type="button"
+                        hx-post="/web/command/execute"
+                        hx-include="#sug-list-tv"
+                        hx-target="#result-area" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border border-gray-600 transition-colors">
+                    📺 List my TV shows
+                </button>
+                <button type="button"
+                        hx-post="/web/command/execute"
+                        hx-include="#sug-list-movie"
+                        hx-target="#result-area" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border border-gray-600 transition-colors">
+                    🎬 List my movies
+                </button>
+                <button type="button"
+                        hx-post="/web/command/execute"
+                        hx-include="#sug-queue"
+                        hx-target="#result-area" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border border-gray-600 transition-colors">
+                    ⬇️ What's downloading?
+                </button>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
     </div>
     {% endif %}
 </div>
