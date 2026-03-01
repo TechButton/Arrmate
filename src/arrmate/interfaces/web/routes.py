@@ -1527,8 +1527,28 @@ async def upcoming_content(
     days: int = Query(default=7, ge=1, le=30),
 ):
     """HTMX partial: combined Sonarr + Radarr calendar for the next N days."""
-    from datetime import date, timedelta
+    from datetime import date, datetime, timedelta
     from itertools import groupby as _groupby
+    from zoneinfo import ZoneInfo
+
+    _eastern = ZoneInfo("America/New_York")
+
+    def _parse_air_time(air_date_utc_str: str) -> str | None:
+        """Convert an airDateUtc string to a human-readable Eastern time string."""
+        if not air_date_utc_str:
+            return None
+        try:
+            dt_utc = datetime.fromisoformat(air_date_utc_str.replace("Z", "+00:00"))
+            # Sonarr uses midnight UTC as a placeholder when the air time is unknown
+            if dt_utc.hour == 0 and dt_utc.minute == 0:
+                return None
+            dt_east = dt_utc.astimezone(_eastern)
+            h = dt_east.hour % 12 or 12
+            ampm = "AM" if dt_east.hour < 12 else "PM"
+            tz_abbr = "EDT" if dt_east.dst() else "EST"
+            return f"{h}:{dt_east.minute:02d} {ampm} {tz_abbr}"
+        except Exception:
+            return None
 
     today = date.today()
     start_str = today.isoformat()
@@ -1564,6 +1584,7 @@ async def upcoming_content(
                     "has_file": bool(ep.get("hasFile")),
                     "monitored": bool(ep.get("monitored")),
                     "poster": poster,
+                    "air_time_est": _parse_air_time(ep.get("airDateUtc", "")),
                 })
         except Exception as e:
             error = str(e)
@@ -1609,6 +1630,7 @@ async def upcoming_content(
                     "monitored": bool(m.get("monitored")),
                     "poster": poster,
                     "year": m.get("year"),
+                    "air_time_est": None,
                 })
         except Exception as ex:
             if not error:

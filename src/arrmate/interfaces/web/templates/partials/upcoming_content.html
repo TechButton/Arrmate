@@ -65,7 +65,10 @@
                 <p class="text-gray-400 text-xs mt-0.5 truncate">{{ ev.title }}</p>
                 {% endif %}
 
-                <div class="flex items-center gap-3 mt-1">
+                <div class="flex items-center gap-3 mt-1 flex-wrap">
+                    {% if ev.air_time_est %}
+                    <span class="text-xs text-amber-400 font-medium">🕐 {{ ev.air_time_est }}</span>
+                    {% endif %}
                     {% if ev.network %}
                     <span class="text-xs text-gray-500">
                         {% if ev.kind == 'movie' %}
