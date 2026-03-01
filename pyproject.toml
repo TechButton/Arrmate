@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arrmate"
-version = "0.8.5"
+version = "0.9.0"
 description = "🤝 Your AI companion for Sonarr, Radarr, and Lidarr - manage your media library with natural language"
 readme = "README.md"
 requires-python = ">=3.11"
