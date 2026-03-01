@@ -97,6 +97,14 @@ class Settings(BaseSettings):
         default=None, description="LazyLibrarian API key"
     )
 
+    # ReadMeABook settings (Audiobook automation & request management)
+    readmeabook_url: Optional[str] = Field(
+        default=None, description="ReadMeABook base URL (e.g., http://readmeabook:3030)"
+    )
+    readmeabook_api_key: Optional[str] = Field(
+        default=None, description="ReadMeABook API token (Bearer token from login)"
+    )
+
     # Plex Media Server
     plex_url: Optional[str] = Field(
         default=None, description="Plex base URL (e.g., http://plex:32400)"

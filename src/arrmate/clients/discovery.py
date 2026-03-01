@@ -13,6 +13,7 @@ from ..core.models import (
 from .audiobookshelf import AudioBookshelfClient
 from .bazarr import BazarrClient
 from .lazylibrarian import LazyLibrarianClient
+from .readmeabook import ReadMeABookClient
 from .lidarr import LidarrClient
 from .plex import PlexClient
 from .prowlarr import ProwlarrClient
@@ -30,6 +31,7 @@ DEFAULT_PORTS = {
     "bazarr": 6767,
     "audiobookshelf": 13378,
     "lazylibrarian": 5299,
+    "readmeabook": 3030,
     "plex": 32400,
     "prowlarr": 9696,
 }
@@ -66,6 +68,7 @@ def _get_implementation_status(service_name: str) -> ImplementationStatus:
         "bazarr": ImplementationStatus.PARTIAL,
         "audiobookshelf": ImplementationStatus.PARTIAL,
         "lazylibrarian": ImplementationStatus.PARTIAL,
+        "readmeabook": ImplementationStatus.PARTIAL,
         "plex": ImplementationStatus.PARTIAL,
         "prowlarr": ImplementationStatus.PARTIAL,
     }
@@ -89,6 +92,7 @@ def _get_api_version(service_name: str) -> str:
         "bazarr": "custom",
         "audiobookshelf": "REST",
         "lazylibrarian": "custom",
+        "readmeabook": "REST",
         "plex": "REST",
         "prowlarr": "v1",
     }
@@ -112,6 +116,7 @@ def _get_media_type(service_name: str) -> str:
         "bazarr": "Subtitles",
         "audiobookshelf": "Audiobooks/Podcasts",
         "lazylibrarian": "Books/Audiobooks",
+        "readmeabook": "Audiobooks",
         "plex": "Media Server",
         "prowlarr": "Indexer Aggregator",
     }
@@ -183,6 +188,16 @@ def _get_capabilities(service_name: str) -> ServiceCapability:
             can_search=True,
             can_add=True,
             can_remove=True,
+            can_upgrade=False,
+            can_list=True,
+        )
+
+    # ReadMeABook capabilities
+    if service_name == "readmeabook":
+        return ServiceCapability(
+            can_search=True,
+            can_add=True,   # Submit requests
+            can_remove=False,
             can_upgrade=False,
             can_list=True,
         )
@@ -496,6 +511,40 @@ async def discover_services() -> Dict[str, EnhancedServiceInfo]:
                 api_version=_get_api_version("lazylibrarian"),
                 capabilities=_get_capabilities("lazylibrarian"),
                 media_type=_get_media_type("lazylibrarian"),
+                is_deprecated=False,
+            )
+        finally:
+            await client.close()
+
+    # ReadMeABook (Audiobook automation & request management)
+    if settings.readmeabook_url and settings.readmeabook_api_key:
+        client = ReadMeABookClient(settings.readmeabook_url, settings.readmeabook_api_key)
+        try:
+            available = await client.test_connection()
+            version = await client.get_version() if available else None
+            services["readmeabook"] = EnhancedServiceInfo(
+                name="readmeabook",
+                url=settings.readmeabook_url,
+                api_key=_mask_api_key(settings.readmeabook_api_key),
+                available=available,
+                version=version,
+                implementation_status=_get_implementation_status("readmeabook"),
+                api_version=_get_api_version("readmeabook"),
+                capabilities=_get_capabilities("readmeabook"),
+                media_type=_get_media_type("readmeabook"),
+                is_deprecated=False,
+            )
+        except Exception as e:
+            logger.error(f"Error discovering ReadMeABook: {e}")
+            services["readmeabook"] = EnhancedServiceInfo(
+                name="readmeabook",
+                url=settings.readmeabook_url,
+                api_key=_mask_api_key(settings.readmeabook_api_key),
+                available=False,
+                implementation_status=_get_implementation_status("readmeabook"),
+                api_version=_get_api_version("readmeabook"),
+                capabilities=_get_capabilities("readmeabook"),
+                media_type=_get_media_type("readmeabook"),
                 is_deprecated=False,
             )
         finally:

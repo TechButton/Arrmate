@@ -36,6 +36,7 @@ CONFIGURABLE_FIELDS: set[str] = {
     "plex_url", "plex_token",
     "audiobookshelf_url", "audiobookshelf_api_key",
     "lazylibrarian_url", "lazylibrarian_api_key",
+    "readmeabook_url", "readmeabook_api_key",
     # External APIs
     "tmdb_api_key",
     # Download clients

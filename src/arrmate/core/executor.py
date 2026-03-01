@@ -442,8 +442,13 @@ class Executor:
         root_folder = root_folders[0]["path"]
 
         if intent.media_type == "tv":
-            # Search for the show first
-            results = await client.search(intent.title)
+            # Use tvdbId for exact lookup when available (set by intent engine), otherwise title
+            search_term = (
+                f"tvdb:{intent.item_id}"
+                if intent.item_id and not intent.series_id
+                else (intent.title or "")
+            )
+            results = await client.search(search_term)
             if not results:
                 return ExecutionResult(
                     success=False,

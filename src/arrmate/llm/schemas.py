@@ -309,6 +309,50 @@ Rescan examples:
 - "refresh Inception" → action=rescan, media_type=movie, title="Inception"
 - "rescan disk for The Sopranos" → action=rescan, media_type=tv, title="The Sopranos"
 
+Everyday / plain-language fix requests (TV shows not working):
+- "my show keeps stopping" → action=upgrade, media_type=tv
+- "the picture on [show] looks funny" → action=upgrade, media_type=tv, title="[show]"
+- "something's wrong with [show]" → action=upgrade, media_type=tv, title="[show]"
+- "I can't watch [show] it's all messed up" → action=upgrade, media_type=tv, title="[show]"
+- "fix [show] please" → action=upgrade, media_type=tv, title="[show]"
+- "the sound is off on [show]" → action=upgrade, media_type=tv, title="[show]"
+- "I can't hear what they're saying in [show]" → action=upgrade, media_type=tv, title="[show]"
+- "[show] won't play" → action=upgrade, media_type=tv, title="[show]"
+- "get me [show] please" → action=add, media_type=tv, title="[show]"
+- "can you add [show] for me?" → action=add, media_type=tv, title="[show]"
+- "I'd like to watch [show], can you put it on?" → action=add, media_type=tv, title="[show]"
+- "I want to watch [show] again from the beginning" → action=search, media_type=tv, title="[show]"
+- "how do I watch [show]?" → action=search, media_type=tv, title="[show]"
+- "put [show] on my list" → action=add, media_type=tv, title="[show]"
+- "take [show] off" → action=remove, media_type=tv, title="[show]"
+- "I finished [show], you can delete it" → action=remove, media_type=tv, title="[show]"
+- "what shows do I have?" → action=list, media_type=tv
+- "what can I watch tonight?" → action=list, media_type=tv
+
+Everyday / plain-language fix requests (movies not working):
+- "the movie [title] is broken" → action=upgrade, media_type=movie, title="[title]"
+- "I tried to watch [movie] and the picture was all green" → action=upgrade, media_type=movie, title="[movie]"
+- "the audio doesn't match the video in [movie]" → action=upgrade, media_type=movie, title="[movie]"
+- "can you fix [movie], the sound is messed up?" → action=upgrade, media_type=movie, title="[movie]"
+- "[movie] keeps freezing" → action=upgrade, media_type=movie, title="[movie]"
+- "the subtitles are wrong in [movie]" → action=download_subtitle, media_type=movie, title="[movie]"
+- "I can't read the subtitles on [movie]" → action=sync_subtitles, media_type=movie, title="[movie]"
+- "add [movie] for me" → action=add, media_type=movie, title="[movie]"
+- "can you get [movie] for me?" → action=add, media_type=movie, title="[movie]"
+- "I'd like to see [movie]" → action=add, media_type=movie, title="[movie]"
+- "delete [movie], I already watched it" → action=remove, media_type=movie, title="[movie]"
+- "what movies do I have?" → action=list, media_type=movie
+
+Audiobook / reading requests (plain language):
+- "get me the [title] audiobook" → action=add, media_type=audiobook, title="[title]"
+- "I'd like to listen to [title]" → action=add, media_type=audiobook, title="[title]"
+- "can you find [title] audiobook?" → action=search, media_type=audiobook, title="[title]"
+- "do you have [title] as an audiobook?" → action=search, media_type=audiobook, title="[title]"
+- "I want to read [title]" → action=add, media_type=book, title="[title]"
+- "add [author] books" → action=add, media_type=book, title="[author]"
+- "what audiobooks do I have?" → action=list, media_type=audiobook
+- "show me my books" → action=list, media_type=book
+
 Topic/thematic search examples (use keywords, no title):
 - "find christmas movies" → action=search, media_type=movie, keywords=["christmas", "holiday", "xmas"]
 - "find christmas movies from 2024" → action=search, media_type=movie, keywords=["christmas", "holiday", "xmas"], criteria={{year: 2024}}
@@ -344,6 +388,7 @@ def _build_service_context(available_services: Optional[List[str]]) -> str:
             "Media server — browse libraries, cross-library search, active sessions, "
             "refresh metadata, scan libraries, mark watched/unwatched"
         ),
+        "readmeabook": "Audiobook acquisition and request management — search, request, browse",
         "readarr": "Book/audiobook management (DEPRECATED — project retired)",
     }
 
