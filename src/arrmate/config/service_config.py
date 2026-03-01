@@ -37,6 +37,8 @@ CONFIGURABLE_FIELDS: set[str] = {
     "audiobookshelf_url", "audiobookshelf_api_key",
     "lazylibrarian_url", "lazylibrarian_api_key",
     "huntarr_url", "huntarr_api_key",
+    # External APIs
+    "tmdb_api_key",
     # Download clients
     "sabnzbd_url", "sabnzbd_api_key",
     "nzbget_url", "nzbget_username", "nzbget_password",
