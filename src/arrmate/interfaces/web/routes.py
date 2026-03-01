@@ -3418,8 +3418,9 @@ async def discover_results(
             item["rating"] = round(item.get("vote_average", 0), 1)
             item["media_type"] = media_type
 
-        # For movies: fetch Radarr library TMDB IDs so we can show "In Library" badge
+        # Cross-reference with Sonarr/Radarr library so we can show "In Library" badge
         library_tmdb_ids: set[int] = set()
+        library_titles: set[str] = set()
         if media_type == "movie" and settings.radarr_url and settings.radarr_api_key:
             try:
                 radarr = RadarrClient(settings.radarr_url, settings.radarr_api_key)
@@ -3428,9 +3429,21 @@ async def discover_results(
                 library_tmdb_ids = {m["tmdbId"] for m in all_movies if m.get("tmdbId")}
             except Exception:
                 pass
+        elif media_type == "tv" and settings.sonarr_url and settings.sonarr_api_key:
+            try:
+                sonarr_lib = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+                all_series = await sonarr_lib.get_all_series()
+                await sonarr_lib.close()
+                # tmdbId is stored by Sonarr; fall back to title matching
+                library_tmdb_ids = {s["tmdbId"] for s in all_series if s.get("tmdbId")}
+                library_titles = {s["title"].lower() for s in all_series if s.get("title")}
+            except Exception:
+                pass
 
         for item in items:
-            item["in_library"] = item.get("id") in library_tmdb_ids
+            by_id = item.get("id") in library_tmdb_ids
+            by_title = item.get("display_title", "").lower() in library_titles
+            item["in_library"] = by_id or by_title
 
     except Exception as e:
         logger.error("TMDB discover error: %s", e)
@@ -3506,15 +3519,17 @@ async def discover_add(
             root_folders = await sonarr.get_root_folders()
             if not profiles or not root_folders:
                 raise ValueError("Sonarr has no quality profiles or root folders configured")
-            # Lookup the series to get the seasons array required by Sonarr v3
+            # Lookup via tvdb: to get the full series object (titleSlug, seasons, etc.)
             lookup = await sonarr.search(f"tvdb:{tvdb_id}")
-            seasons = lookup[0].get("seasons", []) if lookup else []
-            added = await sonarr.add_series(
-                tvdb_id=tvdb_id,
-                title=title,
+            if not lookup:
+                raise ValueError(
+                    f"Could not find '{title}' in Sonarr's database (TVDB:{tvdb_id})"
+                )
+            # Pass the full lookup result so all Sonarr-required fields are present
+            added = await sonarr.add_series_from_lookup(
+                lookup_result=lookup[0],
                 quality_profile_id=profiles[0]["id"],
                 root_folder_path=root_folders[0]["path"],
-                seasons=seasons,
             )
             await sonarr.close()
             msg = f"Added '{added.get('title', title)}' to Sonarr"
@@ -3524,13 +3539,23 @@ async def discover_add(
             raise ValueError(f"Unknown media type: {media_type}")
 
     except Exception as e:
-        err = str(e)
-        # "already in library" from Radarr/Sonarr returns a 400 with a message
-        if "already" in err.lower() or "exists" in err.lower():
+        # Try to extract the actual error message from the HTTP response body
+        # (Sonarr/Radarr return JSON arrays like [{"errorMessage": "..."}] on 400)
+        detail = str(e)
+        if hasattr(e, "response"):
+            try:
+                body = e.response.json()
+                if isinstance(body, list) and body:
+                    detail = body[0].get("errorMessage") or body[0].get("message") or detail
+                elif isinstance(body, dict):
+                    detail = body.get("message") or body.get("errorMessage") or detail
+            except Exception:
+                pass
+        if "already" in detail.lower() or "exists" in detail.lower():
             msg = f"'{title}' is already in your library"
-            success = True  # treat as success — it's there
+            success = True
         else:
-            msg = err
+            msg = detail
             success = False
 
     return templates.TemplateResponse(

@@ -99,6 +99,28 @@ class SonarrClient(BaseMediaClient):
         }
         return await self._post("api/v3/series", data=data)
 
+    async def add_series_from_lookup(
+        self,
+        lookup_result: Dict[str, Any],
+        quality_profile_id: int,
+        root_folder_path: str,
+        monitored: bool = True,
+        search_for_missing: bool = True,
+    ) -> Dict[str, Any]:
+        """Add a series using the full Sonarr lookup result.
+
+        Uses the lookup object as the base body so all Sonarr-required fields
+        (titleSlug, seriesType, languageProfileId, seasons, etc.) are present.
+        """
+        data = {
+            **lookup_result,
+            "qualityProfileId": quality_profile_id,
+            "rootFolderPath": root_folder_path,
+            "monitored": monitored,
+            "addOptions": {"searchForMissingEpisodes": search_for_missing},
+        }
+        return await self._post("api/v3/series", data=data)
+
     async def get_episodes(
         self, series_id: int, season_number: Optional[int] = None
     ) -> List[Dict[str, Any]]:
