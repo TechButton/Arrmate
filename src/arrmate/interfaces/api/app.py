@@ -1,7 +1,13 @@
 """FastAPI REST API interface for Arrmate."""
 
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Dict, List, Optional
+
+try:
+    _VERSION = _pkg_version("arrmate")
+except Exception:
+    _VERSION = "0.7.9"
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
@@ -71,7 +77,7 @@ app = FastAPI(
         "**Authentication**: All `/api/v1/*` endpoints require a Bearer token.\n"
         "Create tokens at `/web/api-tokens` or via `POST /api/v1/auth/token`."
     ),
-    version="0.7.5",
+    version=_VERSION,
 )
 
 # Mount static files
@@ -131,7 +137,7 @@ async def root():
 @app.get("/health", tags=["meta"])
 async def health() -> Dict[str, str]:
     """Health check — no auth required."""
-    return {"status": "ok", "version": "0.7.5"}
+    return {"status": "ok", "version": _VERSION}
 
 
 # ── Auth endpoints ────────────────────────────────────────────────────────────
