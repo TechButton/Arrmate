@@ -286,6 +286,23 @@ You can also configure all of this through the **Settings → AI / LLM tab** in 
 
 ---
 
+## What's New
+
+### v0.9.2
+- **Discover tab — "In Library" badge for TV shows**: Shows already in Sonarr now correctly display the green ✓ In Library badge and hide the add button, matching the existing movie behaviour.
+- **Discover tab — fixed HTTP 400 on add**: Adding TV shows from Discover now uses the full Sonarr lookup result as the POST body, so all required fields (`titleSlug`, `seriesType`, `languageProfileId`, seasons, etc.) are always present.
+- **Better error messages on add**: If a show or movie is already in your library and the add is rejected, the UI now correctly reads the response body and shows "already in your library" instead of a raw HTTP error.
+
+### v0.9.1
+- **EST air times on Upcoming calendar**: Each scheduled episode now shows its air time in Eastern time, with a note that new episodes usually take 10–60 minutes to appear after airing.
+- **Improved error handling on commands**: Errors are now categorised (not found, already exists, connection issue, etc.) with friendly messages, a pre-filled retry input, and contextual quick-action buttons.
+
+### v0.9.0
+- **OpenAI-compatible provider preset picker**: The Settings → AI/LLM tab now has a dropdown to auto-fill the base URL and model for Groq, OpenRouter, LM Studio, Google Gemini, and more.
+- Expanded LLM provider support — any OpenAI-compatible API works.
+
+---
+
 ## Features
 
 ### Natural Language Commands
