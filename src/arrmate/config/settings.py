@@ -97,12 +97,6 @@ class Settings(BaseSettings):
         default=None, description="LazyLibrarian API key"
     )
 
-    # huntarr.io settings (Orchestration service)
-    huntarr_url: Optional[str] = Field(
-        default=None, description="huntarr.io base URL (e.g., http://huntarr:3000)"
-    )
-    huntarr_api_key: Optional[str] = Field(default=None, description="huntarr.io API key")
-
     # Plex Media Server
     plex_url: Optional[str] = Field(
         default=None, description="Plex base URL (e.g., http://plex:32400)"

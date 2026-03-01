@@ -12,7 +12,6 @@ from ..core.models import (
 )
 from .audiobookshelf import AudioBookshelfClient
 from .bazarr import BazarrClient
-from .huntarr import HuntarrClient
 from .lazylibrarian import LazyLibrarianClient
 from .lidarr import LidarrClient
 from .plex import PlexClient
@@ -31,7 +30,6 @@ DEFAULT_PORTS = {
     "bazarr": 6767,
     "audiobookshelf": 13378,
     "lazylibrarian": 5299,
-    "huntarr": 3000,
     "plex": 32400,
     "prowlarr": 9696,
 }
@@ -68,7 +66,6 @@ def _get_implementation_status(service_name: str) -> ImplementationStatus:
         "bazarr": ImplementationStatus.PARTIAL,
         "audiobookshelf": ImplementationStatus.PARTIAL,
         "lazylibrarian": ImplementationStatus.PARTIAL,
-        "huntarr": ImplementationStatus.PARTIAL,
         "plex": ImplementationStatus.PARTIAL,
         "prowlarr": ImplementationStatus.PARTIAL,
     }
@@ -92,7 +89,6 @@ def _get_api_version(service_name: str) -> str:
         "bazarr": "custom",
         "audiobookshelf": "REST",
         "lazylibrarian": "custom",
-        "huntarr": "REST",
         "plex": "REST",
         "prowlarr": "v1",
     }
@@ -116,7 +112,6 @@ def _get_media_type(service_name: str) -> str:
         "bazarr": "Subtitles",
         "audiobookshelf": "Audiobooks/Podcasts",
         "lazylibrarian": "Books/Audiobooks",
-        "huntarr": "Orchestration",
         "plex": "Media Server",
         "prowlarr": "Indexer Aggregator",
     }
@@ -190,16 +185,6 @@ def _get_capabilities(service_name: str) -> ServiceCapability:
             can_remove=True,
             can_upgrade=False,
             can_list=True,
-        )
-
-    # huntarr.io capabilities (orchestration)
-    if service_name == "huntarr":
-        return ServiceCapability(
-            can_search=False,  # Doesn't search directly
-            can_add=False,  # Manages other services
-            can_remove=False,
-            can_upgrade=False,
-            can_list=True,  # Lists stats/instances
         )
 
     # Plex capabilities (media server/player)
@@ -511,47 +496,6 @@ async def discover_services() -> Dict[str, EnhancedServiceInfo]:
                 api_version=_get_api_version("lazylibrarian"),
                 capabilities=_get_capabilities("lazylibrarian"),
                 media_type=_get_media_type("lazylibrarian"),
-                is_deprecated=False,
-            )
-        finally:
-            await client.close()
-
-    # huntarr.io (Orchestration Service)
-    if settings.huntarr_url and settings.huntarr_api_key:
-        client = HuntarrClient(settings.huntarr_url, settings.huntarr_api_key)
-        try:
-            available = await client.test_connection()
-            version = None
-            if available:
-                try:
-                    stats = await client.get_stats()
-                    version = stats.get("data", {}).get("version")
-                except Exception:
-                    pass
-
-            services["huntarr"] = EnhancedServiceInfo(
-                name="huntarr",
-                url=settings.huntarr_url,
-                api_key=_mask_api_key(settings.huntarr_api_key),
-                available=available,
-                version=version,
-                implementation_status=_get_implementation_status("huntarr"),
-                api_version=_get_api_version("huntarr"),
-                capabilities=_get_capabilities("huntarr"),
-                media_type=_get_media_type("huntarr"),
-                is_deprecated=False,
-            )
-        except Exception as e:
-            logger.error(f"Error discovering huntarr.io: {e}")
-            services["huntarr"] = EnhancedServiceInfo(
-                name="huntarr",
-                url=settings.huntarr_url,
-                api_key=_mask_api_key(settings.huntarr_api_key),
-                available=False,
-                implementation_status=_get_implementation_status("huntarr"),
-                api_version=_get_api_version("huntarr"),
-                capabilities=_get_capabilities("huntarr"),
-                media_type=_get_media_type("huntarr"),
                 is_deprecated=False,
             )
         finally:

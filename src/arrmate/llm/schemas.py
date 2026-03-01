@@ -122,8 +122,8 @@ PARSE_MEDIA_COMMAND_SCHEMA = {
                         "description": (
                             "Target a specific service when the command is explicitly about it. "
                             "Use 'plex' for Plex Media Server operations, 'bazarr' for subtitle "
-                            "management, 'audiobookshelf' for AudioBookshelf, 'huntarr' for "
-                            "huntarr.io orchestration. Leave unset for standard *arr operations."
+                            "management, 'audiobookshelf' for AudioBookshelf. "
+                            "Leave unset for standard *arr operations."
                         ),
                     },
                     "operation": {
@@ -340,7 +340,6 @@ def _build_service_context(available_services: Optional[List[str]]) -> str:
         "bazarr": "Subtitle download and sync for TV shows and movies",
         "audiobookshelf": "Audiobook and podcast player — browse, search, progress",
         "lazylibrarian": "Book and audiobook management with automated downloading",
-        "huntarr": "Orchestration and statistics across *arr services",
         "plex": (
             "Media server — browse libraries, cross-library search, active sessions, "
             "refresh metadata, scan libraries, mark watched/unwatched"

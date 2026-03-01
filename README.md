@@ -41,7 +41,6 @@ Works with Sonarr, Radarr, Lidarr, Bazarr, Plex, SABnzbd, qBittorrent, and more.
 | Bazarr | Subtitles | Download and sync subtitles by language |
 | AudioBookshelf | Audiobooks | Browse and search libraries |
 | LazyLibrarian | Books | Search and manage book libraries |
-| huntarr.io | Stats | Dashboard metrics across all services |
 | Prowlarr | Indexer aggregator | Search all indexers, send results to download managers |
 | SABnzbd | Downloads | Queue, speed control, per-item priority/pause/resume, add by URL |
 | NZBget | Downloads | Queue, speed control, per-item priority/pause/resume, add by URL |

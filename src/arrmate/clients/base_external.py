@@ -2,7 +2,6 @@
 
 External services are orchestration or monitoring tools that work across
 multiple media services but don't manage media directly. Examples:
-- huntarr.io (automation/orchestration)
 - Overseerr (request management)
 - Tautulli (Plex monitoring)
 """
