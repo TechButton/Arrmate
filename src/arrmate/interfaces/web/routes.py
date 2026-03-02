@@ -1063,122 +1063,146 @@ async def execute_command(
     current_user = get_current_user(request)
     user_role = current_user.get("role", "user") if current_user else "user"
 
+    # Outer guard: catches template-rendering failures so HTMX always gets a 200 with
+    # visible HTML instead of a silent 500 that leaves the result area blank.
     try:
-        # Parse
-        cmd_parser = await get_parser()
-        intent = await cmd_parser.parse(command)
+        try:
+            # Parse
+            cmd_parser = await get_parser()
+            intent = await cmd_parser.parse(command)
 
-        # Enrich
-        intent_engine = get_engine()
-        enriched = await intent_engine.enrich(intent)
+            # Enrich
+            intent_engine = get_engine()
+            enriched = await intent_engine.enrich(intent)
 
-        # If the user explicitly chose transcode mode, override the action
-        if mode == "transcode":
-            enriched.action = ActionType.TRANSCODE
+            # If the user explicitly chose transcode mode, override the action
+            if mode == "transcode":
+                enriched.action = ActionType.TRANSCODE
 
-        # Role-based action restriction: 'user' cannot delete/remove
-        if user_role == "user" and enriched.action in _USER_BLOCKED_ACTIONS:
+            # Role-based action restriction: 'user' cannot delete/remove
+            if user_role == "user" and enriched.action in _USER_BLOCKED_ACTIONS:
+                return templates.TemplateResponse(
+                    "partials/execution_result.html",
+                    {
+                        "request": request,
+                        "result": {
+                            "success": False,
+                            "message": "You don't have permission to remove or delete media. "
+                                       "Submit a request instead.",
+                            "errors": ["Insufficient permissions for this action"],
+                        },
+                        "show_toast": True,
+                        "toast_type": "error",
+                        "toast_message": "Permission denied: cannot remove media",
+                    },
+                )
+
+            # Validate
+            errors = intent_engine.validate(enriched)
+            if errors:
+                return templates.TemplateResponse(
+                    "partials/execution_result.html",
+                    {
+                        "request": request,
+                        "result": {
+                            "success": False,
+                            "message": "Validation failed",
+                            "errors": errors,
+                        },
+                        "show_toast": True,
+                        "toast_type": "error",
+                        "toast_message": "Validation failed: " + "; ".join(errors),
+                    },
+                )
+
+            # Require explicit confirmation for destructive actions (admin/power_user only)
+            if enriched.action in _USER_BLOCKED_ACTIONS and confirmed != "true":
+                title = enriched.title or "this item"
+                if enriched.episodes and enriched.season:
+                    ep_str = ", ".join(f"E{e:02d}" for e in sorted(enriched.episodes))
+                    delete_description = f"{title} – Season {enriched.season} ({ep_str})"
+                elif enriched.season:
+                    delete_description = f"{title} – Season {enriched.season}"
+                else:
+                    delete_description = title
+                return templates.TemplateResponse(
+                    "partials/delete_confirm.html",
+                    {
+                        "request": request,
+                        "delete_description": delete_description,
+                        "command": command,
+                        "mode": mode,
+                    },
+                )
+
+            # Execute
+            exec_engine = get_executor()
+            result = await exec_engine.execute(enriched)
+
             return templates.TemplateResponse(
                 "partials/execution_result.html",
                 {
                     "request": request,
-                    "result": {
-                        "success": False,
-                        "message": "You don't have permission to remove or delete media. "
-                                   "Submit a request instead.",
-                        "errors": ["Insufficient permissions for this action"],
-                    },
+                    "result": result,
+                    "original_command": command,
                     "show_toast": True,
-                    "toast_type": "error",
-                    "toast_message": "Permission denied: cannot remove media",
+                    "toast_type": "success" if result.success else "error",
+                    "toast_message": result.message,
                 },
             )
 
-        # Validate
-        errors = intent_engine.validate(enriched)
-        if errors:
-            return templates.TemplateResponse(
-                "partials/execution_result.html",
-                {
-                    "request": request,
-                    "result": {
-                        "success": False,
-                        "message": "Validation failed",
-                        "errors": errors,
-                    },
-                    "show_toast": True,
-                    "toast_type": "error",
-                    "toast_message": "Validation failed: " + "; ".join(errors),
-                },
-            )
-
-        # Require explicit confirmation for destructive actions (admin/power_user only)
-        if enriched.action in _USER_BLOCKED_ACTIONS and confirmed != "true":
-            title = enriched.title or "this item"
-            if enriched.episodes and enriched.season:
-                ep_str = ", ".join(f"E{e:02d}" for e in sorted(enriched.episodes))
-                delete_description = f"{title} – Season {enriched.season} ({ep_str})"
-            elif enriched.season:
-                delete_description = f"{title} – Season {enriched.season}"
+        except Exception as e:
+            logger.exception("Unhandled error in execute_command for %r", command)
+            raw = str(e)
+            if "400" in raw:
+                friendly = "The media service rejected the request (HTTP 400). The item may already exist or have invalid data."
+            elif any(c in raw for c in ("401", "403")):
+                friendly = "Authentication failed — check your API key in Settings."
+            elif any(c in raw for c in ("502", "503", "504")):
+                friendly = "A service is temporarily unavailable. Try again in a moment."
+            elif any(kw in raw.lower() for kw in ("connection", "connect", "timed out", "timeout")):
+                friendly = "Could not reach one of your services. Check that it is running and the URL is correct."
+            elif "failed to parse" in raw.lower():
+                friendly = "The AI had trouble understanding that request. Try rephrasing it."
             else:
-                delete_description = title
+                friendly = f"Something went wrong: {raw}"
+
             return templates.TemplateResponse(
-                "partials/delete_confirm.html",
+                "partials/execution_result.html",
                 {
                     "request": request,
-                    "delete_description": delete_description,
-                    "command": command,
-                    "mode": mode,
+                    "result": {
+                        "success": False,
+                        "message": friendly,
+                        "errors": [raw],
+                    },
+                    "original_command": command,
+                    "show_toast": True,
+                    "toast_type": "error",
+                    "toast_message": friendly,
                 },
             )
 
-        # Execute
-        exec_engine = get_executor()
-        result = await exec_engine.execute(enriched)
-
-        return templates.TemplateResponse(
-            "partials/execution_result.html",
-            {
-                "request": request,
-                "result": result,
-                "original_command": command,
-                "show_toast": True,
-                "toast_type": "success" if result.success else "error",
-                "toast_message": result.message,
-            },
-        )
-
-    except Exception as e:
-        logger.exception("Unhandled error in execute_command for %r", command)
-        # Produce a user-friendly message for common failure modes
-        raw = str(e)
-        if "400" in raw:
-            friendly = "The media service rejected the request (HTTP 400). The item may already exist or have invalid data."
-        elif any(c in raw for c in ("401", "403")):
-            friendly = "Authentication failed — check your API key in Settings."
-        elif any(c in raw for c in ("502", "503", "504")):
-            friendly = "A service is temporarily unavailable. Try again in a moment."
-        elif any(kw in raw.lower() for kw in ("connection", "connect", "timed out", "timeout")):
-            friendly = "Could not reach one of your services. Check that it is running and the URL is correct."
-        elif "failed to parse" in raw.lower():
-            friendly = "The AI had trouble understanding that request. Try rephrasing it."
-        else:
-            friendly = f"Something went wrong: {raw}"
-
-        return templates.TemplateResponse(
-            "partials/execution_result.html",
-            {
-                "request": request,
-                "result": {
-                    "success": False,
-                    "message": friendly,
-                    "errors": [raw],
-                },
-                "original_command": command,
-                "show_toast": True,
-                "toast_type": "error",
-                "toast_message": friendly,
-            },
+    except Exception as fatal:
+        import traceback
+        tb = traceback.format_exc()
+        logger.exception("Fatal error rendering execute_command response for %r", command)
+        safe_tb = tb.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        return HTMLResponse(
+            content=f"""<div class="card border-red-700/50 p-4">
+  <div class="flex gap-3 items-start">
+    <span class="text-2xl flex-shrink-0">❌</span>
+    <div class="flex-1 min-w-0">
+      <p class="text-red-400 font-semibold mb-1">Internal server error</p>
+      <p class="text-gray-300 text-sm">An unexpected error occurred while processing your command.</p>
+      <details class="mt-3">
+        <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-400 select-none">▶ Show technical details</summary>
+        <pre class="mt-2 text-xs text-gray-400 bg-gray-900 p-3 rounded overflow-x-auto whitespace-pre-wrap border border-gray-700/50">{safe_tb}</pre>
+      </details>
+    </div>
+  </div>
+</div>""",
+            status_code=200,
         )
 
 
@@ -1297,11 +1321,35 @@ async def search_results(
     """Search for media and return results HTML."""
     results = []
 
+    # Fetch library IDs/titles for cross-referencing (best-effort)
+    library_tmdb_ids: set = set()
+    library_titles: set = set()
+    try:
+        if media_type == "tv" and settings.sonarr_url and settings.sonarr_api_key:
+            lib_client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+            try:
+                all_series = await lib_client.get_all_series()
+                library_tmdb_ids = {s["tmdbId"] for s in all_series if s.get("tmdbId")}
+                library_titles = {s["title"].lower() for s in all_series if s.get("title")}
+            finally:
+                await lib_client.close()
+        elif media_type == "movie" and settings.radarr_url and settings.radarr_api_key:
+            lib_client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+            try:
+                all_movies = await lib_client.get_all_movies()
+                library_tmdb_ids = {m["tmdbId"] for m in all_movies if m.get("tmdbId")}
+                library_titles = {m["title"].lower() for m in all_movies if m.get("title")}
+            finally:
+                await lib_client.close()
+    except Exception:
+        pass  # library check is best-effort; don't block search results
+
     try:
         client = get_client_for_media_type(media_type)
         try:
             raw_results = await client.search(query)
             for item in raw_results[:20]:
+                tmdb_id = item.get("tmdbId")
                 result = {
                     "title": item.get("title", "Unknown"),
                     "media_type": media_type,
@@ -1312,6 +1360,10 @@ async def search_results(
                     "network": item.get("network"),
                     "rating": None,
                     "quality_profiles": None,
+                    "in_library": (
+                        (tmdb_id in library_tmdb_ids if tmdb_id else False)
+                        or item.get("title", "").lower() in library_titles
+                    ),
                 }
 
                 images = item.get("images") or item.get("remotePoster")
