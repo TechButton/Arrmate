@@ -288,6 +288,14 @@ You can also configure all of this through the **Settings → AI / LLM tab** in 
 
 ## What's New
 
+### v0.9.4
+- **Search — "In Library" status**: Results from the Search tab now cross-reference your Sonarr/Radarr library. Items you already own show a green ✓ In Library badge on the poster and title, and the add button is replaced with a non-clickable indicator so you can't accidentally re-add something.
+- **Visible 500 errors on commands**: Server errors no longer silently leave the result area blank. The actual error message and traceback are shown inline so you can see what went wrong.
+
+### v0.9.3
+- **Settings UI cleanup**: LLM provider dropdown now groups options into Local, Free Cloud, and Paid Cloud sections. Media and Downloads tabs group related services under labelled sections (TV & Movies, Music & Subtitles, Books & Audiobooks, Usenet/NZB, Torrents).
+- **Fixed HTTP 400 when adding shows via commands**: The command executor now uses the full Sonarr lookup result as the POST body, matching the fix applied to Discover in v0.9.2.
+
 ### v0.9.2
 - **Discover tab — "In Library" badge for TV shows**: Shows already in Sonarr now correctly display the green ✓ In Library badge and hide the add button, matching the existing movie behaviour.
 - **Discover tab — fixed HTTP 400 on add**: Adding TV shows from Discover now uses the full Sonarr lookup result as the POST body, so all required fields (`titleSlug`, `seriesType`, `languageProfileId`, seasons, etc.) are always present.
