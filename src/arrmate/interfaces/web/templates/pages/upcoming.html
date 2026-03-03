@@ -50,5 +50,30 @@
             </div>
         </div>
     </div>
+
+    <!-- Recently Added to Plex -->
+    <div class="mt-10">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-xl font-bold text-white">Recently Added to Plex</h2>
+                <p class="text-gray-500 text-sm mt-0.5">Latest items added to your Plex library</p>
+            </div>
+            <button hx-get="/web/plex/recent"
+                    hx-target="#plex-recent-content"
+                    hx-swap="innerHTML"
+                    class="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                ↻ Refresh
+            </button>
+        </div>
+        <div id="plex-recent-content"
+             hx-get="/web/plex/recent"
+             hx-trigger="load once"
+             hx-swap="innerHTML">
+            <div class="flex items-center justify-center py-16 text-gray-500">
+                <div class="inline-block w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mr-3"></div>
+                Loading…
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

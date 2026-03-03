@@ -27,9 +27,13 @@ from ...auth.session import (
 )
 from ...clients.discovery import discover_services, get_client_for_media_type
 from ...config.service_config import save_service_config
+from ...clients.lastfm import LastFMClient
+from ...clients.lidarr import LidarrClient
+from ...clients.openlibrary import OpenLibraryClient
 from ...clients.plex import PlexClient
 from ...clients.plex_tv import PlexTVClient
 from ...clients.radarr import RadarrClient
+from ...clients.readmeabook import ReadMeABookClient
 from ...clients.sonarr import SonarrClient
 from ...clients.tmdb import TMDBClient
 from ...clients.transcoder import cancel_job, get_all_jobs, get_job
@@ -1460,13 +1464,36 @@ async def add_to_library(
                     quality_profile_id=profile_id,
                     root_folder_path=root_folder,
                 )
+            elif media_type == "music":
+                metadata_profiles = await client.get_metadata_profiles()
+                metadata_profile_id = metadata_profiles[0]["id"] if metadata_profiles else 1
+                await client.add_artist(
+                    foreign_artist_id=item["foreignArtistId"],
+                    artist_name=item.get("artistName", title),
+                    quality_profile_id=profile_id,
+                    metadata_profile_id=metadata_profile_id,
+                    root_folder_path=root_folder,
+                )
+            elif media_type in ("audiobook", "book"):
+                metadata_profiles = await client.get_metadata_profiles()
+                metadata_profile_id = metadata_profiles[0]["id"] if metadata_profiles else 1
+                await client.add_author(
+                    foreign_author_id=item["foreignAuthorId"],
+                    author_name=item.get("authorName", title),
+                    quality_profile_id=profile_id,
+                    metadata_profile_id=metadata_profile_id,
+                    root_folder_path=root_folder,
+                )
 
+            added_title = (
+                item.get("title") or item.get("artistName") or item.get("authorName") or title
+            )
             return templates.TemplateResponse(
                 "components/toast.html",
                 {
                     "request": request,
                     "type": "success",
-                    "message": f"Added '{item['title']}' to library",
+                    "message": f"Added '{added_title}' to library",
                 },
                 headers={"HX-Trigger": "library-updated"},
             )
@@ -3395,16 +3422,32 @@ async def api_tokens_delete(request: Request, token_id: str):
 # ── Discover (TMDB) ──────────────────────────────────────────────────────────
 
 _DISCOVER_CATEGORIES = {
-    "trending_movies": ("trending movies", "movie"),
-    "trending_tv": ("trending TV shows", "tv"),
-    "upcoming": ("upcoming movies", "movie"),
-    "now_playing": ("movies in theatres", "movie"),
-    "on_the_air": ("TV shows on the air", "tv"),
-    "popular_movies": ("popular movies", "movie"),
-    "popular_tv": ("popular TV shows", "tv"),
+    "trending_movies":  ("trending movies", "movie"),
+    "trending_tv":      ("trending TV shows", "tv"),
+    "upcoming":         ("upcoming movies", "movie"),
+    "now_playing":      ("movies in theatres", "movie"),
+    "on_the_air":       ("TV shows on the air", "tv"),
+    "popular_movies":   ("popular movies", "movie"),
+    "popular_tv":       ("popular TV shows", "tv"),
     "top_rated_movies": ("top rated movies", "movie"),
-    "top_rated_tv": ("top rated TV shows", "tv"),
+    "top_rated_tv":     ("top rated TV shows", "tv"),
+    # Music (Last.fm)
+    "top_artists":      ("top artists", "music"),
+    "top_tracks":       ("top tracks", "music"),
+    # Books (Open Library)
+    "books_trending":   ("trending books", "book"),
+    "books_weekly":     ("trending this week", "book"),
+    "books_fiction":    ("fiction", "book"),
+    "books_mystery":    ("mystery & thriller", "book"),
+    "books_scifi":      ("science fiction", "book"),
+    # Audiobooks (ReadMeABook)
+    "audiobooks_popular":  ("popular audiobooks", "audiobook"),
+    "audiobooks_new":      ("new audiobook releases", "audiobook"),
 }
+
+_MUSIC_CATEGORIES = {"top_artists", "top_tracks"}
+_BOOK_CATEGORIES = {"books_trending", "books_weekly", "books_fiction", "books_mystery", "books_scifi"}
+_AUDIOBOOK_CATEGORIES = {"audiobooks_popular", "audiobooks_new"}
 
 
 def _tmdb_client() -> TMDBClient | None:
@@ -3413,18 +3456,27 @@ def _tmdb_client() -> TMDBClient | None:
     return None
 
 
+def _lastfm_client() -> LastFMClient | None:
+    if settings.lastfm_api_key:
+        return LastFMClient(settings.lastfm_api_key)
+    return None
+
+
 @router.get("/discover", response_class=HTMLResponse)
 async def discover_page(request: Request):
-    configured = bool(settings.tmdb_api_key)
-    sonarr_ok = bool(settings.sonarr_url and settings.sonarr_api_key)
-    radarr_ok = bool(settings.radarr_url and settings.radarr_api_key)
     return templates.TemplateResponse(
         "pages/discover.html",
         {
             "request": request,
-            "configured": configured,
-            "sonarr_ok": sonarr_ok,
-            "radarr_ok": radarr_ok,
+            "tmdb_ok":        bool(settings.tmdb_api_key),
+            "lastfm_ok":      bool(settings.lastfm_api_key),
+            "sonarr_ok":      bool(settings.sonarr_url and settings.sonarr_api_key),
+            "radarr_ok":      bool(settings.radarr_url and settings.radarr_api_key),
+            "lidarr_ok":      bool(settings.lidarr_url and settings.lidarr_api_key),
+            "readmeabook_ok": bool(settings.readmeabook_url and settings.readmeabook_api_key),
+            "readarr_ok":     bool(settings.readarr_url and settings.readarr_api_key),
+            # Open Library needs no key — always available
+            "openlibrary_ok": True,
             **_base_ctx(request),
         },
     )
@@ -3435,86 +3487,183 @@ async def discover_results(
     request: Request,
     category: str = Query(default="trending_movies"),
 ):
-    tmdb = _tmdb_client()
-    if not tmdb:
-        return templates.TemplateResponse(
-            "partials/discover_results.html",
-            {"request": request, "error": "TMDB_API_KEY not configured.", "items": []},
-        )
+    media_type = _DISCOVER_CATEGORIES.get(category, ("", "movie"))[1]
+    items: list = []
+    source = "tmdb"
+    error = None
 
     try:
-        if category == "trending_movies":
-            items = await tmdb.get_trending_movies()
-        elif category == "trending_tv":
-            items = await tmdb.get_trending_tv()
-        elif category == "upcoming":
-            items = await tmdb.get_upcoming_movies()
-        elif category == "now_playing":
-            items = await tmdb.get_now_playing()
-        elif category == "on_the_air":
-            items = await tmdb.get_tv_on_the_air()
-        elif category == "popular_movies":
-            items = await tmdb.get_popular_movies()
-        elif category == "popular_tv":
-            items = await tmdb.get_popular_tv()
-        elif category == "top_rated_movies":
-            items = await tmdb.get_top_rated_movies()
-        elif category == "top_rated_tv":
-            items = await tmdb.get_top_rated_tv()
+        # ── Music (Last.fm) ───────────────────────────────────────────────────
+        if category in _MUSIC_CATEGORIES:
+            source = "lastfm"
+            lfm = _lastfm_client()
+            if not lfm:
+                error = "LASTFM_API_KEY is not configured."
+            else:
+                try:
+                    if category == "top_artists":
+                        items = await lfm.get_top_artists()
+                    else:
+                        items = await lfm.get_top_tracks()
+                finally:
+                    await lfm.close()
+
+            # Cross-reference Lidarr library by artist name
+            library_names: set[str] = set()
+            if settings.lidarr_url and settings.lidarr_api_key:
+                try:
+                    lidarr = LidarrClient(settings.lidarr_url, settings.lidarr_api_key)
+                    all_artists = await lidarr.get_all_artists()
+                    await lidarr.close()
+                    library_names = {
+                        a.get("artistName", "").lower() for a in all_artists if a.get("artistName")
+                    }
+                except Exception:
+                    pass
+            for item in items:
+                item["in_library"] = item.get("display_title", "").lower() in library_names
+
+        # ── Books (Open Library) ──────────────────────────────────────────────
+        elif category in _BOOK_CATEGORIES:
+            source = "openlibrary"
+            ol = OpenLibraryClient()
+            try:
+                if category == "books_trending":
+                    items = await ol.get_trending_daily()
+                elif category == "books_weekly":
+                    items = await ol.get_trending_weekly()
+                elif category == "books_fiction":
+                    items = await ol.get_subject("fiction")
+                elif category == "books_mystery":
+                    items = await ol.get_subject("mystery")
+                elif category == "books_scifi":
+                    items = await ol.get_subject("science_fiction")
+            finally:
+                await ol.close()
+
+            # Cross-reference Readarr library by title
+            library_names = set()
+            if settings.readarr_url and settings.readarr_api_key:
+                try:
+                    from ...clients.readarr import ReadarrClient
+                    readarr = ReadarrClient(settings.readarr_url, settings.readarr_api_key)
+                    all_authors = await readarr.get_all_authors()
+                    await readarr.close()
+                    library_names = {
+                        a.get("authorName", "").lower() for a in all_authors if a.get("authorName")
+                    }
+                except Exception:
+                    pass
+            for item in items:
+                item["in_library"] = item.get("author", "").lower() in library_names
+
+        # ── Audiobooks (ReadMeABook) ───────────────────────────────────────────
+        elif category in _AUDIOBOOK_CATEGORIES:
+            source = "readmeabook"
+            if not (settings.readmeabook_url and settings.readmeabook_api_key):
+                error = "ReadMeABook is not configured."
+            else:
+                rmab = ReadMeABookClient(settings.readmeabook_url, settings.readmeabook_api_key)
+                try:
+                    if category == "audiobooks_popular":
+                        raw = await rmab.get_popular()
+                    else:
+                        raw = await rmab.get_new_releases()
+
+                    # Normalise to common card schema
+                    existing_asins: set[str] = set()
+                    try:
+                        reqs = await rmab.get_requests()
+                        existing_asins = {r.get("asin", "") for r in reqs if r.get("asin")}
+                    except Exception:
+                        pass
+
+                    for b in raw:
+                        title = b.get("title") or b.get("name", "Unknown")
+                        asin = b.get("asin", "")
+                        items.append({
+                            "display_title": title,
+                            "author": b.get("author", ""),
+                            "year": "",
+                            "poster": b.get("image") or b.get("cover") or b.get("coverUrl"),
+                            "overview": b.get("description", ""),
+                            "asin": asin,
+                            "media_type": "audiobook",
+                            "in_library": asin in existing_asins,
+                        })
+                finally:
+                    await rmab.close()
+
+        # ── Movies / TV (TMDB) ────────────────────────────────────────────────
         else:
-            items = await tmdb.get_trending_movies()
+            source = "tmdb"
+            tmdb = _tmdb_client()
+            if not tmdb:
+                error = "TMDB_API_KEY is not configured."
+            else:
+                try:
+                    if category == "trending_movies":
+                        items = await tmdb.get_trending_movies()
+                    elif category == "trending_tv":
+                        items = await tmdb.get_trending_tv()
+                    elif category == "upcoming":
+                        items = await tmdb.get_upcoming_movies()
+                    elif category == "now_playing":
+                        items = await tmdb.get_now_playing()
+                    elif category == "on_the_air":
+                        items = await tmdb.get_tv_on_the_air()
+                    elif category == "popular_movies":
+                        items = await tmdb.get_popular_movies()
+                    elif category == "popular_tv":
+                        items = await tmdb.get_popular_tv()
+                    elif category == "top_rated_movies":
+                        items = await tmdb.get_top_rated_movies()
+                    elif category == "top_rated_tv":
+                        items = await tmdb.get_top_rated_tv()
+                    else:
+                        items = await tmdb.get_trending_movies()
 
-        media_type = _DISCOVER_CATEGORIES.get(category, ("", "movie"))[1]
+                    for item in items:
+                        item["poster"] = tmdb.poster_url(item.get("poster_path"), "w342")
+                        raw = item.get("release_date") or item.get("first_air_date") or ""
+                        item["year"] = raw[:4] if raw else ""
+                        item["display_title"] = item.get("title") or item.get("name") or "Unknown"
+                        item["rating"] = round(item.get("vote_average", 0), 1)
+                        item["media_type"] = media_type
 
-        # Enrich items with poster URL and clean year
-        for item in items:
-            item["poster"] = tmdb.poster_url(item.get("poster_path"), "w342")
-            raw = item.get("release_date") or item.get("first_air_date") or ""
-            item["year"] = raw[:4] if raw else ""
-            item["display_title"] = item.get("title") or item.get("name") or "Unknown"
-            item["rating"] = round(item.get("vote_average", 0), 1)
-            item["media_type"] = media_type
-
-        # Cross-reference with Sonarr/Radarr library so we can show "In Library" badge
-        library_tmdb_ids: set[int] = set()
-        library_titles: set[str] = set()
-        if media_type == "movie" and settings.radarr_url and settings.radarr_api_key:
-            try:
-                radarr = RadarrClient(settings.radarr_url, settings.radarr_api_key)
-                all_movies = await radarr.get_all_movies()
-                await radarr.close()
-                library_tmdb_ids = {m["tmdbId"] for m in all_movies if m.get("tmdbId")}
-            except Exception:
-                pass
-        elif media_type == "tv" and settings.sonarr_url and settings.sonarr_api_key:
-            try:
-                sonarr_lib = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
-                all_series = await sonarr_lib.get_all_series()
-                await sonarr_lib.close()
-                # tmdbId is stored by Sonarr; fall back to title matching
-                library_tmdb_ids = {s["tmdbId"] for s in all_series if s.get("tmdbId")}
-                library_titles = {s["title"].lower() for s in all_series if s.get("title")}
-            except Exception:
-                pass
-
-        for item in items:
-            by_id = item.get("id") in library_tmdb_ids
-            by_title = item.get("display_title", "").lower() in library_titles
-            item["in_library"] = by_id or by_title
+                    # Cross-reference library
+                    library_tmdb_ids: set[int] = set()
+                    library_titles: set[str] = set()
+                    if media_type == "movie" and settings.radarr_url and settings.radarr_api_key:
+                        try:
+                            radarr = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+                            all_movies = await radarr.get_all_movies()
+                            await radarr.close()
+                            library_tmdb_ids = {m["tmdbId"] for m in all_movies if m.get("tmdbId")}
+                        except Exception:
+                            pass
+                    elif media_type == "tv" and settings.sonarr_url and settings.sonarr_api_key:
+                        try:
+                            sonarr_lib = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+                            all_series = await sonarr_lib.get_all_series()
+                            await sonarr_lib.close()
+                            library_tmdb_ids = {s["tmdbId"] for s in all_series if s.get("tmdbId")}
+                            library_titles = {
+                                s["title"].lower() for s in all_series if s.get("title")
+                            }
+                        except Exception:
+                            pass
+                    for item in items:
+                        by_id = item.get("id") in library_tmdb_ids
+                        by_title = item.get("display_title", "").lower() in library_titles
+                        item["in_library"] = by_id or by_title
+                finally:
+                    await tmdb.close()
 
     except Exception as e:
-        logger.error("TMDB discover error: %s", e)
+        logger.error("Discover error (category=%s): %s", category, e)
+        error = str(e)
         items = []
-        media_type = "movie"
-        return templates.TemplateResponse(
-            "partials/discover_results.html",
-            {"request": request, "error": str(e), "items": [], "media_type": media_type},
-        )
-    finally:
-        await tmdb.close()
-
-    sonarr_ok = bool(settings.sonarr_url and settings.sonarr_api_key)
-    radarr_ok = bool(settings.radarr_url and settings.radarr_api_key)
 
     return templates.TemplateResponse(
         "partials/discover_results.html",
@@ -3522,9 +3671,13 @@ async def discover_results(
             "request": request,
             "items": items,
             "media_type": media_type,
-            "sonarr_ok": sonarr_ok,
-            "radarr_ok": radarr_ok,
-            "error": None,
+            "source": source,
+            "error": error,
+            "sonarr_ok":      bool(settings.sonarr_url and settings.sonarr_api_key),
+            "radarr_ok":      bool(settings.radarr_url and settings.radarr_api_key),
+            "lidarr_ok":      bool(settings.lidarr_url and settings.lidarr_api_key),
+            "readmeabook_ok": bool(settings.readmeabook_url and settings.readmeabook_api_key),
+            "readarr_ok":     bool(settings.readarr_url and settings.readarr_api_key),
             **_base_ctx(request),
         },
     )
@@ -3626,6 +3779,50 @@ async def discover_add(
             "title": title,
         },
     )
+
+
+@router.post("/discover/request", response_class=HTMLResponse)
+async def discover_request(
+    request: Request,
+    asin: str = Form(...),
+    title: str = Form(...),
+    author: str = Form(default=""),
+):
+    """Submit an audiobook request to ReadMeABook."""
+    if not (settings.readmeabook_url and settings.readmeabook_api_key):
+        return templates.TemplateResponse(
+            "partials/discover_add_btn.html",
+            {"request": request, "success": False,
+             "message": "ReadMeABook is not configured", "media_type": "audiobook"},
+        )
+    rmab = ReadMeABookClient(settings.readmeabook_url, settings.readmeabook_api_key)
+    try:
+        # Check for duplicate before submitting
+        existing = await rmab.get_requests()
+        already = any(
+            r.get("asin") == asin or r.get("title", "").lower() == title.lower()
+            for r in existing
+        )
+        if already:
+            return templates.TemplateResponse(
+                "partials/discover_add_btn.html",
+                {"request": request, "success": True,
+                 "message": f"'{title}' is already requested", "media_type": "audiobook"},
+            )
+        await rmab.create_request(asin=asin, title=title, author=author)
+        return templates.TemplateResponse(
+            "partials/discover_add_btn.html",
+            {"request": request, "success": True,
+             "message": f"Requested '{title}'", "media_type": "audiobook"},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "partials/discover_add_btn.html",
+            {"request": request, "success": False,
+             "message": str(e), "media_type": "audiobook"},
+        )
+    finally:
+        await rmab.close()
 
 
 # ===== Tags Management =====

@@ -457,11 +457,20 @@ class Executor:
 
             # Add the first result using full lookup object so all required fields are present
             show = results[0]
-            added = await client.add_series_from_lookup(
-                lookup_result=show,
-                quality_profile_id=profile_id,
-                root_folder_path=root_folder,
-            )
+            try:
+                added = await client.add_series_from_lookup(
+                    lookup_result=show,
+                    quality_profile_id=profile_id,
+                    root_folder_path=root_folder,
+                )
+            except Exception as add_err:
+                msg = _extract_arr_error(add_err)
+                if "already" in msg.lower():
+                    return ExecutionResult(
+                        success=False,
+                        message=f"'{show['title']}' is already in your library",
+                    )
+                raise
 
             return ExecutionResult(
                 success=True,
@@ -480,18 +489,137 @@ class Executor:
 
             # Add the first result
             movie = results[0]
-            added = await client.add_movie(
-                tmdb_id=movie["tmdbId"],
-                title=movie["title"],
-                quality_profile_id=profile_id,
-                root_folder_path=root_folder,
-            )
+            try:
+                added = await client.add_movie(
+                    tmdb_id=movie["tmdbId"],
+                    title=movie["title"],
+                    quality_profile_id=profile_id,
+                    root_folder_path=root_folder,
+                )
+            except Exception as add_err:
+                msg = _extract_arr_error(add_err)
+                if "already" in msg.lower():
+                    return ExecutionResult(
+                        success=False,
+                        message=f"'{movie['title']}' is already in your library",
+                    )
+                raise
 
             return ExecutionResult(
                 success=True,
                 message=f"Added '{movie['title']}' to library",
                 data=added,
             )
+
+        elif intent.media_type == "music":
+            results = await client.search(intent.title or "")
+            if not results:
+                return ExecutionResult(
+                    success=False,
+                    message=f"Could not find '{intent.title}' to add",
+                )
+
+            artist = results[0]
+            metadata_profiles = await client.get_metadata_profiles()
+            metadata_profile_id = metadata_profiles[0]["id"] if metadata_profiles else 1
+            try:
+                added = await client.add_artist(
+                    foreign_artist_id=artist["foreignArtistId"],
+                    artist_name=artist.get("artistName", intent.title or ""),
+                    quality_profile_id=profile_id,
+                    metadata_profile_id=metadata_profile_id,
+                    root_folder_path=root_folder,
+                )
+            except Exception as add_err:
+                msg = _extract_arr_error(add_err)
+                if "already" in msg.lower():
+                    return ExecutionResult(
+                        success=False,
+                        message=f"'{artist.get('artistName', intent.title)}' is already in your library",
+                    )
+                raise
+
+            return ExecutionResult(
+                success=True,
+                message=f"Added '{artist.get('artistName', intent.title)}' to library",
+                data=added,
+            )
+
+        elif intent.media_type in ("audiobook", "book"):
+            # Prefer ReadMeABook (request workflow) if configured; fall back to Readarr
+            if settings.readmeabook_url and settings.readmeabook_api_key:
+                from ..clients.readmeabook import ReadMeABookClient
+                rmab = ReadMeABookClient(settings.readmeabook_url, settings.readmeabook_api_key)
+                try:
+                    results = await rmab.search(intent.title or "")
+                    if not results:
+                        return ExecutionResult(
+                            success=False,
+                            message=f"Could not find '{intent.title}' in ReadMeABook",
+                        )
+                    book = results[0]
+                    title = book.get("title", intent.title or "")
+                    author = book.get("author", "")
+                    asin = book.get("asin", "")
+
+                    # Check for duplicate requests
+                    existing = await rmab.get_requests()
+                    already = any(
+                        r.get("asin") == asin or r.get("title", "").lower() == title.lower()
+                        for r in existing
+                    )
+                    if already:
+                        return ExecutionResult(
+                            success=False,
+                            message=f"'{title}' has already been requested",
+                        )
+
+                    if not asin:
+                        return ExecutionResult(
+                            success=False,
+                            message=f"Could not determine ASIN for '{title}' — try a more specific search",
+                        )
+
+                    await rmab.create_request(asin=asin, title=title, author=author)
+                    return ExecutionResult(
+                        success=True,
+                        message=f"Requested '{title}' via ReadMeABook",
+                    )
+                finally:
+                    await rmab.close()
+
+            else:
+                # Readarr fallback
+                results = await client.search(intent.title or "")
+                if not results:
+                    return ExecutionResult(
+                        success=False,
+                        message=f"Could not find '{intent.title}' to add",
+                    )
+                author = results[0]
+                metadata_profiles = await client.get_metadata_profiles()
+                metadata_profile_id = metadata_profiles[0]["id"] if metadata_profiles else 1
+                try:
+                    added = await client.add_author(
+                        foreign_author_id=author["foreignAuthorId"],
+                        author_name=author.get("authorName", intent.title or ""),
+                        quality_profile_id=profile_id,
+                        metadata_profile_id=metadata_profile_id,
+                        root_folder_path=root_folder,
+                    )
+                except Exception as add_err:
+                    msg = _extract_arr_error(add_err)
+                    if "already" in msg.lower():
+                        return ExecutionResult(
+                            success=False,
+                            message=f"'{author.get('authorName', intent.title)}' is already in your library",
+                        )
+                    raise
+                return ExecutionResult(
+                    success=True,
+                    message=f"Added '{author.get('authorName', intent.title)}' to library",
+                    data=added,
+                )
 
         else:
             return ExecutionResult(
@@ -998,3 +1126,18 @@ def _fmt_bytes(n: int) -> str:
             return f"{n:.1f} {unit}"
         n /= 1024
     return f"{n:.1f} PB"
+
+
+def _extract_arr_error(exc: Exception) -> str:
+    """Extract a human-readable message from an Arr API error response."""
+    resp = getattr(exc, "response", None)
+    if resp is not None:
+        try:
+            body = resp.json()
+            if isinstance(body, list) and body:
+                return body[0].get("errorMessage") or body[0].get("message") or str(exc)
+            if isinstance(body, dict):
+                return body.get("message") or body.get("errorMessage") or str(exc)
+        except Exception:
+            pass
+    return str(exc)

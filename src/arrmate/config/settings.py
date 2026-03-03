@@ -173,6 +173,10 @@ class Settings(BaseSettings):
         default=None,
         description="TMDB API key for the Discover page (https://www.themoviedb.org/settings/api)",
     )
+    lastfm_api_key: Optional[str] = Field(
+        default=None,
+        description="Last.fm API key for music discovery (https://www.last.fm/api/account/create)",
+    )
 
     # Notification webhooks
     slack_webhook_url: Optional[str] = Field(

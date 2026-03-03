@@ -7,52 +7,118 @@
     <div class="mb-6 flex items-start justify-between flex-wrap gap-4">
         <div>
             <h1 class="text-3xl font-bold text-white mb-1">Discover</h1>
-            <p class="text-gray-400">Browse new and trending movies & TV shows, then add them to your library</p>
+            <p class="text-gray-400">Browse trending movies, TV, music, and books — then add them to your library</p>
         </div>
-        {% if not configured %}
-        <div class="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-4 py-3 text-yellow-300 text-sm">
-            TMDB is not configured. Add <code class="font-mono bg-gray-800 px-1 rounded">TMDB_API_KEY</code> to your environment.
-        </div>
-        {% endif %}
-        {% if configured and not sonarr_ok and not radarr_ok %}
-        <div class="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-4 py-3 text-yellow-300 text-sm">
-            Neither Sonarr nor Radarr is configured — add buttons will not work.
-        </div>
-        {% endif %}
     </div>
 
-    {% if configured %}
-    <div x-data="{ tab: 'trending_movies' }">
+    {% set any_configured = tmdb_ok or lastfm_ok or openlibrary_ok or readmeabook_ok %}
 
-        <!-- Tab bar -->
-        <div class="flex flex-wrap gap-1 border-b border-gray-700 pb-0 mb-6">
-            {% set tabs = [
-                ('trending_movies', '🔥 Trending Movies'),
-                ('trending_tv',     '📺 Trending TV'),
-                ('upcoming',        '📅 Upcoming'),
-                ('now_playing',     '🎭 In Theatres'),
-                ('on_the_air',      '📡 On The Air'),
-                ('popular_movies',  '⭐ Popular Movies'),
-                ('popular_tv',      '⭐ Popular TV'),
-                ('top_rated_movies','🏆 Top Rated Movies'),
-                ('top_rated_tv',    '🏆 Top Rated TV'),
-            ] %}
-            {% for id, label in tabs %}
-            <button @click="tab = '{{ id }}';
-                            htmx.ajax('GET', '/web/discover/results?category={{ id }}',
-                                      {target: '#discover-results', swap: 'innerHTML'})"
-                    :class="tab === '{{ id }}'
-                        ? 'border-b-2 border-primary-500 text-white bg-gray-800'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
-                    class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
-                {{ label }}
-            </button>
-            {% endfor %}
+    {% if not any_configured %}
+    <div class="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-4 py-3 text-yellow-300 text-sm">
+        No discovery sources are configured. Add <code class="font-mono bg-gray-800 px-1 rounded">TMDB_API_KEY</code>
+        and/or <code class="font-mono bg-gray-800 px-1 rounded">LASTFM_API_KEY</code> to your environment.
+        Open Library (books) is always available.
+    </div>
+    {% else %}
+
+    <div x-data="{ tab: '{{ 'trending_movies' if tmdb_ok else ('top_artists' if lastfm_ok else ('books_trending' if openlibrary_ok else 'audiobooks_popular')) }}' }">
+
+        <!-- Tab groups -->
+        <div class="space-y-2 mb-6">
+
+            {% if tmdb_ok %}
+            <!-- Movies & TV -->
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1.5 px-1">Movies &amp; TV</p>
+                <div class="flex flex-wrap gap-1 border-b border-gray-700 pb-0">
+                    {% set tmdb_tabs = [
+                        ('trending_movies',  '🔥 Trending Movies'),
+                        ('trending_tv',      '📺 Trending TV'),
+                        ('upcoming',         '📅 Upcoming'),
+                        ('now_playing',      '🎭 In Theatres'),
+                        ('on_the_air',       '📡 On The Air'),
+                        ('popular_movies',   '⭐ Popular Movies'),
+                        ('popular_tv',       '⭐ Popular TV'),
+                        ('top_rated_movies', '🏆 Top Rated Movies'),
+                        ('top_rated_tv',     '🏆 Top Rated TV'),
+                    ] %}
+                    {% for id, label in tmdb_tabs %}
+                    <button @click="tab = '{{ id }}'; htmx.ajax('GET', '/web/discover/results?category={{ id }}', {target: '#discover-results', swap: 'innerHTML'})"
+                            :class="tab === '{{ id }}' ? 'border-b-2 border-primary-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                            class="px-3 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
+                        {{ label }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if lastfm_ok %}
+            <!-- Music -->
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1.5 px-1">Music</p>
+                <div class="flex flex-wrap gap-1 border-b border-gray-700 pb-0">
+                    {% set music_tabs = [
+                        ('top_artists', '🎤 Top Artists'),
+                        ('top_tracks',  '🎵 Top Tracks'),
+                    ] %}
+                    {% for id, label in music_tabs %}
+                    <button @click="tab = '{{ id }}'; htmx.ajax('GET', '/web/discover/results?category={{ id }}', {target: '#discover-results', swap: 'innerHTML'})"
+                            :class="tab === '{{ id }}' ? 'border-b-2 border-purple-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                            class="px-3 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
+                        {{ label }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Books (Open Library — always available) -->
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1.5 px-1">Books</p>
+                <div class="flex flex-wrap gap-1 border-b border-gray-700 pb-0">
+                    {% set book_tabs = [
+                        ('books_trending', '📈 Trending Today'),
+                        ('books_weekly',   '📅 Trending This Week'),
+                        ('books_fiction',  '📚 Fiction'),
+                        ('books_mystery',  '🔍 Mystery'),
+                        ('books_scifi',    '🚀 Sci-Fi'),
+                    ] %}
+                    {% for id, label in book_tabs %}
+                    <button @click="tab = '{{ id }}'; htmx.ajax('GET', '/web/discover/results?category={{ id }}', {target: '#discover-results', swap: 'innerHTML'})"
+                            :class="tab === '{{ id }}' ? 'border-b-2 border-amber-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                            class="px-3 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
+                        {{ label }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if readmeabook_ok %}
+            <!-- Audiobooks -->
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1.5 px-1">Audiobooks</p>
+                <div class="flex flex-wrap gap-1 border-b border-gray-700 pb-0">
+                    {% set audio_tabs = [
+                        ('audiobooks_popular', '🎧 Popular'),
+                        ('audiobooks_new',     '🆕 New Releases'),
+                    ] %}
+                    {% for id, label in audio_tabs %}
+                    <button @click="tab = '{{ id }}'; htmx.ajax('GET', '/web/discover/results?category={{ id }}', {target: '#discover-results', swap: 'innerHTML'})"
+                            :class="tab === '{{ id }}' ? 'border-b-2 border-teal-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                            class="px-3 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
+                        {{ label }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
         </div>
 
         <!-- Results -->
         <div id="discover-results"
-             hx-get="/web/discover/results?category=trending_movies"
+             hx-get="/web/discover/results?category={{ 'trending_movies' if tmdb_ok else ('top_artists' if lastfm_ok else ('books_trending' if openlibrary_ok else 'audiobooks_popular')) }}"
              hx-trigger="load once"
              hx-swap="innerHTML">
             <div class="flex items-center justify-center py-20 text-gray-500">
