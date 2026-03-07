@@ -288,6 +288,66 @@ You can also configure all of this through the **Settings → AI / LLM tab** in 
 
 ## What's New
 
+### v2.0.0 — Security Hardening, Plex SSO & Onboarding
+
+This release is a major security overhaul informed by a full SDL (Security Development Lifecycle) review, plus three new features and a bug fix.
+
+#### Security Fixes (SDL Review)
+
+**Authentication & Sessions**
+- **Session cookie `secure` flag** — the session cookie was missing `secure=True`, allowing it to be sent over plain HTTP. Now enforced.
+- **Default password removed from logs** — the first-boot admin account no longer logs `changeme123` in plaintext at INFO level.
+- **Minimum password length 4 → 8** — both the registration and change-password forms now require at least 8 characters.
+- **500 errors no longer leak internals** — unhandled exceptions in the command executor previously returned raw Python exception messages. The response is now a generic "An internal error occurred" and full detail is written to server logs only.
+- **Command input length capped at 2000 characters** — oversized requests are rejected at the API layer (HTTP 422) before reaching the LLM.
+
+**Docker & Infrastructure**
+- **Non-root container user** — the Docker image now creates a dedicated `arrmate` system user and drops privileges via `su-exec` before starting the app. The container no longer runs as root.
+- **Ollama port not exposed to host** — `11434` was previously bound to `0.0.0.0` in all compose files, making the unauthenticated Ollama API accessible on the host network. Port binding removed; Ollama is now reachable only within the internal Docker network.
+
+**File System**
+- **Transcoder path validation** — the H.265 transcoder now validates that the target file is within a configured allowlist (`TRANSCODE_ALLOWED_ROOTS`). Path traversal sequences (`../../etc/passwd`) are blocked via `Path.resolve()` before comparison. When `TRANSCODE_ALLOWED_ROOTS` is empty the old behaviour is preserved for backward compatibility.
+
+**Static Analysis Results (Bandit + Safety)**
+- 0 high-severity findings
+- 1 medium finding resolved: `update_user()` SQL dynamic column names are now explicitly documented as safe (keys filtered to an allowlist before interpolation; values always parameterized)
+- `fastapi` pinned to `>=0.115.0` to close CVE-2024-24762 (path-traversal) and a ReDoS fixed in earlier minor versions
+- 43 low-severity `try/except/pass` notices — all intentional (service discovery fallbacks, DB migration idempotency); no code changes required
+
+#### New Features
+
+**Sign in with Plex (SSO)**
+- Users can now authenticate with their Plex account via the standard Plex PIN-based OAuth flow.
+- Off by default — enable with `PLEX_SSO_ENABLED=true`.
+- Security design: the Plex `authToken` is never stored; it is used once to fetch the user's Plex UUID then discarded. State is carried via a short-lived (5-min) signed cookie to prevent CSRF. New Plex users are created with `role=user` and cannot log in with a local password.
+- Optional email allowlist: `PLEX_SSO_ALLOWED_EMAILS=you@example.com,family@example.com`
+- New settings: `PLEX_SSO_ENABLED`, `PLEX_SSO_DEFAULT_ROLE`, `PLEX_SSO_ALLOWED_EMAILS`, `ARRMATE_BASE_URL`
+
+**Login Rate Limiting**
+- Both `POST /web/login` and `POST /api/v1/auth/token` are now rate-limited to 10 attempts per IP per 60-second window. Exceeding the limit returns HTTP 429 with a `Retry-After` header. No external dependencies — uses an in-memory fixed-window counter.
+
+**Setup Wizard**
+- First-time setup is now guided. After the admin changes the default password, they are taken to a step-by-step wizard: LLM provider → Media services → Download clients → Extras → Done.
+- Each service has a live "Test connection" button (no page reload).
+- Skip at any time; re-run any time from the Admin panel ("🧙 Run Setup Wizard").
+- Setup completion is tracked in the database so the wizard only triggers automatically once.
+
+**Download Status Notifications**
+- Arrmate now polls Sonarr and Radarr every 5 minutes in the background.
+- When a requested title enters the download queue, the requesting user receives an in-app "⬇️ Download started" notification.
+- When the file is imported into the library, they receive a "🎉 Ready in your library!" notification and the request is automatically closed.
+- Both events also fire Slack/Discord webhooks if configured.
+
+#### Bug Fix
+
+- **Notifications page blank after session expiry** — if a session expired while on the notifications panel, re-logging-in redirected back to `/web/notifications` which returned a bare HTML fragment, appearing completely blank. Fixed: direct navigation to HTMX-only routes now redirects to `/web/`.
+
+#### Responsible Disclosure
+
+A `SECURITY.md` has been added with our vulnerability reporting process (GitHub Security Advisories), response timelines, and production hardening recommendations.
+
+---
+
 ### v0.9.4
 - **Search — "In Library" status**: Results from the Search tab now cross-reference your Sonarr/Radarr library. Items you already own show a green ✓ In Library badge on the poster and title, and the add button is replaced with a non-clickable indicator so you can't accidentally re-add something.
 - **Visible 500 errors on commands**: Server errors no longer silently leave the result area blank. The actual error message and traceback are shown inline so you can see what went wrong.
