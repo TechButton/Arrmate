@@ -1136,7 +1136,15 @@ async def resolve_request(
 
 @router.get("/notifications", response_class=HTMLResponse)
 async def notifications_panel(request: Request):
-    """HTMX partial: notification dropdown panel."""
+    """HTMX partial: notification dropdown panel.
+
+    When accessed directly (no HX-Request header — e.g. after a login
+    redirect) we send the user to the main page instead of rendering a bare
+    HTML fragment that would appear blank.
+    """
+    if not request.headers.get("HX-Request"):
+        return RedirectResponse(url="/web/", status_code=303)
+
     current_user = get_current_user(request)
     if not current_user or current_user.get("user_id") == "legacy":
         return templates.TemplateResponse(
