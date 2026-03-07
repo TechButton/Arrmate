@@ -168,6 +168,31 @@ class Settings(BaseSettings):
     )
     prowlarr_api_key: Optional[str] = Field(default=None, description="Prowlarr API key")
 
+    # Plex SSO settings (PIN-based OAuth via plex.tv)
+    plex_sso_enabled: bool = Field(
+        default=False,
+        description="Enable 'Sign in with Plex' on the login page",
+    )
+    plex_sso_default_role: Literal["user", "power_user"] = Field(
+        default="user",
+        description="Role assigned to new users who sign in via Plex for the first time",
+    )
+    plex_sso_allowed_emails: list[str] = Field(
+        default=[],
+        description=(
+            "Optional allowlist of Plex email addresses permitted to sign in. "
+            "Empty = allow all Plex accounts. "
+            "Set via env var as a comma-separated list: PLEX_SSO_ALLOWED_EMAILS=a@b.com,c@d.com"
+        ),
+    )
+    arrmate_base_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Public base URL used to build the Plex OAuth callback URL "
+            "(e.g. https://arrmate.example.com). Auto-detected from request if not set."
+        ),
+    )
+
     # TMDB (The Movie Database) — powers the Discover page
     tmdb_api_key: Optional[str] = Field(
         default=None,

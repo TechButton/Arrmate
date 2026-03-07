@@ -127,14 +127,27 @@ def init_db() -> None:
         """)
         conn.commit()
 
-        # Migration: add must_change_password column if it doesn't exist yet
+        # Migrations: add columns that may not exist in older databases
+        for _migration_sql in [
+            "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN plex_id TEXT",
+            "ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'",
+        ]:
+            try:
+                conn.execute(_migration_sql)
+                conn.commit()
+            except Exception:
+                pass  # Column already exists
+
+        # Unique index for plex_id (only on non-NULL rows)
         try:
             conn.execute(
-                "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0"
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_plex_id "
+                "ON users (plex_id) WHERE plex_id IS NOT NULL"
             )
             conn.commit()
         except Exception:
-            pass  # Column already exists
+            pass
 
         # Migrate from auth.json if no users exist
         count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
@@ -234,10 +247,16 @@ def get_user_by_username(username: str) -> dict | None:
 
 
 def verify_user(username: str, password: str) -> dict | None:
-    """Verify credentials. Returns user dict or None if invalid/disabled."""
+    """Verify credentials. Returns user dict or None if invalid/disabled.
+
+    Plex SSO users (auth_provider='plex') have no local password and will
+    always return None here — they must log in via the Plex SSO flow.
+    """
     user = get_user_by_username(username)
     if not user or not user.get("enabled"):
         return None
+    if user.get("auth_provider") == "plex":
+        return None  # Plex users cannot log in with a local password
     try:
         if _bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
             return user
@@ -287,6 +306,50 @@ def delete_user(user_id: str) -> bool:
         cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
         return cursor.rowcount > 0
+
+
+def get_user_by_plex_id(plex_id: str) -> dict | None:
+    """Look up a user by their Plex UUID. Returns None if not found."""
+    _ensure_db()
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM users WHERE plex_id = ?", (plex_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def create_plex_user(
+    plex_id: str,
+    username: str,
+    email: str | None,
+    role: str = "user",
+) -> dict | None:
+    """Create a user whose identity comes from Plex (no local password).
+
+    Uses a sentinel password hash ("!plex") that bcrypt will never produce,
+    so these accounts are unreachable via the normal password login path.
+
+    Returns the user dict or None if the username is already taken.
+    """
+    if role not in VALID_ROLES:
+        role = "user"
+    user_id = _new_id()
+    # "!plex" is not a valid bcrypt hash — verify_user() will short-circuit
+    # on auth_provider == 'plex' before bcrypt is ever called.
+    placeholder_hash = "!plex"
+    try:
+        with _get_conn() as conn:
+            conn.execute(
+                """INSERT INTO users
+                   (id, username, email, password_hash, role, enabled, created_at,
+                    plex_id, auth_provider)
+                   VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'plex')""",
+                (user_id, username, email, placeholder_hash, role, _now(), plex_id),
+            )
+            conn.commit()
+        return get_user_by_id(user_id)
+    except sqlite3.IntegrityError:
+        return None
 
 
 def has_any_users() -> bool:

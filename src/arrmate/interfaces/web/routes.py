@@ -4,6 +4,7 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -20,6 +21,16 @@ from ...auth.dependencies import (
     safe_next_url,
 )
 from ...auth.notifications import notify_request_resolved, notify_request_submitted
+from ...auth.plex_sso import (
+    build_plex_auth_url,
+    clear_plex_state_cookie,
+    get_plex_state,
+    get_plex_user,
+    plex_client_id,
+    request_pin,
+    set_plex_state_cookie,
+    validate_pin,
+)
 from ...auth.rate_limit import login_limiter
 from ...auth.session import (
     clear_session_cookie,
@@ -175,6 +186,7 @@ async def login_page(
     except Exception:
         pass
 
+    from ...config.settings import settings as _settings
     return templates.TemplateResponse(
         "pages/login.html",
         {
@@ -182,6 +194,7 @@ async def login_page(
             "next": safe_next_url(next),
             "error": error,
             "show_default_creds": show_default_creds,
+            "plex_sso_enabled": _settings.plex_sso_enabled,
         },
     )
 
@@ -232,12 +245,15 @@ async def login_submit(
         set_session_cookie(response, token)
         return response
 
+    from ...config.settings import settings as _settings
     return templates.TemplateResponse(
         "pages/login.html",
         {
             "request": request,
             "next": safe_next_url(next),
             "error": "Invalid username or password",
+            "show_default_creds": False,
+            "plex_sso_enabled": _settings.plex_sso_enabled,
         },
         status_code=401,
     )
@@ -248,6 +264,161 @@ async def logout():
     """Log out and redirect to login."""
     response = RedirectResponse(url="/web/login", status_code=303)
     clear_session_cookie(response)
+    return response
+
+
+# ── Plex SSO routes ───────────────────────────────────────────────────────────
+
+@auth_router.get("/auth/plex/start")
+async def plex_sso_start(
+    request: Request,
+    next: str = Query(default="/web/"),
+):
+    """Initiate Plex SSO login: request a PIN and redirect the user to plex.tv."""
+    from ...config.settings import settings as _settings
+    if not _settings.plex_sso_enabled:
+        return RedirectResponse(url="/web/login", status_code=303)
+
+    # Apply the shared login rate limiter so Plex start counts against the same quota
+    allowed, retry_after = await login_limiter.check(login_limiter._get_client_ip(request))
+    if not allowed:
+        return templates.TemplateResponse(
+            "pages/login.html",
+            {
+                "request": request,
+                "next": safe_next_url(next),
+                "error": "Too many login attempts. Please try again later.",
+                "show_default_creds": False,
+                "plex_sso_enabled": True,
+            },
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    next_url = safe_next_url(next)
+    secret_key = auth_manager.get_secret_key()
+    client_id = plex_client_id(secret_key)
+
+    try:
+        pin_id, pin_code = await request_pin(client_id)
+    except Exception:
+        logger.exception("Plex PIN request failed")
+        return RedirectResponse(
+            url="/web/login?error=" + quote_plus("Plex login unavailable. Please try again later."),
+            status_code=303,
+        )
+
+    # Build the callback URL.  Use ARRMATE_BASE_URL when set (e.g. behind a reverse
+    # proxy); otherwise fall back to the Host from this request.
+    base = (_settings.arrmate_base_url or str(request.base_url)).rstrip("/")
+    callback_url = f"{base}/web/auth/plex/callback"
+    plex_url = build_plex_auth_url(client_id, pin_code, callback_url)
+
+    response = RedirectResponse(url=plex_url, status_code=302)
+    set_plex_state_cookie(response, pin_id, next_url, secret_key)
+    return response
+
+
+@auth_router.get("/auth/plex/callback")
+async def plex_sso_callback(request: Request):
+    """Handle Plex OAuth callback: validate PIN, resolve identity, create session."""
+    from ...config.settings import settings as _settings
+
+    if not _settings.plex_sso_enabled:
+        return RedirectResponse(url="/web/login", status_code=303)
+
+    def _login_error(msg: str):
+        return RedirectResponse(
+            url="/web/login?error=" + quote_plus(msg), status_code=303
+        )
+
+    secret_key = auth_manager.get_secret_key()
+    client_id = plex_client_id(secret_key)
+
+    # Read + validate the state cookie (signed, max 5 min old — CSRF protection)
+    state = get_plex_state(request, secret_key)
+    if not state:
+        return _login_error("Plex login session expired. Please try again.")
+    pin_id, next_url = state
+
+    # Ask Plex whether the user has authorised the PIN
+    try:
+        auth_token = await validate_pin(pin_id, client_id)
+    except Exception:
+        logger.exception("Plex PIN validation failed for pin_id=%s", pin_id)
+        return _login_error("Plex login unavailable. Please try again later.")
+
+    if not auth_token:
+        return _login_error("Plex authorisation was not completed. Please try again.")
+
+    # Fetch the Plex user's identity (UUID, username, email).
+    # auth_token is intentionally NOT stored after this block.
+    try:
+        plex_user = await get_plex_user(auth_token)
+    except Exception:
+        logger.exception("Failed to fetch Plex user info")
+        return _login_error("Could not retrieve Plex account information. Please try again.")
+    finally:
+        # Ensure auth_token reference is cleared even if get_plex_user raises
+        del auth_token
+
+    plex_uuid = plex_user.get("uuid") or plex_user.get("id")
+    plex_username = (
+        plex_user.get("username") or plex_user.get("title") or "plex_user"
+    )
+    plex_email = (plex_user.get("email") or "").strip().lower()
+
+    if not plex_uuid:
+        return _login_error("Could not verify Plex account identity. Please try again.")
+
+    # Optional email allowlist
+    if _settings.plex_sso_allowed_emails:
+        allowed_emails = {e.lower().strip() for e in _settings.plex_sso_allowed_emails}
+        if plex_email not in allowed_emails:
+            logger.warning(
+                "Plex SSO: login denied for email=%r (not in allowlist)", plex_email
+            )
+            return _login_error(
+                "Your Plex account is not authorised to access this server."
+            )
+
+    # Look up or provision a local user record
+    db_user = user_db.get_user_by_plex_id(str(plex_uuid))
+    if not db_user:
+        role = _settings.plex_sso_default_role
+        db_user = user_db.create_plex_user(
+            plex_id=str(plex_uuid),
+            username=plex_username,
+            email=plex_email or None,
+            role=role,
+        )
+        if not db_user:
+            # Username already taken by a local account — add a suffix and retry once
+            db_user = user_db.create_plex_user(
+                plex_id=str(plex_uuid),
+                username=f"{plex_username}_plex",
+                email=plex_email or None,
+                role=role,
+            )
+
+    if not db_user:
+        logger.error("Plex SSO: could not create/find user for plex_uuid=%s", plex_uuid)
+        return _login_error(
+            "Could not create your account. Please contact your administrator."
+        )
+
+    if not db_user.get("enabled"):
+        return _login_error(
+            "Your account has been disabled. Please contact your administrator."
+        )
+
+    # Issue a normal arrmate session and send the user to their destination
+    session_token = create_session_token(
+        db_user["id"], db_user["username"], db_user["role"], secret_key
+    )
+    response = RedirectResponse(url=safe_next_url(next_url), status_code=303)
+    set_session_cookie(response, session_token)
+    clear_plex_state_cookie(response)
     return response
 
 
