@@ -250,6 +250,25 @@ def _transcode_sync(file_path: str, crf: int, preset: str) -> tuple[bool, str]:
         return False, str(exc)
 
 
+
+def _transcode_sync_validated(
+    file_path: str,
+    crf: int,
+    preset: str,
+    allowed_roots: list[str],
+) -> tuple[bool, str]:
+    """Validate file_path is within allowed_roots, then delegate to _transcode_sync.
+
+    If allowed_roots is empty, path validation is skipped for backward compatibility
+    with deployments that have not configured TRANSCODE_ALLOWED_ROOTS.
+    """
+    if allowed_roots:
+        resolved = Path(file_path).resolve()
+        allowed = [Path(r).resolve() for r in allowed_roots]
+        if not any(resolved.is_relative_to(root) for root in allowed):
+            return False, f"path not within allowed media directory: {file_path}"
+    return _transcode_sync(file_path, crf, preset)
+
 # ── Background job runner ──────────────────────────────────────────────────────
 
 
@@ -272,8 +291,9 @@ async def run_transcode_job(job_id: str, files: List[Dict[str, Any]]) -> None:
         original_size = file_info.get("size", 0)
 
         try:
+            allowed_roots = list(settings.transcode_allowed_roots)
             success, error = await loop.run_in_executor(
-                None, _transcode_sync, file_info["path"], crf, preset
+                None, _transcode_sync_validated, file_info["path"], crf, preset, allowed_roots
             )
 
             if success:

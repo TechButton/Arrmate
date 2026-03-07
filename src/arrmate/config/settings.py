@@ -195,6 +195,14 @@ class Settings(BaseSettings):
         default="medium",
         description="ffmpeg encoding preset (ultrafast/fast/medium/slow/veryslow — slower = smaller file)",
     )
+    transcode_allowed_roots: list[str] = Field(
+        default=[],
+        description=(
+            "Allowed root directories for H.265 transcoding (list of absolute paths). "
+            "When set, ffmpeg will only process files within these directories. "
+            "Set via env var as a comma-separated list: TRANSCODE_ALLOWED_ROOTS=/movies,/tv"
+        ),
+    )
 
 
 # Global settings instance
