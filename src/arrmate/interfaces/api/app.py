@@ -123,6 +123,13 @@ async def startup_event() -> None:
     engine = IntentEngine()
     executor = Executor()
 
+    # Warn if transcoding is possible but path restrictions aren't configured
+    if (settings.sonarr_url or settings.radarr_url) and not settings.transcode_allowed_roots:
+        logger.warning(
+            "TRANSCODE_ALLOWED_ROOTS is not set. Transcoding will accept any file path "
+            "reported by Sonarr/Radarr. Set this to limit transcoding to your media directories."
+        )
+
     # Start background download tracker (polls Sonarr/Radarr every 5 min)
     import asyncio as _asyncio
     from ...core.download_tracker import run_tracker

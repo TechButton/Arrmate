@@ -288,6 +288,25 @@ You can also configure all of this through the **Settings → AI / LLM tab** in 
 
 ## What's New
 
+### v2.0.7 — Setup Wizard Fixes & Security Hardening
+
+#### Setup Wizard
+
+- **Fixed "No URL configured" on Test Connection** — The test connection button was always returning "No URL configured" regardless of what you typed. HTMX sends form fields using their actual `name` attribute (e.g. `sonarr_url`), but the backend was only looking for a generic `url` field. The route now accepts both forms, so Test Connection works correctly.
+- **URL format hints on every step** — Each wizard step that has URL fields (LLM, Media Services, Download Clients, Extras) now shows an inline hint explaining the three URL formats:
+  - `http://servicename:port` — same Docker network (use the container name)
+  - `http://host.docker.internal:port` — same machine, not in Docker
+  - `http://192.168.1.x:port` — different machine on your network
+
+#### Security (STRIDE + PASTA review)
+
+- **Password minimum length enforced server-side** — The 8-character minimum is now checked in the database layer (`create_user`, `change_password`), not just the frontend form. Previously a direct API call could bypass it.
+- **Configurable session cookie `secure` flag** — The session cookie was previously always set with `Secure=true`, which caused silent authentication failures on HTTP-only deployments (no TLS reverse proxy). A new `COOKIE_SECURE` env var (default `true`) lets operators set `COOKIE_SECURE=false` for HTTP-only setups. See `.env.example`.
+- **Transcoding job store now pruned** — The in-memory job store grew without bound on long-running instances. Completed/cancelled jobs are now evicted after 24 hours, with a hard cap of 100 entries.
+- **Startup warning for unconfigured `TRANSCODE_ALLOWED_ROOTS`** — When Sonarr/Radarr are configured but `TRANSCODE_ALLOWED_ROOTS` is not set, Arrmate now logs a warning at startup. Without this setting, the transcoder accepts any file path reported by those services.
+
+---
+
 ### v2.0.5 — Fix data file ownership on upgrade from pre-v2.0.0
 
 **Bug fix for users upgrading from versions prior to v2.0.0.**

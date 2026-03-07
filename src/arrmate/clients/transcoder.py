@@ -39,8 +39,33 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
     return _jobs.get(job_id)
 
 
+_JOB_MAX_AGE_HOURS = 24
+_JOB_MAX_TOTAL = 100
+
+
+def _prune_jobs() -> None:
+    """Remove completed/cancelled jobs older than 24h, or when store exceeds 100 entries."""
+    cutoff = datetime.now(timezone.utc) - __import__("datetime").timedelta(hours=_JOB_MAX_AGE_HOURS)
+    to_delete = [
+        jid for jid, job in _jobs.items()
+        if job["status"] in ("completed", "cancelled")
+        and datetime.fromisoformat(job["created_at"]).replace(tzinfo=timezone.utc) < cutoff
+    ]
+    for jid in to_delete:
+        del _jobs[jid]
+    # Hard cap: if still over limit, evict oldest finished jobs
+    if len(_jobs) > _JOB_MAX_TOTAL:
+        finished = sorted(
+            [(jid, j) for jid, j in _jobs.items() if j["status"] in ("completed", "cancelled")],
+            key=lambda x: x[1]["created_at"],
+        )
+        for jid, _ in finished[:len(_jobs) - _JOB_MAX_TOTAL]:
+            del _jobs[jid]
+
+
 def get_all_jobs() -> List[Dict[str, Any]]:
     """Return all jobs, newest first."""
+    _prune_jobs()
     return sorted(_jobs.values(), key=lambda j: j["created_at"], reverse=True)
 
 

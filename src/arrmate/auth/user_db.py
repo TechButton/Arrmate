@@ -214,14 +214,19 @@ def _migrate_from_auth_json() -> None:
 
 # ===== User CRUD =====
 
+_MIN_PASSWORD_LENGTH = 8
+
+
 def create_user(
     username: str,
     password: str,
     role: str = "user",
     invited_by: str | None = None,
 ) -> dict | None:
-    """Create a new user. Returns user dict or None if username taken."""
+    """Create a new user. Returns user dict or None if username taken or password too short."""
     _ensure_db()
+    if len(password) < _MIN_PASSWORD_LENGTH:
+        return None
     if role not in VALID_ROLES:
         role = "user"
     user_id = _new_id()
@@ -301,6 +306,8 @@ def update_user(user_id: str, **kwargs) -> bool:
 
 def change_password(user_id: str, new_password: str) -> bool:
     """Change a user's password and clear must_change_password flag. Returns True on success."""
+    if len(new_password) < _MIN_PASSWORD_LENGTH:
+        return False
     password_hash = _bcrypt.hashpw(new_password.encode(), _bcrypt.gensalt()).decode()
     with _get_conn() as conn:
         cursor = conn.execute(

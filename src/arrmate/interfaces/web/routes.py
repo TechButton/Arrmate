@@ -826,14 +826,20 @@ async def setup_wizard_save(request: Request, next_step: str = Form(default="don
 
 
 @router.post("/setup/test-service", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
-async def setup_test_service(
-    request: Request,
-    service: str = Form(...),
-    url: str = Form(default=""),
-    api_key: str = Form(default=""),
-):
+async def setup_test_service(request: Request):
     """Test a single service connection and return an inline status badge."""
     import httpx as _httpx
+
+    form = await request.form()
+    service = str(form.get("service", ""))
+    # Accept either a generic "url" field or the service-specific "<service>_url" field.
+    # hx-include sends inputs by their actual name attribute (e.g. "sonarr_url"), not "url".
+    url = str(form.get("url", "") or form.get(f"{service}_url", ""))
+    api_key = str(
+        form.get("api_key", "")
+        or form.get(f"{service}_api_key", "")
+        or form.get(f"{service}_token", "")
+    )
 
     def _badge(ok: bool, msg: str) -> str:
         colour = "green" if ok else "red"

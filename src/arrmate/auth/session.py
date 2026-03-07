@@ -1,11 +1,18 @@
 """Session token management via signed cookies."""
 
+import os
+
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from fastapi.responses import Response
 
 SESSION_COOKIE = "arrmate_session"
 SESSION_MAX_AGE = 86400  # 24 hours
+
+# Allow operators to explicitly override the secure flag via env var.
+# Default: True (secure). Set COOKIE_SECURE=false for HTTP-only deployments.
+_env = os.environ.get("COOKIE_SECURE", "true").lower()
+_COOKIE_SECURE: bool = _env not in ("0", "false", "no")
 
 
 def create_session_token(
@@ -49,7 +56,7 @@ def set_session_cookie(response: Response, token: str) -> None:
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=True,
+        secure=_COOKIE_SECURE,
     )
 
 
