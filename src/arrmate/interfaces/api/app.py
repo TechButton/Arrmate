@@ -1,5 +1,6 @@
 """FastAPI REST API interface for Arrmate."""
 
+import logging
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -16,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from ...auth.dependencies import AuthRedirectException, get_api_user
 from ...auth import user_db
+from ...auth.rate_limit import login_limiter
 from ...clients.discovery import discover_services
 from ...config.service_config import apply_saved_config
 from ...config.settings import settings
@@ -24,6 +26,8 @@ from ...core.executor import Executor
 from ...core.intent_engine import IntentEngine
 from ...core.models import ExecutionResult, ServiceInfo
 from ..web.routes import auth_router, router as web_router
+
+logger = logging.getLogger(__name__)
 
 
 # ── Request / Response models ─────────────────────────────────────────────────
@@ -50,7 +54,7 @@ class TokenLoginResponse(BaseModel):
 
 class CommandRequest(BaseModel):
     """Request model for command execution."""
-    command: str = Field(..., description="Natural language command to execute")
+    command: str = Field(..., description="Natural language command to execute", max_length=2000)
     dry_run: bool = Field(default=False, description="Parse only, don't execute")
 
 
@@ -112,13 +116,17 @@ async def startup_event() -> None:
     try:
         user_db.init_db()
     except Exception as e:
-        import logging
         logging.getLogger(__name__).warning("user_db init failed: %s", e)
     services = await discover_services()
     available = [name for name, info in services.items() if info.available]
     parser = CommandParser(available_services=available or None)
     engine = IntentEngine()
     executor = Executor()
+
+    # Start background download tracker (polls Sonarr/Radarr every 5 min)
+    import asyncio as _asyncio
+    from ...core.download_tracker import run_tracker
+    _asyncio.create_task(run_tracker())
 
 
 @app.on_event("shutdown")
@@ -143,12 +151,21 @@ async def health() -> Dict[str, str]:
 # ── Auth endpoints ────────────────────────────────────────────────────────────
 
 @app.post("/api/v1/auth/token", response_model=TokenLoginResponse, tags=["auth"])
-async def login_for_token(req: TokenLoginRequest) -> TokenLoginResponse:
+async def login_for_token(req: TokenLoginRequest, request: Request) -> TokenLoginResponse:
     """Exchange username + password for a long-lived API Bearer token.
 
     The token is shown **only once** in the response — store it securely.
     Subsequent requests must include `Authorization: Bearer <token>`.
     """
+    allowed, retry_after = await login_limiter.check(login_limiter._get_client_ip(request))
+    if not allowed:
+        from fastapi.responses import Response as _Response
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     db_user = user_db.verify_user(req.username, req.password)
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -245,7 +262,8 @@ async def execute_command(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Unhandled error in execute_command: %s", e)
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @app.get(

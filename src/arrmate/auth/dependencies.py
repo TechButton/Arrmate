@@ -16,14 +16,29 @@ class AuthRedirectException(Exception):
         self.is_htmx = is_htmx
 
 
+_HTMX_PARTIAL_PATHS = {
+    "/web/notifications",
+    "/web/notifications/count",
+}
+
+
 def safe_next_url(url: str | None) -> str:
-    """Validate that redirect URL is safe (internal web path only)."""
+    """Validate that redirect URL is safe (internal web path only).
+
+    HTMX partial paths that return HTML fragments are excluded because
+    navigating to them directly (e.g. after a post-login redirect) would
+    render a bare fragment — appearing blank to the user.
+    """
     if not url:
         return "/web/"
     parsed = urlparse(url)
     if parsed.scheme or parsed.netloc:
         return "/web/"
     if not url.startswith("/web/"):
+        return "/web/"
+    # Strip query string before checking partial paths
+    path_only = parsed.path
+    if path_only in _HTMX_PARTIAL_PATHS:
         return "/web/"
     return url
 

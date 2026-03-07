@@ -76,6 +76,26 @@
                 </button>
             </form>
 
+            {% if plex_sso_enabled %}
+            <div class="mt-4">
+                <div class="relative flex items-center">
+                    <div class="flex-grow border-t border-gray-700"></div>
+                    <span class="flex-shrink mx-3 text-xs text-gray-500">or</span>
+                    <div class="flex-grow border-t border-gray-700"></div>
+                </div>
+                <a href="/web/auth/plex/start?next={{ next }}"
+                   class="mt-3 flex items-center justify-center gap-2 w-full py-2.5 px-4
+                          bg-amber-500 hover:bg-amber-400 text-gray-900 font-medium
+                          rounded-lg transition-colors focus:outline-none focus:ring-2
+                          focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-800">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.5 17.25l-4.5-4.5 1.06-1.06 3.44 3.44 7.44-7.44 1.06 1.06-8.5 8.5z"/>
+                    </svg>
+                    Sign in with Plex
+                </a>
+            </div>
+            {% endif %}
+
             <div class="mt-4 text-center">
                 <a href="/web/register" class="text-xs text-gray-500 hover:text-gray-400 transition-colors">
                     Have an invite? Create account →

@@ -4,6 +4,7 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -20,6 +21,17 @@ from ...auth.dependencies import (
     safe_next_url,
 )
 from ...auth.notifications import notify_request_resolved, notify_request_submitted
+from ...auth.plex_sso import (
+    build_plex_auth_url,
+    clear_plex_state_cookie,
+    get_plex_state,
+    get_plex_user,
+    plex_client_id,
+    request_pin,
+    set_plex_state_cookie,
+    validate_pin,
+)
+from ...auth.rate_limit import login_limiter
 from ...auth.session import (
     clear_session_cookie,
     create_session_token,
@@ -174,6 +186,7 @@ async def login_page(
     except Exception:
         pass
 
+    from ...config.settings import settings as _settings
     return templates.TemplateResponse(
         "pages/login.html",
         {
@@ -181,6 +194,7 @@ async def login_page(
             "next": safe_next_url(next),
             "error": error,
             "show_default_creds": show_default_creds,
+            "plex_sso_enabled": _settings.plex_sso_enabled,
         },
     )
 
@@ -193,6 +207,15 @@ async def login_submit(
     next: str = Form(default="/web/"),
 ):
     """Process login form submission."""
+    allowed, retry_after = await login_limiter.check(login_limiter._get_client_ip(request))
+    if not allowed:
+        from fastapi.responses import Response as _Response
+        return _Response(
+            content="Too many login attempts. Please try again later.",
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
+
     # Try new multi-user DB first
     user = None
     try:
@@ -222,12 +245,15 @@ async def login_submit(
         set_session_cookie(response, token)
         return response
 
+    from ...config.settings import settings as _settings
     return templates.TemplateResponse(
         "pages/login.html",
         {
             "request": request,
             "next": safe_next_url(next),
             "error": "Invalid username or password",
+            "show_default_creds": False,
+            "plex_sso_enabled": _settings.plex_sso_enabled,
         },
         status_code=401,
     )
@@ -238,6 +264,161 @@ async def logout():
     """Log out and redirect to login."""
     response = RedirectResponse(url="/web/login", status_code=303)
     clear_session_cookie(response)
+    return response
+
+
+# ── Plex SSO routes ───────────────────────────────────────────────────────────
+
+@auth_router.get("/auth/plex/start")
+async def plex_sso_start(
+    request: Request,
+    next: str = Query(default="/web/"),
+):
+    """Initiate Plex SSO login: request a PIN and redirect the user to plex.tv."""
+    from ...config.settings import settings as _settings
+    if not _settings.plex_sso_enabled:
+        return RedirectResponse(url="/web/login", status_code=303)
+
+    # Apply the shared login rate limiter so Plex start counts against the same quota
+    allowed, retry_after = await login_limiter.check(login_limiter._get_client_ip(request))
+    if not allowed:
+        return templates.TemplateResponse(
+            "pages/login.html",
+            {
+                "request": request,
+                "next": safe_next_url(next),
+                "error": "Too many login attempts. Please try again later.",
+                "show_default_creds": False,
+                "plex_sso_enabled": True,
+            },
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    next_url = safe_next_url(next)
+    secret_key = auth_manager.get_secret_key()
+    client_id = plex_client_id(secret_key)
+
+    try:
+        pin_id, pin_code = await request_pin(client_id)
+    except Exception:
+        logger.exception("Plex PIN request failed")
+        return RedirectResponse(
+            url="/web/login?error=" + quote_plus("Plex login unavailable. Please try again later."),
+            status_code=303,
+        )
+
+    # Build the callback URL.  Use ARRMATE_BASE_URL when set (e.g. behind a reverse
+    # proxy); otherwise fall back to the Host from this request.
+    base = (_settings.arrmate_base_url or str(request.base_url)).rstrip("/")
+    callback_url = f"{base}/web/auth/plex/callback"
+    plex_url = build_plex_auth_url(client_id, pin_code, callback_url)
+
+    response = RedirectResponse(url=plex_url, status_code=302)
+    set_plex_state_cookie(response, pin_id, next_url, secret_key)
+    return response
+
+
+@auth_router.get("/auth/plex/callback")
+async def plex_sso_callback(request: Request):
+    """Handle Plex OAuth callback: validate PIN, resolve identity, create session."""
+    from ...config.settings import settings as _settings
+
+    if not _settings.plex_sso_enabled:
+        return RedirectResponse(url="/web/login", status_code=303)
+
+    def _login_error(msg: str):
+        return RedirectResponse(
+            url="/web/login?error=" + quote_plus(msg), status_code=303
+        )
+
+    secret_key = auth_manager.get_secret_key()
+    client_id = plex_client_id(secret_key)
+
+    # Read + validate the state cookie (signed, max 5 min old — CSRF protection)
+    state = get_plex_state(request, secret_key)
+    if not state:
+        return _login_error("Plex login session expired. Please try again.")
+    pin_id, next_url = state
+
+    # Ask Plex whether the user has authorised the PIN
+    try:
+        auth_token = await validate_pin(pin_id, client_id)
+    except Exception:
+        logger.exception("Plex PIN validation failed for pin_id=%s", pin_id)
+        return _login_error("Plex login unavailable. Please try again later.")
+
+    if not auth_token:
+        return _login_error("Plex authorisation was not completed. Please try again.")
+
+    # Fetch the Plex user's identity (UUID, username, email).
+    # auth_token is intentionally NOT stored after this block.
+    try:
+        plex_user = await get_plex_user(auth_token)
+    except Exception:
+        logger.exception("Failed to fetch Plex user info")
+        return _login_error("Could not retrieve Plex account information. Please try again.")
+    finally:
+        # Ensure auth_token reference is cleared even if get_plex_user raises
+        del auth_token
+
+    plex_uuid = plex_user.get("uuid") or plex_user.get("id")
+    plex_username = (
+        plex_user.get("username") or plex_user.get("title") or "plex_user"
+    )
+    plex_email = (plex_user.get("email") or "").strip().lower()
+
+    if not plex_uuid:
+        return _login_error("Could not verify Plex account identity. Please try again.")
+
+    # Optional email allowlist
+    if _settings.plex_sso_allowed_emails:
+        allowed_emails = {e.lower().strip() for e in _settings.plex_sso_allowed_emails}
+        if plex_email not in allowed_emails:
+            logger.warning(
+                "Plex SSO: login denied for email=%r (not in allowlist)", plex_email
+            )
+            return _login_error(
+                "Your Plex account is not authorised to access this server."
+            )
+
+    # Look up or provision a local user record
+    db_user = user_db.get_user_by_plex_id(str(plex_uuid))
+    if not db_user:
+        role = _settings.plex_sso_default_role
+        db_user = user_db.create_plex_user(
+            plex_id=str(plex_uuid),
+            username=plex_username,
+            email=plex_email or None,
+            role=role,
+        )
+        if not db_user:
+            # Username already taken by a local account — add a suffix and retry once
+            db_user = user_db.create_plex_user(
+                plex_id=str(plex_uuid),
+                username=f"{plex_username}_plex",
+                email=plex_email or None,
+                role=role,
+            )
+
+    if not db_user:
+        logger.error("Plex SSO: could not create/find user for plex_uuid=%s", plex_uuid)
+        return _login_error(
+            "Could not create your account. Please contact your administrator."
+        )
+
+    if not db_user.get("enabled"):
+        return _login_error(
+            "Your account has been disabled. Please contact your administrator."
+        )
+
+    # Issue a normal arrmate session and send the user to their destination
+    session_token = create_session_token(
+        db_user["id"], db_user["username"], db_user["role"], secret_key
+    )
+    response = RedirectResponse(url=safe_next_url(next_url), status_code=303)
+    set_session_cookie(response, session_token)
+    clear_plex_state_cookie(response)
     return response
 
 
@@ -290,6 +471,10 @@ async def change_password_submit(
             return _error("User not found.")
     else:
         return _error("Cannot change password for legacy accounts.")
+
+    # If setup wizard has never been completed, send admin there now
+    if user.get("role") == "admin" and not user_db.is_setup_complete():
+        return RedirectResponse(url="/web/setup", status_code=303)
 
     return RedirectResponse(url="/web/", status_code=303)
 
@@ -359,8 +544,8 @@ async def register_submit(
     # Validate input
     if len(username.strip()) < 1:
         error = "Username is required"
-    elif len(password) < 4:
-        error = "Password must be at least 4 characters"
+    elif len(password) < 8:
+        error = "Password must be at least 8 characters"
     elif password != password_confirm:
         error = "Passwords do not match"
     else:
@@ -575,6 +760,140 @@ async def settings_page(request: Request):
             "settings": settings,
         },
     )
+
+
+# ===== Setup Wizard =====
+
+_WIZARD_STEPS = [
+    ("welcome", "Welcome"),
+    ("llm", "AI / LLM"),
+    ("media", "Media Services"),
+    ("downloads", "Download Clients"),
+    ("extras", "Extras"),
+    ("done", "Done"),
+]
+
+
+@router.get("/setup", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_wizard(request: Request, step: str = Query(default="welcome")):
+    """Setup wizard — shown once after first password change; accessible any time from admin panel."""
+    valid_steps = [s[0] for s in _WIZARD_STEPS]
+    if step not in valid_steps:
+        step = "welcome"
+
+    # Gather current service config for pre-filling form fields
+    from ...config.service_config import get_service_config
+    current_cfg = get_service_config()
+
+    return templates.TemplateResponse(
+        "pages/setup_wizard.html",
+        {
+            "request": request,
+            "step": step,
+            "steps": _WIZARD_STEPS,
+            "cfg": current_cfg,
+            "settings": settings,
+            **_base_ctx(request),
+        },
+    )
+
+
+@router.post("/setup/skip", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_wizard_skip(request: Request):
+    """Mark setup as complete without configuring anything."""
+    user_db.mark_setup_complete()
+    return RedirectResponse(url="/web/", status_code=303)
+
+
+@router.post("/setup/save", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_wizard_save(request: Request, next_step: str = Form(default="done")):
+    """Save a wizard step's form data and advance to the next step."""
+    try:
+        form = await request.form()
+        # Exclude the next_step control field; save everything else
+        service_data = {k: v for k, v in form.multi_items() if k != "next_step"}
+        if service_data:
+            from ...config.service_config import save_service_config
+            save_service_config(service_data)
+            reset_parser()
+    except Exception as e:
+        logger.error("Setup wizard save failed: %s", e)
+
+    if next_step == "done":
+        user_db.mark_setup_complete()
+
+    return RedirectResponse(url=f"/web/setup?step={next_step}", status_code=303)
+
+
+@router.post("/setup/test-service", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_test_service(
+    request: Request,
+    service: str = Form(...),
+    url: str = Form(default=""),
+    api_key: str = Form(default=""),
+):
+    """Test a single service connection and return an inline status badge."""
+    import httpx as _httpx
+
+    def _badge(ok: bool, msg: str) -> str:
+        colour = "green" if ok else "red"
+        icon = "✓" if ok else "✗"
+        return (
+            f'<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium '
+            f'bg-{colour}-900/40 text-{colour}-300 border border-{colour}-700/50">'
+            f'{icon} {msg}</span>'
+        )
+
+    if not url:
+        return HTMLResponse(_badge(False, "No URL configured"))
+
+    url = url.rstrip("/")
+    try:
+        if service == "ollama":
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/api/tags")
+                return HTMLResponse(_badge(r.status_code < 400, "Connected" if r.status_code < 400 else f"HTTP {r.status_code}"))
+        elif service in ("sonarr", "radarr", "lidarr", "readarr", "prowlarr"):
+            headers = {"X-Api-Key": api_key} if api_key else {}
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/api/v3/system/status", headers=headers)
+                return HTMLResponse(_badge(r.status_code == 200, "Connected" if r.status_code == 200 else f"HTTP {r.status_code}"))
+        elif service == "plex":
+            params = {"X-Plex-Token": api_key} if api_key else {}
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/identity", params=params)
+                return HTMLResponse(_badge(r.status_code < 400, "Connected" if r.status_code < 400 else f"HTTP {r.status_code}"))
+        elif service == "bazarr":
+            headers = {"X-Api-Key": api_key} if api_key else {}
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/api/system/status", headers=headers)
+                return HTMLResponse(_badge(r.status_code == 200, "Connected" if r.status_code == 200 else f"HTTP {r.status_code}"))
+        elif service == "sabnzbd":
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/api", params={"output": "json", "mode": "version", "apikey": api_key})
+                return HTMLResponse(_badge(r.status_code == 200, "Connected" if r.status_code == 200 else f"HTTP {r.status_code}"))
+        elif service in ("qbittorrent", "transmission"):
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(url)
+                return HTMLResponse(_badge(r.status_code < 500, "Reachable" if r.status_code < 500 else f"HTTP {r.status_code}"))
+        else:
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(url)
+                return HTMLResponse(_badge(r.status_code < 400, "Reachable" if r.status_code < 400 else f"HTTP {r.status_code}"))
+    except _httpx.ConnectError:
+        return HTMLResponse(_badge(False, "Connection refused"))
+    except _httpx.TimeoutException:
+        return HTMLResponse(_badge(False, "Timed out"))
+    except Exception as e:
+        return HTMLResponse(_badge(False, f"Error: {type(e).__name__}"))
+
+
+@router.post("/setup/reset", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_wizard_reset(request: Request):
+    """Reset the setup-complete flag so the wizard can be re-run."""
+    from ...auth.user_db import set_app_setting
+    set_app_setting("setup_wizard_complete", "0")
+    return RedirectResponse(url="/web/setup", status_code=303)
 
 
 # ===== Admin Routes =====
@@ -817,7 +1136,15 @@ async def resolve_request(
 
 @router.get("/notifications", response_class=HTMLResponse)
 async def notifications_panel(request: Request):
-    """HTMX partial: notification dropdown panel."""
+    """HTMX partial: notification dropdown panel.
+
+    When accessed directly (no HX-Request header — e.g. after a login
+    redirect) we send the user to the main page instead of rendering a bare
+    HTML fragment that would appear blank.
+    """
+    if not request.headers.get("HX-Request"):
+        return RedirectResponse(url="/web/", status_code=303)
+
     current_user = get_current_user(request)
     if not current_user or current_user.get("user_id") == "legacy":
         return templates.TemplateResponse(
@@ -882,8 +1209,8 @@ async def auth_set(
     error = None
     if len(username.strip()) < 1:
         error = "Username is required"
-    elif len(password) < 4:
-        error = "Password must be at least 4 characters"
+    elif len(password) < 8:
+        error = "Password must be at least 8 characters"
     elif password != password_confirm:
         error = "Passwords do not match"
 
@@ -3362,7 +3689,7 @@ async def api_tokens_page(request: Request):
     tokens = user_db.list_api_tokens(user["user_id"])
     return templates.TemplateResponse(
         "pages/api_tokens.html",
-        {"request": request, "tokens": tokens, "new_token": None, **_base_ctx(request)},
+        {"request": request, "tokens": tokens, "new_token": None, **_base_ctx(request)},  # nosec B105
     )
 
 

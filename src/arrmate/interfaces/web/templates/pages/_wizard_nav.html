@@ -1,0 +1,21 @@
+<!-- Wizard step navigation buttons — included at the bottom of each step form -->
+<div class="flex justify-between items-center pt-4 mt-2 border-t border-gray-700">
+    {% set step_names = ['welcome','llm','media','downloads','extras','done'] %}
+    {% set idx = step_names.index(step) %}
+
+    {% if idx > 1 %}
+    <a href="/web/setup?step={{ step_names[idx - 1] }}"
+       class="py-2 px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium
+              rounded-lg transition-colors">
+        ← Back
+    </a>
+    {% else %}
+    <span></span>
+    {% endif %}
+
+    <button type="submit"
+            class="py-2 px-5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium
+                   rounded-lg transition-colors">
+        {% if step == 'extras' %}Finish Setup{% else %}Save &amp; Continue →{% endif %}
+    </button>
+</div>

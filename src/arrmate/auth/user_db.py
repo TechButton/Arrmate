@@ -124,17 +124,38 @@ def init_db() -> None:
                 expires_at TEXT,
                 enabled INTEGER NOT NULL DEFAULT 1
             );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
         """)
         conn.commit()
 
-        # Migration: add must_change_password column if it doesn't exist yet
+        # Migrations: add columns that may not exist in older databases
+        for _migration_sql in [
+            "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN plex_id TEXT",
+            "ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'",
+            "ALTER TABLE media_requests ADD COLUMN notified_queued INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE media_requests ADD COLUMN notified_imported INTEGER NOT NULL DEFAULT 0",
+        ]:
+            try:
+                conn.execute(_migration_sql)
+                conn.commit()
+            except Exception:
+                pass  # Column already exists
+
+        # Unique index for plex_id (only on non-NULL rows)
         try:
             conn.execute(
-                "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0"
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_plex_id "
+                "ON users (plex_id) WHERE plex_id IS NOT NULL"
             )
             conn.commit()
         except Exception:
-            pass  # Column already exists
+            pass
 
         # Migrate from auth.json if no users exist
         count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
@@ -161,7 +182,7 @@ def _create_default_admin() -> None:
                 (_new_id(), password_hash, _now()),
             )
             conn.commit()
-        logger.info("Created default admin account (username: admin, password: changeme123)")
+        logger.info("Created default admin account (username: admin) — change password on first login")
     except Exception as e:
         logger.warning("Failed to create default admin: %s", e)
 
@@ -234,10 +255,16 @@ def get_user_by_username(username: str) -> dict | None:
 
 
 def verify_user(username: str, password: str) -> dict | None:
-    """Verify credentials. Returns user dict or None if invalid/disabled."""
+    """Verify credentials. Returns user dict or None if invalid/disabled.
+
+    Plex SSO users (auth_provider='plex') have no local password and will
+    always return None here — they must log in via the Plex SSO flow.
+    """
     user = get_user_by_username(username)
     if not user or not user.get("enabled"):
         return None
+    if user.get("auth_provider") == "plex":
+        return None  # Plex users cannot log in with a local password
     try:
         if _bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
             return user
@@ -260,11 +287,13 @@ def update_user(user_id: str, **kwargs) -> bool:
     updates = {k: v for k, v in kwargs.items() if k in allowed}
     if not updates:
         return False
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    # Keys are filtered to the allowlist above before being interpolated.
+    # Values are always passed as parameters — no injection risk.
+    set_clause = ", ".join(f"{k} = ?" for k in updates)  # nosec B608
     values = list(updates.values()) + [user_id]
     with _get_conn() as conn:
         cursor = conn.execute(
-            f"UPDATE users SET {set_clause} WHERE id = ?", values
+            f"UPDATE users SET {set_clause} WHERE id = ?", values  # nosec B608
         )
         conn.commit()
         return cursor.rowcount > 0
@@ -287,6 +316,50 @@ def delete_user(user_id: str) -> bool:
         cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
         return cursor.rowcount > 0
+
+
+def get_user_by_plex_id(plex_id: str) -> dict | None:
+    """Look up a user by their Plex UUID. Returns None if not found."""
+    _ensure_db()
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM users WHERE plex_id = ?", (plex_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def create_plex_user(
+    plex_id: str,
+    username: str,
+    email: str | None,
+    role: str = "user",
+) -> dict | None:
+    """Create a user whose identity comes from Plex (no local password).
+
+    Uses a sentinel password hash ("!plex") that bcrypt will never produce,
+    so these accounts are unreachable via the normal password login path.
+
+    Returns the user dict or None if the username is already taken.
+    """
+    if role not in VALID_ROLES:
+        role = "user"
+    user_id = _new_id()
+    # "!plex" is not a valid bcrypt hash — verify_user() will short-circuit
+    # on auth_provider == 'plex' before bcrypt is ever called.
+    placeholder_hash = "!plex"
+    try:
+        with _get_conn() as conn:
+            conn.execute(
+                """INSERT INTO users
+                   (id, username, email, password_hash, role, enabled, created_at,
+                    plex_id, auth_provider)
+                   VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'plex')""",
+                (user_id, username, email, placeholder_hash, role, _now(), plex_id),
+            )
+            conn.commit()
+        return get_user_by_id(user_id)
+    except sqlite3.IntegrityError:
+        return None
 
 
 def has_any_users() -> bool:
@@ -385,6 +458,45 @@ def delete_invite(token: str) -> bool:
 
 
 # ===== Media Requests =====
+
+def get_trackable_requests() -> list[dict]:
+    """Return open requests that haven't been fully notified yet."""
+    try:
+        _ensure_db()
+        with _get_conn() as conn:
+            rows = conn.execute(
+                """SELECT * FROM media_requests
+                   WHERE status NOT IN ('rejected')
+                     AND notified_imported = 0
+                   ORDER BY created_at DESC"""
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+def mark_request_queued(req_id: str) -> bool:
+    """Set notified_queued=1 for a request. Returns True if updated."""
+    with _get_conn() as conn:
+        cursor = conn.execute(
+            "UPDATE media_requests SET notified_queued = 1 WHERE id = ?", (req_id,)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def mark_request_imported(req_id: str) -> bool:
+    """Set notified_imported=1, status=completed, resolved_at=now. Returns True if updated."""
+    with _get_conn() as conn:
+        cursor = conn.execute(
+            """UPDATE media_requests
+               SET notified_imported = 1, status = 'completed', resolved_at = ?
+               WHERE id = ?""",
+            (_now(), req_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
 
 def create_request(
     request_type: str,
@@ -639,3 +751,38 @@ def list_all_api_tokens() -> list[dict]:
                ORDER BY t.created_at DESC""",
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ===== App Settings (key-value store for application-wide flags) =====
+
+def get_app_setting(key: str, default: str | None = None) -> str | None:
+    """Read a single application setting by key. Returns default if not set."""
+    try:
+        _ensure_db()
+        with _get_conn() as conn:
+            row = conn.execute(
+                "SELECT value FROM app_settings WHERE key = ?", (key,)
+            ).fetchone()
+            return row[0] if row else default
+    except Exception:
+        return default
+
+
+def set_app_setting(key: str, value: str) -> None:
+    """Write (upsert) an application setting."""
+    _ensure_db()
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)",
+            (key, value, _now()),
+        )
+        conn.commit()
+
+
+# Convenience wrappers for the setup wizard flag
+def is_setup_complete() -> bool:
+    return get_app_setting("setup_wizard_complete", "0") == "1"
+
+
+def mark_setup_complete() -> None:
+    set_app_setting("setup_wizard_complete", "1")
