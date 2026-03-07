@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Wizard - Arrmate</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤝</text></svg>">
+    <script src="https://cdn.tailwindcss.com?v=3.4"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="/static/css/custom.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { primary: { 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1' } } } }
+        }
+    </script>
+</head>
+<body class="min-h-full bg-gray-900 text-gray-100">
+
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <span class="text-4xl">🤝</span>
+        <h1 class="text-2xl font-bold text-white mt-2">Arrmate Setup Wizard</h1>
+        <p class="text-gray-400 text-sm mt-1">Configure your services — takes about 5 minutes</p>
+    </div>
+
+    <!-- Step progress bar -->
+    {% set step_names = ['welcome','llm','media','downloads','extras','done'] %}
+    {% set step_idx   = step_names.index(step) %}
+    {% set total_steps = step_names|length - 1 %}
+    <div class="mb-8">
+        <div class="flex items-center justify-between mb-2">
+            {% for s, label in steps %}
+            {% if not loop.last %}
+            <div class="flex flex-col items-center flex-1">
+                <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+                    {% if loop.index0 < step_idx %}bg-primary-600 text-white
+                    {% elif loop.index0 == step_idx %}bg-primary-500 text-white ring-2 ring-primary-400 ring-offset-1 ring-offset-gray-900
+                    {% else %}bg-gray-700 text-gray-400{% endif %}">
+                    {% if loop.index0 < step_idx %}✓{% else %}{{ loop.index }}{% endif %}
+                </div>
+                <span class="text-xs mt-1 hidden sm:block
+                    {% if loop.index0 == step_idx %}text-primary-400 font-medium{% else %}text-gray-500{% endif %}">
+                    {{ label }}
+                </span>
+            </div>
+            {% if not loop.last and not loop.revindex == 1 %}
+            <div class="flex-1 h-0.5 mb-4 {% if loop.index0 < step_idx %}bg-primary-600{% else %}bg-gray-700{% endif %}"></div>
+            {% endif %}
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 shadow-lg">
+
+        <!-- ── WELCOME ─────────────────────────────────────────────── -->
+        {% if step == 'welcome' %}
+        <h2 class="text-xl font-bold text-white mb-2">Welcome to Arrmate! 👋</h2>
+        <p class="text-gray-300 mb-4">
+            You've successfully set your admin password. Let's connect Arrmate to your media stack.
+        </p>
+        <ul class="text-sm text-gray-400 space-y-1 mb-6 list-disc list-inside">
+            <li>Choose your AI / LLM provider (Ollama, OpenAI, or Anthropic)</li>
+            <li>Connect media managers — Sonarr, Radarr, Lidarr, Plex</li>
+            <li>Add download clients — SABnzbd, qBittorrent, Transmission</li>
+            <li>Optionally set up Prowlarr, Bazarr, and notifications</li>
+        </ul>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <a href="/web/setup?step=llm"
+               class="flex-1 text-center py-2.5 px-4 bg-primary-600 hover:bg-primary-700 text-white
+                      font-medium rounded-lg transition-colors">
+                Help me set up →
+            </a>
+            <form method="post" action="/web/setup/skip" class="flex-1">
+                <button type="submit"
+                        class="w-full py-2.5 px-4 bg-gray-700 hover:bg-gray-600 text-gray-300
+                               font-medium rounded-lg transition-colors">
+                    Skip — I'll configure manually
+                </button>
+            </form>
+        </div>
+
+        <!-- ── LLM ──────────────────────────────────────────────────── -->
+        {% elif step == 'llm' %}
+        <h2 class="text-xl font-bold text-white mb-1">AI / LLM Provider</h2>
+        <p class="text-sm text-gray-400 mb-5">
+            Arrmate uses a language model to understand your natural language commands.
+        </p>
+        <form method="post" action="/web/setup/save" x-data="{ provider: '{{ cfg.llm_provider or 'ollama' }}' }">
+            <input type="hidden" name="next_step" value="media">
+
+            <!-- Provider selector -->
+            <div class="grid grid-cols-3 gap-2 mb-5">
+                {% for p, label, desc in [
+                    ('ollama',    '🦙 Ollama',    'Self-hosted, free'),
+                    ('openai',    '🌐 OpenAI',    'GPT-4 / GPT-4o'),
+                    ('anthropic', '🌟 Anthropic', 'Claude models'),
+                ] %}
+                <label class="cursor-pointer">
+                    <input type="radio" name="llm_provider" value="{{ p }}"
+                           @change="provider = '{{ p }}'"
+                           {% if (cfg.llm_provider or 'ollama') == p %}checked{% endif %}
+                           class="sr-only">
+                    <div :class="provider === '{{ p }}' ? 'border-primary-500 bg-primary-900/20' : 'border-gray-600 hover:border-gray-500'"
+                         class="border-2 rounded-lg p-3 text-center transition-colors">
+                        <div class="text-lg">{{ label.split(' ')[0] }}</div>
+                        <div class="text-xs font-medium text-gray-200 mt-0.5">{{ label.split(' ')[1] }}</div>
+                        <div class="text-xs text-gray-500">{{ desc }}</div>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+
+            <!-- Ollama fields -->
+            <div x-show="provider === 'ollama'" class="space-y-3 mb-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Ollama URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="ollama_base_url"
+                               value="{{ cfg.ollama_base_url or 'http://ollama:11434' }}"
+                               class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                        <button type="button"
+                                hx-post="/web/setup/test-service"
+                                hx-include="[name='ollama_base_url']"
+                                hx-vals='{"service":"ollama","url":""}'
+                                hx-include="closest form [name='ollama_base_url']"
+                                hx-target="#test-llm-result"
+                                class="px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm text-gray-200 transition-colors whitespace-nowrap">
+                            Test
+                        </button>
+                    </div>
+                    <div id="test-llm-result" class="mt-1"></div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Model</label>
+                    <input type="text" name="ollama_model"
+                           value="{{ cfg.ollama_model or 'qwen2.5:7b' }}"
+                           placeholder="qwen2.5:7b"
+                           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                    <p class="text-xs text-gray-500 mt-1">Must support tool calling, e.g. qwen2.5:7b, llama3.1:8b</p>
+                </div>
+            </div>
+
+            <!-- OpenAI fields -->
+            <div x-show="provider === 'openai'" class="space-y-3 mb-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">API Key</label>
+                    <input type="password" name="openai_api_key"
+                           value="{{ cfg.openai_api_key or '' }}"
+                           placeholder="sk-..."
+                           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Model</label>
+                    <input type="text" name="openai_model"
+                           value="{{ cfg.openai_model or 'gpt-4-turbo-preview' }}"
+                           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Anthropic fields -->
+            <div x-show="provider === 'anthropic'" class="space-y-3 mb-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">API Key</label>
+                    <input type="password" name="anthropic_api_key"
+                           value="{{ cfg.anthropic_api_key or '' }}"
+                           placeholder="sk-ant-..."
+                           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Model</label>
+                    <input type="text" name="anthropic_model"
+                           value="{{ cfg.anthropic_model or 'claude-3-5-sonnet-20241022' }}"
+                           class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                </div>
+            </div>
+
+            {% include "pages/_wizard_nav.html" %}
+        </form>
+
+        <!-- ── MEDIA SERVICES ───────────────────────────────────────── -->
+        {% elif step == 'media' %}
+        <h2 class="text-xl font-bold text-white mb-1">Media Services</h2>
+        <p class="text-sm text-gray-400 mb-5">Connect your *arr stack and Plex. Leave blank to skip.</p>
+        <form method="post" action="/web/setup/save">
+            <input type="hidden" name="next_step" value="downloads">
+
+            {% for svc, label, url_field, key_field, port in [
+                ('sonarr',  '📺 Sonarr',  'sonarr_url',  'sonarr_api_key',  '8989'),
+                ('radarr',  '🎬 Radarr',  'radarr_url',  'radarr_api_key',  '7878'),
+                ('lidarr',  '🎵 Lidarr',  'lidarr_url',  'lidarr_api_key',  '8686'),
+                ('plex',    '🔵 Plex',    'plex_url',    'plex_token',       '32400'),
+            ] %}
+            <div class="mb-4 p-4 bg-gray-700/40 rounded-lg border border-gray-600/50" x-data="{}">
+                <h3 class="text-sm font-semibold text-gray-200 mb-3">{{ label }}</h3>
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">URL</label>
+                        <input type="text" name="{{ url_field }}"
+                               id="url_{{ svc }}"
+                               value="{{ cfg[url_field] or '' }}"
+                               placeholder="http://{{ svc }}:{{ port }}"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">
+                            {% if svc == 'plex' %}Token (X-Plex-Token){% else %}API Key{% endif %}
+                        </label>
+                        <input type="password" name="{{ key_field }}"
+                               id="key_{{ svc }}"
+                               value="{{ cfg[key_field] or '' }}"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <button type="button"
+                            hx-post="/web/setup/test-service"
+                            hx-vals='{"service":"{{ svc }}"}'
+                            hx-include="#url_{{ svc }}, #key_{{ svc }}"
+                            hx-target="#test_{{ svc }}"
+                            class="text-xs px-2.5 py-1 bg-gray-600 hover:bg-gray-500 rounded text-gray-200 transition-colors">
+                        Test connection
+                    </button>
+                    <span id="test_{{ svc }}"></span>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% include "pages/_wizard_nav.html" %}
+        </form>
+
+        <!-- ── DOWNLOAD CLIENTS ────────────────────────────────────── -->
+        {% elif step == 'downloads' %}
+        <h2 class="text-xl font-bold text-white mb-1">Download Clients</h2>
+        <p class="text-sm text-gray-400 mb-5">Connect your download clients. Leave blank to skip.</p>
+        <form method="post" action="/web/setup/save">
+            <input type="hidden" name="next_step" value="extras">
+
+            {% for svc, label, fields in [
+                ('sabnzbd', '📦 SABnzbd', [('sabnzbd_url','URL','http://sabnzbd:8080','text'),('sabnzbd_api_key','API Key','','password')]),
+                ('qbittorrent', '🌊 qBittorrent', [('qbittorrent_url','URL','http://qbittorrent:8080','text'),('qbittorrent_username','Username','admin','text'),('qbittorrent_password','Password','','password')]),
+                ('transmission', '📡 Transmission', [('transmission_url','URL','http://transmission:9091','text'),('transmission_username','Username','','text'),('transmission_password','Password','','password')]),
+            ] %}
+            <div class="mb-4 p-4 bg-gray-700/40 rounded-lg border border-gray-600/50">
+                <h3 class="text-sm font-semibold text-gray-200 mb-3">{{ label }}</h3>
+                <div class="grid sm:grid-cols-2 gap-3">
+                    {% for fname, flabel, fplaceholder, ftype in fields %}
+                    <div {% if loop.first %}id="url_container_{{ svc }}"{% endif %}>
+                        <label class="block text-xs text-gray-400 mb-1">{{ flabel }}</label>
+                        <input type="{{ ftype }}" name="{{ fname }}"
+                               {% if loop.first %}id="url_{{ svc }}"{% elif loop.index == 3 %}id="key_{{ svc }}"{% endif %}
+                               value="{{ cfg[fname] or '' }}"
+                               placeholder="{{ fplaceholder }}"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <button type="button"
+                            hx-post="/web/setup/test-service"
+                            hx-vals='{"service":"{{ svc }}"}'
+                            hx-include="#url_{{ svc }}"
+                            hx-target="#test_{{ svc }}"
+                            class="text-xs px-2.5 py-1 bg-gray-600 hover:bg-gray-500 rounded text-gray-200 transition-colors">
+                        Test connection
+                    </button>
+                    <span id="test_{{ svc }}"></span>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% include "pages/_wizard_nav.html" %}
+        </form>
+
+        <!-- ── EXTRAS ──────────────────────────────────────────────── -->
+        {% elif step == 'extras' %}
+        <h2 class="text-xl font-bold text-white mb-1">Optional Extras</h2>
+        <p class="text-sm text-gray-400 mb-5">Everything here is optional. Configure what you use.</p>
+        <form method="post" action="/web/setup/save">
+            <input type="hidden" name="next_step" value="done">
+
+            <!-- Prowlarr + Bazarr -->
+            {% for svc, label, url_field, key_field, port in [
+                ('prowlarr', '🔍 Prowlarr', 'prowlarr_url', 'prowlarr_api_key', '9696'),
+                ('bazarr',   '💬 Bazarr',   'bazarr_url',   'bazarr_api_key',   '6767'),
+            ] %}
+            <div class="mb-4 p-4 bg-gray-700/40 rounded-lg border border-gray-600/50">
+                <h3 class="text-sm font-semibold text-gray-200 mb-3">{{ label }}</h3>
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">URL</label>
+                        <input type="text" name="{{ url_field }}" id="url_{{ svc }}"
+                               value="{{ cfg[url_field] or '' }}"
+                               placeholder="http://{{ svc }}:{{ port }}"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">API Key</label>
+                        <input type="password" name="{{ key_field }}" id="key_{{ svc }}"
+                               value="{{ cfg[key_field] or '' }}"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <button type="button"
+                            hx-post="/web/setup/test-service"
+                            hx-vals='{"service":"{{ svc }}"}'
+                            hx-include="#url_{{ svc }}, #key_{{ svc }}"
+                            hx-target="#test_{{ svc }}"
+                            class="text-xs px-2.5 py-1 bg-gray-600 hover:bg-gray-500 rounded text-gray-200 transition-colors">
+                        Test connection
+                    </button>
+                    <span id="test_{{ svc }}"></span>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- TMDB -->
+            <div class="mb-4 p-4 bg-gray-700/40 rounded-lg border border-gray-600/50">
+                <h3 class="text-sm font-semibold text-gray-200 mb-1">🎭 TMDB API Key</h3>
+                <p class="text-xs text-gray-500 mb-2">Powers the Discover page — get a free key at themoviedb.org</p>
+                <input type="text" name="tmdb_api_key"
+                       value="{{ cfg.tmdb_api_key or '' }}"
+                       placeholder="Paste your TMDB API key here"
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+            </div>
+
+            <!-- Notifications -->
+            <div class="mb-5 p-4 bg-gray-700/40 rounded-lg border border-gray-600/50">
+                <h3 class="text-sm font-semibold text-gray-200 mb-3">🔔 Notifications</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Slack Webhook URL</label>
+                        <input type="text" name="slack_webhook_url"
+                               value="{{ cfg.slack_webhook_url or '' }}"
+                               placeholder="https://hooks.slack.com/services/..."
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Discord Webhook URL</label>
+                        <input type="text" name="discord_webhook_url"
+                               value="{{ cfg.discord_webhook_url or '' }}"
+                               placeholder="https://discord.com/api/webhooks/..."
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                    </div>
+                </div>
+            </div>
+
+            {% include "pages/_wizard_nav.html" %}
+        </form>
+
+        <!-- ── DONE ─────────────────────────────────────────────────── -->
+        {% elif step == 'done' %}
+        <div class="text-center">
+            <div class="text-5xl mb-4">🎉</div>
+            <h2 class="text-xl font-bold text-white mb-2">You're all set!</h2>
+            <p class="text-gray-300 mb-6">
+                Arrmate is configured and ready to go. You can update any of these settings
+                any time from the <a href="/web/settings" class="text-primary-400 hover:underline">Settings page</a>.
+            </p>
+            <div class="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+                <a href="/web/"
+                   class="py-2.5 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium
+                          rounded-lg transition-colors text-center">
+                    Go to Dashboard
+                </a>
+                <a href="/web/settings"
+                   class="py-2.5 px-4 bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium
+                          rounded-lg transition-colors text-center">
+                    Open Settings
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Footer note -->
+    {% if step not in ('welcome', 'done') %}
+    <p class="text-center text-xs text-gray-600 mt-4">
+        <a href="/web/setup/skip" class="hover:text-gray-400 transition-colors"
+           onclick="return confirm('Skip setup? You can re-run it from the admin panel any time.')">
+            Skip remaining setup
+        </a>
+    </p>
+    {% endif %}
+
+</div>
+
+<script>
+    // Wire up the Ollama test button to include the current URL field value
+    document.addEventListener('htmx:configRequest', function(e) {
+        if (e.target.getAttribute('hx-vals') && e.target.getAttribute('hx-vals').includes('"ollama"')) {
+            const urlInput = document.querySelector('[name="ollama_base_url"]');
+            if (urlInput) {
+                const params = JSON.parse(e.target.getAttribute('hx-vals'));
+                params.url = urlInput.value;
+                e.detail.parameters = {...e.detail.parameters, ...params};
+            }
+        }
+    });
+</script>
+</body>
+</html>

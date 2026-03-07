@@ -124,6 +124,12 @@ def init_db() -> None:
                 expires_at TEXT,
                 enabled INTEGER NOT NULL DEFAULT 1
             );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
         """)
         conn.commit()
 
@@ -279,11 +285,13 @@ def update_user(user_id: str, **kwargs) -> bool:
     updates = {k: v for k, v in kwargs.items() if k in allowed}
     if not updates:
         return False
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    # Keys are filtered to the allowlist above before being interpolated.
+    # Values are always passed as parameters — no injection risk.
+    set_clause = ", ".join(f"{k} = ?" for k in updates)  # nosec B608
     values = list(updates.values()) + [user_id]
     with _get_conn() as conn:
         cursor = conn.execute(
-            f"UPDATE users SET {set_clause} WHERE id = ?", values
+            f"UPDATE users SET {set_clause} WHERE id = ?", values  # nosec B608
         )
         conn.commit()
         return cursor.rowcount > 0
@@ -702,3 +710,38 @@ def list_all_api_tokens() -> list[dict]:
                ORDER BY t.created_at DESC""",
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ===== App Settings (key-value store for application-wide flags) =====
+
+def get_app_setting(key: str, default: str | None = None) -> str | None:
+    """Read a single application setting by key. Returns default if not set."""
+    try:
+        _ensure_db()
+        with _get_conn() as conn:
+            row = conn.execute(
+                "SELECT value FROM app_settings WHERE key = ?", (key,)
+            ).fetchone()
+            return row[0] if row else default
+    except Exception:
+        return default
+
+
+def set_app_setting(key: str, value: str) -> None:
+    """Write (upsert) an application setting."""
+    _ensure_db()
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)",
+            (key, value, _now()),
+        )
+        conn.commit()
+
+
+# Convenience wrappers for the setup wizard flag
+def is_setup_complete() -> bool:
+    return get_app_setting("setup_wizard_complete", "0") == "1"
+
+
+def mark_setup_complete() -> None:
+    set_app_setting("setup_wizard_complete", "1")

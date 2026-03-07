@@ -472,6 +472,10 @@ async def change_password_submit(
     else:
         return _error("Cannot change password for legacy accounts.")
 
+    # If setup wizard has never been completed, send admin there now
+    if user.get("role") == "admin" and not user_db.is_setup_complete():
+        return RedirectResponse(url="/web/setup", status_code=303)
+
     return RedirectResponse(url="/web/", status_code=303)
 
 
@@ -756,6 +760,140 @@ async def settings_page(request: Request):
             "settings": settings,
         },
     )
+
+
+# ===== Setup Wizard =====
+
+_WIZARD_STEPS = [
+    ("welcome", "Welcome"),
+    ("llm", "AI / LLM"),
+    ("media", "Media Services"),
+    ("downloads", "Download Clients"),
+    ("extras", "Extras"),
+    ("done", "Done"),
+]
+
+
+@router.get("/setup", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_wizard(request: Request, step: str = Query(default="welcome")):
+    """Setup wizard — shown once after first password change; accessible any time from admin panel."""
+    valid_steps = [s[0] for s in _WIZARD_STEPS]
+    if step not in valid_steps:
+        step = "welcome"
+
+    # Gather current service config for pre-filling form fields
+    from ...config.service_config import get_service_config
+    current_cfg = get_service_config()
+
+    return templates.TemplateResponse(
+        "pages/setup_wizard.html",
+        {
+            "request": request,
+            "step": step,
+            "steps": _WIZARD_STEPS,
+            "cfg": current_cfg,
+            "settings": settings,
+            **_base_ctx(request),
+        },
+    )
+
+
+@router.post("/setup/skip", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_wizard_skip(request: Request):
+    """Mark setup as complete without configuring anything."""
+    user_db.mark_setup_complete()
+    return RedirectResponse(url="/web/", status_code=303)
+
+
+@router.post("/setup/save", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_wizard_save(request: Request, next_step: str = Form(default="done")):
+    """Save a wizard step's form data and advance to the next step."""
+    try:
+        form = await request.form()
+        # Exclude the next_step control field; save everything else
+        service_data = {k: v for k, v in form.multi_items() if k != "next_step"}
+        if service_data:
+            from ...config.service_config import save_service_config
+            save_service_config(service_data)
+            reset_parser()
+    except Exception as e:
+        logger.error("Setup wizard save failed: %s", e)
+
+    if next_step == "done":
+        user_db.mark_setup_complete()
+
+    return RedirectResponse(url=f"/web/setup?step={next_step}", status_code=303)
+
+
+@router.post("/setup/test-service", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_test_service(
+    request: Request,
+    service: str = Form(...),
+    url: str = Form(default=""),
+    api_key: str = Form(default=""),
+):
+    """Test a single service connection and return an inline status badge."""
+    import httpx as _httpx
+
+    def _badge(ok: bool, msg: str) -> str:
+        colour = "green" if ok else "red"
+        icon = "✓" if ok else "✗"
+        return (
+            f'<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium '
+            f'bg-{colour}-900/40 text-{colour}-300 border border-{colour}-700/50">'
+            f'{icon} {msg}</span>'
+        )
+
+    if not url:
+        return HTMLResponse(_badge(False, "No URL configured"))
+
+    url = url.rstrip("/")
+    try:
+        if service == "ollama":
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/api/tags")
+                return HTMLResponse(_badge(r.status_code < 400, "Connected" if r.status_code < 400 else f"HTTP {r.status_code}"))
+        elif service in ("sonarr", "radarr", "lidarr", "readarr", "prowlarr"):
+            headers = {"X-Api-Key": api_key} if api_key else {}
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/api/v3/system/status", headers=headers)
+                return HTMLResponse(_badge(r.status_code == 200, "Connected" if r.status_code == 200 else f"HTTP {r.status_code}"))
+        elif service == "plex":
+            params = {"X-Plex-Token": api_key} if api_key else {}
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/identity", params=params)
+                return HTMLResponse(_badge(r.status_code < 400, "Connected" if r.status_code < 400 else f"HTTP {r.status_code}"))
+        elif service == "bazarr":
+            headers = {"X-Api-Key": api_key} if api_key else {}
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/api/system/status", headers=headers)
+                return HTMLResponse(_badge(r.status_code == 200, "Connected" if r.status_code == 200 else f"HTTP {r.status_code}"))
+        elif service == "sabnzbd":
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{url}/api", params={"output": "json", "mode": "version", "apikey": api_key})
+                return HTMLResponse(_badge(r.status_code == 200, "Connected" if r.status_code == 200 else f"HTTP {r.status_code}"))
+        elif service in ("qbittorrent", "transmission"):
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(url)
+                return HTMLResponse(_badge(r.status_code < 500, "Reachable" if r.status_code < 500 else f"HTTP {r.status_code}"))
+        else:
+            async with _httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(url)
+                return HTMLResponse(_badge(r.status_code < 400, "Reachable" if r.status_code < 400 else f"HTTP {r.status_code}"))
+    except _httpx.ConnectError:
+        return HTMLResponse(_badge(False, "Connection refused"))
+    except _httpx.TimeoutException:
+        return HTMLResponse(_badge(False, "Timed out"))
+    except Exception as e:
+        return HTMLResponse(_badge(False, f"Error: {type(e).__name__}"))
+
+
+@router.post("/setup/reset", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+async def setup_wizard_reset(request: Request):
+    """Reset the setup-complete flag so the wizard can be re-run."""
+    from ...auth.user_db import set_app_setting
+    set_app_setting("setup_wizard_complete", "0")
+    return RedirectResponse(url="/web/setup", status_code=303)
 
 
 # ===== Admin Routes =====
@@ -3543,7 +3681,7 @@ async def api_tokens_page(request: Request):
     tokens = user_db.list_api_tokens(user["user_id"])
     return templates.TemplateResponse(
         "pages/api_tokens.html",
-        {"request": request, "tokens": tokens, "new_token": None, **_base_ctx(request)},
+        {"request": request, "tokens": tokens, "new_token": None, **_base_ctx(request)},  # nosec B105
     )
 
 
