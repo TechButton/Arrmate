@@ -3,11 +3,12 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies (ffmpeg for H.265 transcoding, su-exec for privilege drop)
+# Install system dependencies (ffmpeg for H.265 transcoding, gosu for privilege drop)
+# Note: su-exec is Alpine-only; gosu is the Debian equivalent with the same interface.
 RUN apt-get update && apt-get install -y \
     gcc \
     ffmpeg \
-    su-exec \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
@@ -20,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir
 
 # Create data directory and non-root user
 # The entrypoint re-chowns /data at runtime (named volumes are created as root),
-# then drops privileges via su-exec before starting the app.
+# then drops privileges via gosu before starting the app.
 RUN mkdir -p /data \
     && groupadd -r arrmate \
     && useradd -r -g arrmate -d /app -s /sbin/nologin arrmate \
@@ -39,7 +40,7 @@ ENV PYTHONPATH=/app/src
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD su-exec arrmate python -c "import httpx; httpx.get('http://localhost:8000/health')" || exit 1
+    CMD gosu arrmate python -c "import httpx; httpx.get('http://localhost:8000/health')" || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "arrmate.interfaces.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
