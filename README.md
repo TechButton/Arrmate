@@ -288,6 +288,20 @@ You can also configure all of this through the **Settings → AI / LLM tab** in 
 
 ## What's New
 
+### v2.0.5 — Fix data file ownership on upgrade from pre-v2.0.0
+
+**Bug fix for users upgrading from versions prior to v2.0.0.**
+
+v2.0.0 introduced a non-root container user (`arrmate`) for security. However, data files created by older images (run as root) — `users.db`, `services.json`, `plex_cache.db` — were left with root ownership. When the new image started it could not write to those files, causing the login page to show a "first time setup" prompt and any registration attempt to fail with "An internal error occurred."
+
+**What changed:**
+- `docker/entrypoint.sh` now uses `chown -R` (recursive) instead of `chown`, so it fixes ownership on all files inside `/data` at every container start, not just the directory itself.
+- Both `docker-compose.yml` and `docker-compose.prod.yml` now include an `arrmate-init` service that runs before arrmate and ensures `/data` is fully owned by the `arrmate` user. This covers users on older images where the entrypoint did not do a recursive chown.
+
+**If you were affected:** Pull the new image and recreate the container — the init service will fix ownership automatically. No manual intervention needed.
+
+---
+
 ### v2.0.0 — Security Hardening, Plex SSO & Onboarding
 
 This release is a major security overhaul informed by a full SDL (Security Development Lifecycle) review, plus three new features and a bug fix.

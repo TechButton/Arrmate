@@ -17,6 +17,24 @@
 services:
 
   # ─────────────────────────────────────────────
+  # Arrmate — data permission fix (runs once at startup)
+  #
+  # Ensures /data files are owned by the arrmate user before the app starts.
+  # This covers upgrades from pre-v2.0.0 images that ran as root and left
+  # data files (users.db, services.json, etc.) with root ownership.
+  # ─────────────────────────────────────────────
+  arrmate-init:
+    image: techbutton/arrmate:latest
+    pull_policy: always
+    volumes:
+      - arrmate-data:/data
+    entrypoint: ["/bin/sh", "-c", "chown -R arrmate:arrmate /data && echo 'arrmate: /data ownership verified'"]
+    user: root
+    restart: "no"
+    networks:
+      - arrmate-net
+
+  # ─────────────────────────────────────────────
   # Arrmate (Docker Hub image)
   # ─────────────────────────────────────────────
   arrmate:
@@ -99,6 +117,8 @@ services:
       # If using Traefik, also add the Traefik network:
       # - traefik
     depends_on:
+      arrmate-init:
+        condition: service_completed_successfully
       ollama:
         condition: service_started
     healthcheck:
