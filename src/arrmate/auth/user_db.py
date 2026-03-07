@@ -138,6 +138,8 @@ def init_db() -> None:
             "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN plex_id TEXT",
             "ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'",
+            "ALTER TABLE media_requests ADD COLUMN notified_queued INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE media_requests ADD COLUMN notified_imported INTEGER NOT NULL DEFAULT 0",
         ]:
             try:
                 conn.execute(_migration_sql)
@@ -456,6 +458,45 @@ def delete_invite(token: str) -> bool:
 
 
 # ===== Media Requests =====
+
+def get_trackable_requests() -> list[dict]:
+    """Return open requests that haven't been fully notified yet."""
+    try:
+        _ensure_db()
+        with _get_conn() as conn:
+            rows = conn.execute(
+                """SELECT * FROM media_requests
+                   WHERE status NOT IN ('rejected')
+                     AND notified_imported = 0
+                   ORDER BY created_at DESC"""
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+def mark_request_queued(req_id: str) -> bool:
+    """Set notified_queued=1 for a request. Returns True if updated."""
+    with _get_conn() as conn:
+        cursor = conn.execute(
+            "UPDATE media_requests SET notified_queued = 1 WHERE id = ?", (req_id,)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def mark_request_imported(req_id: str) -> bool:
+    """Set notified_imported=1, status=completed, resolved_at=now. Returns True if updated."""
+    with _get_conn() as conn:
+        cursor = conn.execute(
+            """UPDATE media_requests
+               SET notified_imported = 1, status = 'completed', resolved_at = ?
+               WHERE id = ?""",
+            (_now(), req_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
 
 def create_request(
     request_type: str,

@@ -123,6 +123,11 @@ async def startup_event() -> None:
     engine = IntentEngine()
     executor = Executor()
 
+    # Start background download tracker (polls Sonarr/Radarr every 5 min)
+    import asyncio as _asyncio
+    from ...core.download_tracker import run_tracker
+    _asyncio.create_task(run_tracker())
+
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
