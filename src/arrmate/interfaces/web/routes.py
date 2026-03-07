@@ -359,8 +359,8 @@ async def register_submit(
     # Validate input
     if len(username.strip()) < 1:
         error = "Username is required"
-    elif len(password) < 4:
-        error = "Password must be at least 4 characters"
+    elif len(password) < 8:
+        error = "Password must be at least 8 characters"
     elif password != password_confirm:
         error = "Passwords do not match"
     else:
@@ -882,8 +882,8 @@ async def auth_set(
     error = None
     if len(username.strip()) < 1:
         error = "Username is required"
-    elif len(password) < 4:
-        error = "Password must be at least 4 characters"
+    elif len(password) < 8:
+        error = "Password must be at least 8 characters"
     elif password != password_confirm:
         error = "Passwords do not match"
 
