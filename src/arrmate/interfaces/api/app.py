@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from ...auth.dependencies import AuthRedirectException, get_api_user
 from ...auth import user_db
+from ...auth.rate_limit import login_limiter
 from ...clients.discovery import discover_services
 from ...config.service_config import apply_saved_config
 from ...config.settings import settings
@@ -145,12 +146,21 @@ async def health() -> Dict[str, str]:
 # ── Auth endpoints ────────────────────────────────────────────────────────────
 
 @app.post("/api/v1/auth/token", response_model=TokenLoginResponse, tags=["auth"])
-async def login_for_token(req: TokenLoginRequest) -> TokenLoginResponse:
+async def login_for_token(req: TokenLoginRequest, request: Request) -> TokenLoginResponse:
     """Exchange username + password for a long-lived API Bearer token.
 
     The token is shown **only once** in the response — store it securely.
     Subsequent requests must include `Authorization: Bearer <token>`.
     """
+    allowed, retry_after = await login_limiter.check(login_limiter._get_client_ip(request))
+    if not allowed:
+        from fastapi.responses import Response as _Response
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     db_user = user_db.verify_user(req.username, req.password)
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid username or password")

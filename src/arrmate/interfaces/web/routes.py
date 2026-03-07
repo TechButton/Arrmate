@@ -20,6 +20,7 @@ from ...auth.dependencies import (
     safe_next_url,
 )
 from ...auth.notifications import notify_request_resolved, notify_request_submitted
+from ...auth.rate_limit import login_limiter
 from ...auth.session import (
     clear_session_cookie,
     create_session_token,
@@ -193,6 +194,15 @@ async def login_submit(
     next: str = Form(default="/web/"),
 ):
     """Process login form submission."""
+    allowed, retry_after = await login_limiter.check(login_limiter._get_client_ip(request))
+    if not allowed:
+        from fastapi.responses import Response as _Response
+        return _Response(
+            content="Too many login attempts. Please try again later.",
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
+
     # Try new multi-user DB first
     user = None
     try:
