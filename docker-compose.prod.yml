@@ -127,8 +127,10 @@ services:
     image: ollama/ollama:latest
     container_name: arrmate-ollama
     restart: unless-stopped
-    ports:
-      - "11434:11434"
+    # Port 11434 is reachable within the stack network via http://ollama:11434.
+    # No host binding needed -- uncomment only if external access is required.
+    # ports:
+    #   - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
     networks:
