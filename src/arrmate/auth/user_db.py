@@ -161,7 +161,7 @@ def _create_default_admin() -> None:
                 (_new_id(), password_hash, _now()),
             )
             conn.commit()
-        logger.info("Created default admin account (username: admin, password: changeme123)")
+        logger.info("Created default admin account (username: admin) — change password on first login")
     except Exception as e:
         logger.warning("Failed to create default admin: %s", e)
 
