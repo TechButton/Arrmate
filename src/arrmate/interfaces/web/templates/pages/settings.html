@@ -314,6 +314,27 @@
 
     <!-- Notifications Tab -->
     <div x-show="tab === 'notifications'" x-cloak>
+        <div class="card mb-4">
+            <h2 class="text-xl font-bold text-white mb-1">General</h2>
+            <p class="text-sm text-gray-400 mb-4">
+                Core application settings.
+            </p>
+            <form hx-post="/web/settings/services"
+                  hx-target="#settings-toast"
+                  hx-swap="innerHTML"
+                  class="space-y-4">
+                <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-200 mb-3">🌐 Application URL</h3>
+                    <div class="space-y-3">
+                        {{ field("Arrmate Base URL", "arrmate_base_url", settings.arrmate_base_url,
+                                 "https://arrmate.example.com",
+                                 help="Public HTTPS URL of this instance. Required when running behind a reverse proxy (Traefik, nginx, etc.) for Plex SSO to work correctly.") }}
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Save General Settings</button>
+            </form>
+        </div>
+
         <div class="card">
             <h2 class="text-xl font-bold text-white mb-1">Notification Webhooks</h2>
             <p class="text-sm text-gray-400 mb-4">

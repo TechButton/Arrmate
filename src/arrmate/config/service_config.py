@@ -47,6 +47,8 @@ CONFIGURABLE_FIELDS: set[str] = {
     # Notification webhooks
     "slack_webhook_url",
     "discord_webhook_url",
+    # General
+    "arrmate_base_url",
     # Plex SSO
     "plex_sso_enabled",
     "plex_sso_default_role",
