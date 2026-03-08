@@ -324,6 +324,10 @@ async def plex_sso_start(
         base = f"{proto}://{host}"
     callback_url = f"{base}/web/auth/plex/callback"
     plex_url = build_plex_auth_url(client_id, pin_code, callback_url)
+    logger.info(
+        "Plex SSO start: arrmate_base_url=%r base=%r callback_url=%r plex_url=%r",
+        _settings.arrmate_base_url, base, callback_url, plex_url,
+    )
 
     response = RedirectResponse(url=plex_url, status_code=302)
     set_plex_state_cookie(response, pin_id, next_url, secret_key)
