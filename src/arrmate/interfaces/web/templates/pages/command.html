@@ -23,7 +23,7 @@
                     x-ref="textarea"
                     rows="4"
                     class="w-full px-4 py-3 pr-14 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500 resize-none"
-                    placeholder="Example: remove episode 1 of Angel season 1&#10;Example: add Breaking Bad to my library&#10;Example: convert all my movies to H265"
+                    placeholder="{% if current_user.role in ('admin', 'power_user') %}Example: remove episode 1 of Angel season 1&#10;{% endif %}Example: add Breaking Bad to my library&#10;Example: what's playing on Plex"
                     style="min-height: 120px;"
                 ></textarea>
 
@@ -87,16 +87,17 @@
     <div class="card mt-8">
         <h2 class="text-lg font-semibold text-white mb-4">Example Commands</h2>
         <div class="grid sm:grid-cols-2 gap-3">
-            {% for cmd, desc in [
-                ("list my TV shows", "View all TV shows in your library"),
-                ("remove episode 1 of Angel season 1", "Delete a specific episode"),
-                ("add Breaking Bad to my library", "Add a new TV show"),
-                ("search for 4K version of Blade Runner", "Find high-quality versions"),
-                ("convert all my movies to H265", "Save space with H.265 encoding"),
-                ("transcode Breaking Bad to HEVC", "Transcode a specific show"),
-                ("download missing subtitles for The Wire", "Get subtitles via Bazarr"),
-                ("what's playing on Plex", "See active Plex streams"),
+            {% set _examples = [
+                ("list my TV shows", "View all TV shows in your library", true),
+                ("remove episode 1 of Angel season 1", "Delete a specific episode", false),
+                ("add Breaking Bad to my library", "Add a new TV show", true),
+                ("search for 4K version of Blade Runner", "Find high-quality versions", true),
+                ("convert all my movies to H265", "Save space with H.265 encoding", false),
+                ("transcode Breaking Bad to HEVC", "Transcode a specific show", false),
+                ("download missing subtitles for The Wire", "Get subtitles via Bazarr", true),
+                ("what's playing on Plex", "See active Plex streams", true),
             ] %}
+            {% for cmd, desc, _all_roles in _examples if _all_roles or current_user.role in ('admin', 'power_user') %}
             <div class="p-3 bg-gray-800 rounded-lg border border-gray-700 cursor-pointer hover:border-primary-500/50 transition-colors"
                  onclick="document.getElementById('command-input').value = '{{ cmd }}'">
                 <code class="text-sm text-gray-200">{{ cmd }}</code>
