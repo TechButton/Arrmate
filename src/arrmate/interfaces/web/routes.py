@@ -2181,10 +2181,13 @@ async def plex_page(request: Request):
             accounts = [
                 {
                     "id": a.get("id"),
-                    "title": a.get("title") or a.get("name") or f"User {a.get('id', '')}",
+                    "title": (
+                        a.get("title") or a.get("name")
+                        or ("Main User" if a.get("id") == 1 else f"User {a.get('id', '')}")
+                    ),
                 }
                 for a in raw_accounts
-                if a.get("id") is not None
+                if a.get("id") not in (None, 0)  # exclude system account 0
             ]
         except Exception:
             pass
@@ -2208,6 +2211,18 @@ async def plex_page(request: Request):
             pass
         finally:
             await tv.close()
+
+    # For regular users: find their Plex accountID so we can lock history to them.
+    # Match by username — the username stored in our DB matches the Plex account name.
+    current_user = get_current_user(request)
+    viewer_account_id: int | None = None
+    if current_user and current_user.get("role") == "user":
+        username_lower = (current_user.get("username") or "").lower()
+        for acct in accounts:
+            if (acct.get("title") or "").lower() == username_lower:
+                viewer_account_id = acct["id"]
+                break
+
     return templates.TemplateResponse(
         "pages/plex.html",
         {
@@ -2217,6 +2232,7 @@ async def plex_page(request: Request):
             "accounts": accounts,
             "home_users": home_users,
             "butler_tasks": BUTLER_TASKS,
+            "viewer_account_id": viewer_account_id,
         },
     )
 
@@ -2259,13 +2275,43 @@ async def plex_history(
     # Fetch more items when a short window is selected so we don't miss entries
     fetch_limit = 500 if days > 0 else 200
 
+    # Regular users can only see their own history — enforce server-side.
+    current_user = get_current_user(request)
+    if current_user and current_user.get("role") == "user":
+        account_id = 0  # will be overridden below after accounts are fetched
+
     items = []
     error = None
     plex = _plex_client()
     if plex:
         try:
+            # Build account_id → display name map so history rows show real usernames.
+            # Account ID 1 is always the server owner; Plex may return it with no title.
+            raw_accounts = await plex.get_accounts()
+            account_name_map: dict[int, str] = {}
+            for acct in raw_accounts:
+                acct_id = acct.get("id", 0)
+                acct_name = acct.get("title") or acct.get("name") or ""
+                if acct_id == 1 and not acct_name:
+                    acct_name = "Main User"
+                if acct_name:
+                    account_name_map[acct_id] = acct_name
+            # Ensure account 1 always has a label
+            account_name_map.setdefault(1, "Main User")
+
+            # For regular users, lock history to their own Plex account.
+            if current_user and current_user.get("role") == "user":
+                username_lower = (current_user.get("username") or "").lower()
+                for acct_id, acct_name in account_name_map.items():
+                    if acct_name.lower() == username_lower:
+                        account_id = acct_id
+                        break
+                # If no match found, use a sentinel that will return no results
+                if account_id == 0:
+                    account_id = -1
+
             raw = await plex.get_history(
-                account_id=account_id if account_id else None,
+                account_id=account_id if account_id > 0 else None,
                 limit=fetch_limit,
                 min_date=cutoff if cutoff else None,
             )
@@ -2290,11 +2336,9 @@ async def plex_history(
                 if not title:
                     continue
                 thumb = _plex_thumb_url(item.get("thumb", "")) if item.get("thumb") else None
-                user_info = item.get("User") or item.get("Account") or {}
-                user_name = (
-                    (user_info.get("title") or user_info.get("name") or "")
-                    if isinstance(user_info, dict) else ""
-                )
+                # History items expose accountID as a plain int field, not a nested dict.
+                item_account_id = item.get("accountID") or 0
+                user_name = account_name_map.get(item_account_id, "")
                 items.append({
                     "title": title,
                     "subtitle": subtitle,

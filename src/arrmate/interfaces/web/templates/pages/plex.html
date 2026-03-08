@@ -123,13 +123,14 @@
 
         <!-- Watch History -->
         <div x-show="tab === 'history'" x-cloak>
-            <div class="card mb-4" x-data="{ accountId: 0, days: 7 }">
+            <div class="card mb-4" x-data="{ accountId: {{ viewer_account_id or 0 }}, days: 7 }">
                 <!-- Hidden inputs picked up by hx-include -->
                 <input type="hidden" name="account_id" :value="accountId">
                 <input type="hidden" name="days" :value="days">
 
                 <div class="flex flex-wrap gap-4 items-end">
-                    <!-- User filter -->
+                    <!-- User filter: only admins/power_users can switch users -->
+                    {% if current_user.role in ('admin', 'power_user') %}
                     <div>
                         <label class="block text-xs text-gray-400 mb-1">User</label>
                         <select x-model="accountId"
@@ -141,6 +142,7 @@
                             {% endfor %}
                         </select>
                     </div>
+                    {% endif %}
 
                     <!-- Timeframe pills -->
                     <div>
