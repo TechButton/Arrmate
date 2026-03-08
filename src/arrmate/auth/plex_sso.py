@@ -27,6 +27,8 @@ from fastapi import Request
 from fastapi.responses import Response
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+from .session import _COOKIE_SECURE
+
 
 PLEX_TV_API = "https://plex.tv/api/v2"
 PLEX_APP_AUTH = "https://app.plex.tv/auth"
@@ -153,7 +155,7 @@ def set_plex_state_cookie(
         max_age=PLEX_STATE_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=True,
+        secure=_COOKIE_SECURE,
     )
 
 

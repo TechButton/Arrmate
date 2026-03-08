@@ -12,6 +12,6 @@
             {% endif %}
         </span>
         <p class="flex-1">{{ toast_message if toast_message is defined and toast_message else message }}</p>
-        <button class="text-white hover:text-gray-200 flex-shrink-0" @click.stop="show = false; $nextTick(() => $el.parentElement.remove())">✕</button>
+        <button class="text-white hover:text-gray-200 flex-shrink-0" @click.stop="show = false; $nextTick(() => $root.remove())">✕</button>
     </div>
 </div>
