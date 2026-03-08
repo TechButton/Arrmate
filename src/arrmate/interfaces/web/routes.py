@@ -310,8 +310,18 @@ async def plex_sso_start(
         )
 
     # Build the callback URL.  Use ARRMATE_BASE_URL when set (e.g. behind a reverse
-    # proxy); otherwise fall back to the Host from this request.
-    base = (_settings.arrmate_base_url or str(request.base_url)).rstrip("/")
+    # proxy); otherwise respect X-Forwarded-Proto/Host headers (Traefik, nginx, etc.)
+    # so the URL is always https:// even when TLS is terminated at the proxy layer.
+    if _settings.arrmate_base_url:
+        base = _settings.arrmate_base_url.rstrip("/")
+    else:
+        proto = request.headers.get("X-Forwarded-Proto") or request.url.scheme
+        host = (
+            request.headers.get("X-Forwarded-Host")
+            or request.headers.get("Host")
+            or request.url.netloc
+        )
+        base = f"{proto}://{host}"
     callback_url = f"{base}/web/auth/plex/callback"
     plex_url = build_plex_auth_url(client_id, pin_code, callback_url)
 
