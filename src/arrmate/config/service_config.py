@@ -47,6 +47,11 @@ CONFIGURABLE_FIELDS: set[str] = {
     # Notification webhooks
     "slack_webhook_url",
     "discord_webhook_url",
+    # Plex SSO
+    "plex_sso_enabled",
+    "plex_sso_default_role",
+    "plex_sso_require_approval",
+    "plex_sso_verify_plex_friends",
 }
 
 
@@ -94,19 +99,38 @@ def save_service_config(updates: dict[str, Any]) -> None:
     path = _config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Bool fields in the set — checkboxes send "on" when checked, absent when unchecked.
+    # We handle them separately so unchecked boxes (missing from form) can be cleared.
+    _BOOL_FIELDS = {"plex_sso_enabled", "plex_sso_require_approval", "plex_sso_verify_plex_friends"}
+
     existing = _load_json()
+
+    # First pass: explicit values from form
     for key, value in updates.items():
         if key not in CONFIGURABLE_FIELDS:
             continue
-        normalized: Any = value.strip() if isinstance(value, str) else value
-        if not normalized:
-            normalized = None
+        if key in _BOOL_FIELDS:
+            normalized: Any = value in ("on", "true", "1", True)
+        else:
+            normalized = value.strip() if isinstance(value, str) else value
+            if not normalized:
+                normalized = None
         existing[key] = normalized
         if hasattr(settings, key):
             try:
                 setattr(settings, key, normalized)
             except Exception:
                 pass
+
+    # Second pass: bool fields absent from form → False (unchecked checkbox)
+    for key in _BOOL_FIELDS:
+        if key in CONFIGURABLE_FIELDS and key not in updates:
+            existing[key] = False
+            if hasattr(settings, key):
+                try:
+                    setattr(settings, key, False)
+                except Exception:
+                    pass
 
     path.write_text(json.dumps(existing, indent=2))
 

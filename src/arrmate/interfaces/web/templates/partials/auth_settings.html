@@ -19,3 +19,48 @@
     </p>
 </div>
 
+<!-- Plex SSO -->
+<div class="border-t border-gray-700 pt-4 mt-4">
+    <h3 class="text-sm font-semibold text-gray-200 mb-1">🔵 Plex Sign-In (SSO)</h3>
+    <p class="text-xs text-gray-500 mb-3">Allow users to sign in with their Plex account.</p>
+    <form hx-post="/web/settings/auth/plex-sso"
+          hx-target="#auth-settings"
+          hx-swap="innerHTML"
+          class="space-y-3">
+        <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="plex_sso_enabled"
+                   {% if settings.plex_sso_enabled %}checked{% endif %}
+                   class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary-500 focus:ring-primary-500">
+            <span class="text-sm text-gray-200">Enable "Sign in with Plex" on the login page</span>
+        </label>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Default role for new Plex users</label>
+            <select name="plex_sso_default_role"
+                    class="w-48 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                <option value="user" {% if settings.plex_sso_default_role == 'user' %}selected{% endif %}>User</option>
+                <option value="power_user" {% if settings.plex_sso_default_role == 'power_user' %}selected{% endif %}>Power User</option>
+            </select>
+        </div>
+        <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="plex_sso_require_approval"
+                   {% if settings.plex_sso_require_approval %}checked{% endif %}
+                   class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary-500 focus:ring-primary-500">
+            <span class="text-sm text-gray-200">Require admin approval for new accounts
+                <span class="block text-xs text-gray-500 font-normal">New Plex users are created disabled until an admin enables them.</span>
+            </span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="plex_sso_verify_plex_friends"
+                   {% if settings.plex_sso_verify_plex_friends %}checked{% endif %}
+                   class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary-500 focus:ring-primary-500">
+            <span class="text-sm text-gray-200">Auto-approve Plex friends
+                <span class="block text-xs text-gray-500 font-normal">Skip approval for users who are already shared on your Plex server.</span>
+            </span>
+        </label>
+        <button type="submit"
+                class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors">
+            Save Plex SSO Settings
+        </button>
+    </form>
+</div>
+

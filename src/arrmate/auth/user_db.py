@@ -340,11 +340,14 @@ def create_plex_user(
     username: str,
     email: str | None,
     role: str = "user",
+    enabled: bool = True,
 ) -> dict | None:
     """Create a user whose identity comes from Plex (no local password).
 
     Uses a sentinel password hash ("!plex") that bcrypt will never produce,
     so these accounts are unreachable via the normal password login path.
+
+    Pass enabled=False to create a pending-approval account.
 
     Returns the user dict or None if the username is already taken.
     """
@@ -360,8 +363,9 @@ def create_plex_user(
                 """INSERT INTO users
                    (id, username, email, password_hash, role, enabled, created_at,
                     plex_id, auth_provider)
-                   VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'plex')""",
-                (user_id, username, email, placeholder_hash, role, _now(), plex_id),
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'plex')""",
+                (user_id, username, email, placeholder_hash, role,
+                 1 if enabled else 0, _now(), plex_id),
             )
             conn.commit()
         return get_user_by_id(user_id)

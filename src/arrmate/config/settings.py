@@ -185,6 +185,21 @@ class Settings(BaseSettings):
             "Set via env var as a comma-separated list: PLEX_SSO_ALLOWED_EMAILS=a@b.com,c@d.com"
         ),
     )
+    plex_sso_require_approval: bool = Field(
+        default=False,
+        description=(
+            "When True, new Plex SSO accounts are created disabled and require "
+            "an admin to enable them in the Admin Panel before they can sign in."
+        ),
+    )
+    plex_sso_verify_plex_friends: bool = Field(
+        default=False,
+        description=(
+            "When True, new Plex SSO users are auto-approved if they are already "
+            "a friend or shared user on your Plex server (bypasses require_approval "
+            "for known Plex users). Requires PLEX_TOKEN to be configured."
+        ),
+    )
     arrmate_base_url: Optional[str] = Field(
         default=None,
         description=(

@@ -352,6 +352,44 @@
                        class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
             </div>
 
+            <!-- Plex SSO -->
+            <div class="mb-4 p-4 bg-gray-700/40 rounded-lg border border-gray-600/50">
+                <h3 class="text-sm font-semibold text-gray-200 mb-1">🔵 Plex Sign-In (SSO)</h3>
+                <p class="text-xs text-gray-500 mb-3">Let users sign in with their Plex account instead of a local password.</p>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" name="plex_sso_enabled"
+                               {% if cfg.get('plex_sso_enabled') %}checked{% endif %}
+                               class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary-500 focus:ring-primary-500">
+                        <span class="text-sm text-gray-200">Enable "Sign in with Plex" on the login page</span>
+                    </label>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Default role for new Plex users</label>
+                        <select name="plex_sso_default_role"
+                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                            <option value="user" {% if cfg.get('plex_sso_default_role', 'user') == 'user' %}selected{% endif %}>User (browse + request)</option>
+                            <option value="power_user" {% if cfg.get('plex_sso_default_role') == 'power_user' %}selected{% endif %}>Power User (execute commands)</option>
+                        </select>
+                    </div>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" name="plex_sso_require_approval"
+                               {% if cfg.get('plex_sso_require_approval') %}checked{% endif %}
+                               class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary-500 focus:ring-primary-500">
+                        <span class="text-sm text-gray-200">Require admin approval for new accounts
+                            <span class="block text-xs text-gray-500 font-normal">New Plex users are created disabled — an admin must enable them in the Admin Panel.</span>
+                        </span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" name="plex_sso_verify_plex_friends"
+                               {% if cfg.get('plex_sso_verify_plex_friends') %}checked{% endif %}
+                               class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary-500 focus:ring-primary-500">
+                        <span class="text-sm text-gray-200">Auto-approve Plex friends
+                            <span class="block text-xs text-gray-500 font-normal">If "require approval" is on, skip approval for users who are already friends/shared users on your Plex server. Requires Plex URL + Token configured above.</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
             <!-- Notifications -->
             <div class="mb-5 p-4 bg-gray-700/40 rounded-lg border border-gray-600/50">
                 <h3 class="text-sm font-semibold text-gray-200 mb-3">🔔 Notifications</h3>

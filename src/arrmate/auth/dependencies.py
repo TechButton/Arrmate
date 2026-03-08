@@ -71,12 +71,25 @@ async def require_any_auth(request: Request) -> None:
                 pass
         return
 
-    next_url = str(request.url.path)
-    if request.url.query:
-        next_url += f"?{request.url.query}"
+    is_htmx = bool(request.headers.get("HX-Request"))
+    if is_htmx:
+        # Use HX-Current-URL (the real page the user is on) so post-login
+        # redirect lands back on the full page, not the partial endpoint.
+        current_url = request.headers.get("HX-Current-URL", "")
+        if current_url:
+            from urllib.parse import urlparse as _parse
+            parsed = _parse(current_url)
+            next_url = parsed.path
+            if parsed.query:
+                next_url += f"?{parsed.query}"
+        else:
+            next_url = str(request.url.path)
+    else:
+        next_url = str(request.url.path)
+        if request.url.query:
+            next_url += f"?{request.url.query}"
 
     login_url = f"/web/login?next={next_url}"
-    is_htmx = bool(request.headers.get("HX-Request"))
     raise AuthRedirectException(login_url, is_htmx=is_htmx)
 
 
@@ -90,9 +103,18 @@ async def require_admin(request: Request) -> None:
     """Redirect to login if not authenticated; 403 if not admin."""
     user = get_current_user(request)
     if not user:
-        next_url = str(request.url.path)
-        login_url = f"/web/login?next={next_url}"
         is_htmx = bool(request.headers.get("HX-Request"))
+        if is_htmx:
+            current_url = request.headers.get("HX-Current-URL", "")
+            if current_url:
+                from urllib.parse import urlparse as _parse
+                parsed = _parse(current_url)
+                next_url = parsed.path
+            else:
+                next_url = str(request.url.path)
+        else:
+            next_url = str(request.url.path)
+        login_url = f"/web/login?next={next_url}"
         raise AuthRedirectException(login_url, is_htmx=is_htmx)
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -102,9 +124,18 @@ async def require_power_user(request: Request) -> None:
     """Redirect to login if not authenticated; 403 if not admin or power_user."""
     user = get_current_user(request)
     if not user:
-        next_url = str(request.url.path)
-        login_url = f"/web/login?next={next_url}"
         is_htmx = bool(request.headers.get("HX-Request"))
+        if is_htmx:
+            current_url = request.headers.get("HX-Current-URL", "")
+            if current_url:
+                from urllib.parse import urlparse as _parse
+                parsed = _parse(current_url)
+                next_url = parsed.path
+            else:
+                next_url = str(request.url.path)
+        else:
+            next_url = str(request.url.path)
+        login_url = f"/web/login?next={next_url}"
         raise AuthRedirectException(login_url, is_htmx=is_htmx)
     if user.get("role") not in ("admin", "power_user"):
         raise HTTPException(status_code=403, detail="Power user or admin access required")

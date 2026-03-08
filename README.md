@@ -288,6 +288,21 @@ You can also configure all of this through the **Settings → AI / LLM tab** in 
 
 ## What's New
 
+### v2.1.0 — Plex SSO Improvements & Bug Fixes
+
+#### Plex Sign-In (SSO)
+
+- **Plex SSO configurable from the UI** — Enable/disable "Sign in with Plex" and set all SSO options directly from the Setup Wizard (Extras step) or Settings → Auth, without needing to edit environment variables or restart.
+- **Require admin approval for new Plex accounts** — New `Require admin approval` option creates new Plex users as disabled. They see a "pending approval" message and cannot access Arrmate until an admin enables their account in the Admin Panel. Admins receive an in-app notification when a new user registers.
+- **Auto-approve Plex friends** — New `Auto-approve Plex friends` option: when approval is required, users who are already friends/shared users on your Plex Media Server are automatically approved on first sign-in (matched by Plex UUID via the plex.tv API). Requires Plex URL + Token to be configured.
+
+#### Bug Fixes
+
+- **White page after session expiry on Plex page** — When a session expired while the Plex "now playing" strip was polling (every 30s), HTMX would redirect to `/web/login?next=/web/plex/nowplaying` — a partial HTML endpoint. After login, the user landed on the raw fragment, causing a blank page. Fixed by using the `HX-Current-URL` header (the real page the user was viewing) instead of the partial path when building the post-login redirect.
+- **Post-login redirect now uses the actual page URL** — All auth dependencies (`require_auth`, `require_admin`, `require_power_user`) now use `HX-Current-URL` for HTMX-triggered redirects, preventing partial endpoints from polluting the `next` URL.
+
+---
+
 ### v2.0.7 — Setup Wizard Fixes & Security Hardening
 
 #### Setup Wizard

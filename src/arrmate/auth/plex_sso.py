@@ -182,3 +182,31 @@ def get_plex_state(
 def clear_plex_state_cookie(response: Response) -> None:
     """Delete the Plex state cookie from the response."""
     response.delete_cookie(PLEX_STATE_COOKIE, samesite="lax")
+
+
+# ── Plex friends / shared users ──────────────────────────────────────────────
+
+async def get_plex_friend_uuids(server_token: str, client_id: str) -> set[str]:
+    """Fetch the UUIDs of all Plex friends/shared users for the server's owner.
+
+    Uses the plex.tv API with the server admin token to list people who have
+    been granted access to the server.  Returns a set of UUID strings (may be
+    empty on error or if the server has no friends).
+    """
+    headers = {
+        **_PLEX_HEADERS,
+        "X-Plex-Token": server_token,
+        "X-Plex-Client-Identifier": client_id,
+    }
+    uuids: set[str] = set()
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{PLEX_TV_API}/friends", headers=headers)
+            if resp.status_code == 200:
+                for friend in resp.json():
+                    uid = friend.get("uuid") or friend.get("id")
+                    if uid:
+                        uuids.add(str(uid))
+    except Exception:
+        pass  # Non-fatal — caller decides what to do with an empty set
+    return uuids

@@ -24,6 +24,7 @@ from ...auth.notifications import notify_request_resolved, notify_request_submit
 from ...auth.plex_sso import (
     build_plex_auth_url,
     clear_plex_state_cookie,
+    get_plex_friend_uuids,
     get_plex_state,
     get_plex_user,
     plex_client_id,
@@ -386,11 +387,33 @@ async def plex_sso_callback(request: Request):
     db_user = user_db.get_user_by_plex_id(str(plex_uuid))
     if not db_user:
         role = _settings.plex_sso_default_role
+
+        # Determine whether the new account should start enabled.
+        # A user is auto-approved if:
+        #   • require_approval is off, OR
+        #   • verify_plex_friends is on AND they appear in the server's friends list.
+        new_enabled = True
+        if _settings.plex_sso_require_approval:
+            new_enabled = False
+            if _settings.plex_sso_verify_plex_friends and _settings.plex_token:
+                try:
+                    friend_uuids = await get_plex_friend_uuids(
+                        _settings.plex_token, client_id
+                    )
+                    if str(plex_uuid) in friend_uuids:
+                        new_enabled = True
+                        logger.info(
+                            "Plex SSO: auto-approved %s (Plex friend)", plex_username
+                        )
+                except Exception:
+                    logger.exception("Plex SSO: could not fetch Plex friends list")
+
         db_user = user_db.create_plex_user(
             plex_id=str(plex_uuid),
             username=plex_username,
             email=plex_email or None,
             role=role,
+            enabled=new_enabled,
         )
         if not db_user:
             # Username already taken by a local account — add a suffix and retry once
@@ -399,7 +422,24 @@ async def plex_sso_callback(request: Request):
                 username=f"{plex_username}_plex",
                 email=plex_email or None,
                 role=role,
+                enabled=new_enabled,
             )
+
+        # Notify all admins about the new registration
+        if db_user:
+            admin_ids = user_db.get_admin_and_power_user_ids()
+            status_label = "pending approval" if not new_enabled else "auto-approved"
+            for admin_id in admin_ids:
+                user_db.create_notification(
+                    user_id=admin_id,
+                    message=(
+                        f"New Plex sign-in: '{plex_username}' registered via Plex SSO "
+                        f"({status_label}). Enable their account in the Admin Panel."
+                        if not new_enabled else
+                        f"New Plex sign-in: '{plex_username}' registered and signed in via Plex SSO."
+                    ),
+                    type="info",
+                )
 
     if not db_user:
         logger.error("Plex SSO: could not create/find user for plex_uuid=%s", plex_uuid)
@@ -409,7 +449,8 @@ async def plex_sso_callback(request: Request):
 
     if not db_user.get("enabled"):
         return _login_error(
-            "Your account has been disabled. Please contact your administrator."
+            "Your account is pending admin approval. "
+            "Please contact your administrator to enable your access."
         )
 
     # Issue a normal arrmate session and send the user to their destination
@@ -1286,6 +1327,29 @@ async def auth_delete(request: Request):
     )
     clear_session_cookie(response)
     return response
+
+
+@router.post("/settings/auth/plex-sso", response_class=HTMLResponse,
+             dependencies=[Depends(require_admin)])
+async def save_plex_sso_settings(request: Request):
+    """Save Plex SSO configuration from the Auth settings panel."""
+    from ...config.service_config import save_service_config
+    form = await request.form()
+    save_service_config({
+        "plex_sso_enabled": form.get("plex_sso_enabled", ""),
+        "plex_sso_default_role": str(form.get("plex_sso_default_role", "user")),
+        "plex_sso_require_approval": form.get("plex_sso_require_approval", ""),
+        "plex_sso_verify_plex_friends": form.get("plex_sso_verify_plex_friends", ""),
+    })
+    return templates.TemplateResponse(
+        "partials/auth_settings.html",
+        {
+            "request": request,
+            "settings": settings,
+            "auth_success": "Plex SSO settings saved.",
+            **_base_ctx(request),
+        },
+    )
 
 
 # ===== Service Settings =====
