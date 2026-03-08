@@ -130,8 +130,9 @@ def build_plex_auth_url(client_id: str, code: str, forward_url: str) -> str:
         "forwardUrl": forward_url,
         "context[device][product]": "Arrmate",
     })
-    # Plex auth uses a fragment (hash) URL, not a query string
-    return f"{PLEX_APP_AUTH}#{params}"
+    # Plex auth uses a fragment (hash) URL — note the '#?' prefix which Plex's
+    # JS expects when parsing the fragment as a query string.
+    return f"{PLEX_APP_AUTH}#?{params}"
 
 
 # ── State cookie ─────────────────────────────────────────────────────────────
