@@ -56,6 +56,16 @@ class ReadMeABookClient(BaseExternalService):
         except Exception:
             return False
 
+    async def get_stats(self) -> Dict[str, Any]:
+        """Get ReadMeABook library statistics."""
+        try:
+            data = await self._get("api/stats")
+            if isinstance(data, dict):
+                return data
+            return {}
+        except Exception:
+            return {}
+
     async def get_version(self) -> Optional[str]:
         """Get application version."""
         try:
