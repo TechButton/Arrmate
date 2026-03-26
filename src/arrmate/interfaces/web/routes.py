@@ -189,9 +189,9 @@ async def login_page(
 
     from ...config.settings import settings as _settings
     return templates.TemplateResponse(
+        request,
         "pages/login.html",
         {
-            "request": request,
             "next": safe_next_url(next),
             "error": error,
             "show_default_creds": show_default_creds,
@@ -248,9 +248,9 @@ async def login_submit(
 
     from ...config.settings import settings as _settings
     return templates.TemplateResponse(
+        request,
         "pages/login.html",
         {
-            "request": request,
             "next": safe_next_url(next),
             "error": "Invalid username or password",
             "show_default_creds": False,
@@ -284,9 +284,9 @@ async def plex_sso_start(
     allowed, retry_after = await login_limiter.check(login_limiter._get_client_ip(request))
     if not allowed:
         return templates.TemplateResponse(
+            request,
             "pages/login.html",
             {
-                "request": request,
                 "next": safe_next_url(next),
                 "error": "Too many login attempts. Please try again later.",
                 "show_default_creds": False,
@@ -484,8 +484,9 @@ async def change_password_page(request: Request):
     if not user:
         return RedirectResponse(url="/web/login", status_code=303)
     return templates.TemplateResponse(
+        request,
         "pages/change_password.html",
-        {"request": request, "error": None, **_base_ctx(request)},
+        {"error": None, **_base_ctx(request)},
     )
 
 
@@ -503,8 +504,9 @@ async def change_password_submit(
 
     def _error(msg: str):
         return templates.TemplateResponse(
+            request,
             "pages/change_password.html",
-            {"request": request, "error": msg, **_base_ctx(request)},
+            {"error": msg, **_base_ctx(request)},
             status_code=422,
         )
 
@@ -549,9 +551,9 @@ async def register_page(
     if no_users:
         # First-admin setup — no token required
         return templates.TemplateResponse(
+            request,
             "pages/register.html",
             {
-                "request": request,
                 "token": "",
                 "is_first_admin": True,
                 "invite_role": "admin",
@@ -565,9 +567,9 @@ async def register_page(
     invite = user_db.validate_invite(token)
     if not invite:
         return templates.TemplateResponse(
+            request,
             "pages/register.html",
             {
-                "request": request,
                 "token": token,
                 "is_first_admin": False,
                 "invite_role": None,
@@ -576,9 +578,9 @@ async def register_page(
         )
 
     return templates.TemplateResponse(
+        request,
         "pages/register.html",
         {
-            "request": request,
             "token": token,
             "is_first_admin": False,
             "invite_role": invite["role"],
@@ -613,9 +615,9 @@ async def register_submit(
             no_users = False
         invite = user_db.validate_invite(token) if token else None
         return templates.TemplateResponse(
+            request,
             "pages/register.html",
             {
-                "request": request,
                 "token": token,
                 "is_first_admin": no_users,
                 "invite_role": invite["role"] if invite else ("admin" if no_users else None),
@@ -644,9 +646,9 @@ async def register_submit(
     except Exception as exc:
         logger.exception("register_submit error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "pages/register.html",
             {
-                "request": request,
                 "token": token,
                 "is_first_admin": no_users,
                 "invite_role": "admin" if no_users else None,
@@ -658,9 +660,9 @@ async def register_submit(
     if not new_user:
         invite = user_db.validate_invite(token) if token else None
         return templates.TemplateResponse(
+            request,
             "pages/register.html",
             {
-                "request": request,
                 "token": token,
                 "is_first_admin": no_users,
                 "invite_role": invite["role"] if invite else ("admin" if no_users else None),
@@ -723,9 +725,9 @@ async def dashboard(request: Request):
     available_count = sum(1 for s in services.values() if s.available)
 
     return templates.TemplateResponse(
+        request,
         "pages/index.html",
         {
-            "request": request,
             **_base_ctx(request),
             "services": services,
             "available_count": available_count,
@@ -740,9 +742,9 @@ async def dashboard(request: Request):
 async def command_page(request: Request):
     """Command input page."""
     return templates.TemplateResponse(
+        request,
         "pages/command.html",
         {
-            "request": request,
             **_base_ctx(request),
         },
     )
@@ -754,9 +756,9 @@ async def services_page(request: Request):
     services = await discover_services()
 
     return templates.TemplateResponse(
+        request,
         "pages/services.html",
         {
-            "request": request,
             **_base_ctx(request),
             "services": services,
         },
@@ -770,9 +772,9 @@ async def library_page(
 ):
     """Library browser page."""
     return templates.TemplateResponse(
+        request,
         "pages/library.html",
         {
-            "request": request,
             **_base_ctx(request),
             "media_type": media_type,
         },
@@ -783,9 +785,9 @@ async def library_page(
 async def search_page(request: Request):
     """Search and add page."""
     return templates.TemplateResponse(
+        request,
         "pages/search.html",
         {
-            "request": request,
             **_base_ctx(request),
         },
     )
@@ -795,9 +797,9 @@ async def search_page(request: Request):
 async def help_page(request: Request):
     """Help and documentation page."""
     return templates.TemplateResponse(
+        request,
         "pages/help.html",
         {
-            "request": request,
             **_base_ctx(request),
             "version": "0.5.0",
         },
@@ -808,9 +810,9 @@ async def help_page(request: Request):
 async def settings_page(request: Request):
     """Settings page — admin only."""
     return templates.TemplateResponse(
+        request,
         "pages/settings.html",
         {
-            "request": request,
             **_base_ctx(request),
             "settings": settings,
         },
@@ -841,9 +843,9 @@ async def setup_wizard(request: Request, step: str = Query(default="welcome")):
     current_cfg = get_service_config()
 
     return templates.TemplateResponse(
+        request,
         "pages/setup_wizard.html",
         {
-            "request": request,
             "step": step,
             "steps": _WIZARD_STEPS,
             "cfg": current_cfg,
@@ -973,9 +975,9 @@ async def admin_page(request: Request):
         req["requester_name"] = user_map.get(req["requested_by"], "Unknown")
 
     return templates.TemplateResponse(
+        request,
         "pages/admin.html",
         {
-            "request": request,
             **_base_ctx(request),
             "users": users,
             "invites": invites,
@@ -999,9 +1001,9 @@ async def admin_create_invite(
 
     invites = user_db.list_invites(include_used=False)
     return templates.TemplateResponse(
+        request,
         "partials/invite_list.html",
         {
-            "request": request,
             "invites": invites,
             "new_invite_url": invite_url,
             "new_invite_role": role,
@@ -1019,8 +1021,9 @@ async def admin_delete_invite(
     user_db.delete_invite(token)
     invites = user_db.list_invites(include_used=False)
     return templates.TemplateResponse(
+        request,
         "partials/invite_list.html",
-        {"request": request, "invites": invites},
+        {"invites": invites},
     )
 
 
@@ -1038,8 +1041,9 @@ async def admin_set_role(
         pass  # Allow — admin can change their own role if they want
     user_db.update_user(user_id, role=role)
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
-        {"request": request, "type": "success", "message": "Role updated"},
+        {"type": "success", "message": "Role updated"},
         headers={"HX-Trigger": "user-updated"},
     )
 
@@ -1056,8 +1060,9 @@ async def admin_toggle_user(
     user_db.update_user(user_id, enabled=1 if new_state else 0)
     label = "enabled" if new_state else "disabled"
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
-        {"request": request, "type": "success", "message": f"User {label}"},
+        {"type": "success", "message": f"User {label}"},
         headers={"HX-Trigger": "user-updated"},
     )
 
@@ -1072,13 +1077,15 @@ async def admin_delete_user(
     current_user = get_current_user(request)
     if current_user and current_user["user_id"] == user_id:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Cannot delete your own account"},
+            {"type": "error", "message": "Cannot delete your own account"},
         )
     user_db.delete_user(user_id)
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
-        {"request": request, "type": "success", "message": "User deleted"},
+        {"type": "success", "message": "User deleted"},
         headers={"HX-Trigger": "user-updated"},
     )
 
@@ -1111,9 +1118,9 @@ async def requests_page(request: Request):
             req["resolver_name"] = None
 
     return templates.TemplateResponse(
+        request,
         "pages/requests.html",
         {
-            "request": request,
             **_base_ctx(request),
             "requests": all_requests,
             "current_user": current_user,
@@ -1147,9 +1154,9 @@ async def new_request(
         logger.warning("Failed to send request notification: %s", e)
 
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
         {
-            "request": request,
             "type": "success",
             "message": f"Request submitted: '{title}'",
         },
@@ -1182,9 +1189,9 @@ async def resolve_request(
             logger.warning("Failed to send resolve notification: %s", e)
 
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
         {
-            "request": request,
             "type": "success",
             "message": f"Request marked as {status}",
         },
@@ -1209,15 +1216,16 @@ async def notifications_panel(request: Request):
     current_user = get_current_user(request)
     if not current_user or current_user.get("user_id") == "legacy":
         return templates.TemplateResponse(
+            request,
             "partials/notifications_panel.html",
-            {"request": request, "notifications": [], "unread_count": 0},
+            {"notifications": [], "unread_count": 0},
         )
     notifications = user_db.get_notifications(current_user["user_id"])
     unread = sum(1 for n in notifications if not n["read"])
     return templates.TemplateResponse(
+        request,
         "partials/notifications_panel.html",
         {
-            "request": request,
             "notifications": notifications,
             "unread_count": unread,
         },
@@ -1235,8 +1243,9 @@ async def notifications_count(request: Request):
         except Exception:
             pass
     return templates.TemplateResponse(
+        request,
         "partials/notification_count.html",
-        {"request": request, "unread_count": unread},
+        {"unread_count": unread},
     )
 
 
@@ -1250,8 +1259,9 @@ async def mark_notifications_read(request: Request):
         except Exception:
             pass
     return templates.TemplateResponse(
+        request,
         "partials/notifications_panel.html",
-        {"request": request, "notifications": [], "unread_count": 0},
+        {"notifications": [], "unread_count": 0},
     )
 
 
@@ -1277,8 +1287,9 @@ async def auth_set(
 
     if error:
         return templates.TemplateResponse(
+            request,
             "partials/auth_settings.html",
-            {"request": request, "auth_error": error},
+            {"auth_error": error},
         )
 
     auth_manager.set_credentials(username.strip(), password)
@@ -1288,8 +1299,9 @@ async def auth_set(
         "legacy", username.strip(), "admin", auth_manager.get_secret_key()
     )
     response = templates.TemplateResponse(
+        request,
         "partials/auth_settings.html",
-        {"request": request, "auth_success": "Authentication enabled"},
+        {"auth_success": "Authentication enabled"},
     )
     set_session_cookie(response, token)
     return response
@@ -1307,15 +1319,17 @@ async def auth_enable(request: Request):
             "legacy", username, "admin", auth_manager.get_secret_key()
         )
         response = templates.TemplateResponse(
+            request,
             "partials/auth_settings.html",
-            {"request": request, "auth_success": "Authentication re-enabled"},
+            {"auth_success": "Authentication re-enabled"},
         )
         set_session_cookie(response, token)
         return response
 
     return templates.TemplateResponse(
+        request,
         "partials/auth_settings.html",
-        {"request": request, "auth_success": "Authentication re-enabled"},
+        {"auth_success": "Authentication re-enabled"},
     )
 
 
@@ -1325,8 +1339,9 @@ async def auth_disable(request: Request):
     """Disable auth without deleting credentials."""
     auth_manager.disable()
     return templates.TemplateResponse(
+        request,
         "partials/auth_settings.html",
-        {"request": request, "auth_success": "Authentication disabled"},
+        {"auth_success": "Authentication disabled"},
     )
 
 
@@ -1336,8 +1351,9 @@ async def auth_delete(request: Request):
     """Delete all credentials."""
     auth_manager.delete()
     response = templates.TemplateResponse(
+        request,
         "partials/auth_settings.html",
-        {"request": request, "auth_success": "Credentials deleted"},
+        {"auth_success": "Credentials deleted"},
     )
     clear_session_cookie(response)
     return response
@@ -1356,9 +1372,9 @@ async def save_plex_sso_settings(request: Request):
         "plex_sso_verify_plex_friends": form.get("plex_sso_verify_plex_friends", ""),
     })
     return templates.TemplateResponse(
+        request,
         "partials/auth_settings.html",
         {
-            "request": request,
             "settings": settings,
             "auth_success": "Plex SSO settings saved.",
             **_base_ctx(request),
@@ -1378,14 +1394,16 @@ async def save_services(request: Request):
         save_service_config({k: v for k, v in form.multi_items()})
         reset_parser()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "success", "message": "Settings saved"},
+            {"type": "success", "message": "Settings saved"},
         )
     except Exception as e:
         logger.error("Failed to save service config: %s", e)
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": f"Failed to save: {e}"},
+            {"type": "error", "message": f"Failed to save: {e}"},
         )
 
 
@@ -1399,14 +1417,15 @@ async def test_slack_webhook(request: Request):
     from ...auth.notifications import send_slack
     if not settings.slack_webhook_url:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "No Slack webhook configured"},
+            {"type": "error", "message": "No Slack webhook configured"},
         )
     ok = send_slack(settings.slack_webhook_url, "Arrmate test notification", title="Test")
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
         {
-            "request": request,
             "type": "success" if ok else "error",
             "message": "Slack test sent!" if ok else "Slack test failed — check webhook URL",
         },
@@ -1420,14 +1439,15 @@ async def test_discord_webhook(request: Request):
     from ...auth.notifications import send_discord
     if not settings.discord_webhook_url:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "No Discord webhook configured"},
+            {"type": "error", "message": "No Discord webhook configured"},
         )
     ok = send_discord(settings.discord_webhook_url, "Arrmate test notification", title="Test")
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
         {
-            "request": request,
             "type": "success" if ok else "error",
             "message": "Discord test sent!" if ok else "Discord test failed — check webhook URL",
         },
@@ -1445,18 +1465,18 @@ async def parse_command(request: Request, command: str = Form(...)):
         intent = await cmd_parser.parse(command)
 
         return templates.TemplateResponse(
+            request,
             "partials/command_preview.html",
             {
-                "request": request,
                 "intent": intent,
                 "command": command,
             },
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "partials/command_preview.html",
             {
-                "request": request,
                 "error": str(e),
                 "command": command,
             },
@@ -1497,9 +1517,9 @@ async def execute_command(
             # Role-based action restriction: 'user' cannot delete/remove
             if user_role == "user" and enriched.action in _USER_BLOCKED_ACTIONS:
                 return templates.TemplateResponse(
+                    request,
                     "partials/execution_result.html",
                     {
-                        "request": request,
                         "result": {
                             "success": False,
                             "message": "You don't have permission to remove or delete media. "
@@ -1516,9 +1536,9 @@ async def execute_command(
             errors = intent_engine.validate(enriched)
             if errors:
                 return templates.TemplateResponse(
+                    request,
                     "partials/execution_result.html",
                     {
-                        "request": request,
                         "result": {
                             "success": False,
                             "message": "Validation failed",
@@ -1541,9 +1561,9 @@ async def execute_command(
                 else:
                     delete_description = title
                 return templates.TemplateResponse(
+                    request,
                     "partials/delete_confirm.html",
                     {
-                        "request": request,
                         "delete_description": delete_description,
                         "command": command,
                         "mode": mode,
@@ -1555,9 +1575,9 @@ async def execute_command(
             result = await exec_engine.execute(enriched)
 
             return templates.TemplateResponse(
+                request,
                 "partials/execution_result.html",
                 {
-                    "request": request,
                     "result": result,
                     "original_command": command,
                     "show_toast": True,
@@ -1583,9 +1603,9 @@ async def execute_command(
                 friendly = f"Something went wrong: {raw}"
 
             return templates.TemplateResponse(
+                request,
                 "partials/execution_result.html",
                 {
-                    "request": request,
                     "result": {
                         "success": False,
                         "message": friendly,
@@ -1627,9 +1647,9 @@ async def refresh_services(request: Request):
     services = await discover_services()
 
     return templates.TemplateResponse(
+        request,
         "partials/service_list.html",
         {
-            "request": request,
             "services": services,
         },
     )
@@ -1715,9 +1735,9 @@ async def library_items(
         logger.error(f"Error fetching library items: {e}")
 
     return templates.TemplateResponse(
+        request,
         "partials/library_list.html",
         {
-            "request": request,
             "items": items,
             "media_type": media_type,
             "page": page,
@@ -1806,9 +1826,9 @@ async def search_results(
         logger.error(f"Error searching: {e}")
 
     return templates.TemplateResponse(
+        request,
         "partials/search_results.html",
         {
-            "request": request,
             "results": results,
             "query": query,
             "media_type": media_type,
@@ -1830,9 +1850,9 @@ async def add_to_library(
             results = await client.search(title)
             if not results:
                 return templates.TemplateResponse(
+                    request,
                     "components/toast.html",
                     {
-                        "request": request,
                         "type": "error",
                         "message": f"Could not find '{title}' to add",
                     },
@@ -1843,9 +1863,9 @@ async def add_to_library(
 
             if not profiles or not root_folders:
                 return templates.TemplateResponse(
+                    request,
                     "components/toast.html",
                     {
-                        "request": request,
                         "type": "error",
                         "message": "No quality profiles or root folders configured in your service",
                     },
@@ -1900,9 +1920,9 @@ async def add_to_library(
                 item.get("title") or item.get("artistName") or item.get("authorName") or title
             )
             return templates.TemplateResponse(
+                request,
                 "components/toast.html",
                 {
-                    "request": request,
                     "type": "success",
                     "message": f"Added '{added_title}' to library",
                 },
@@ -1913,14 +1933,15 @@ async def add_to_library(
 
     except ValueError as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "error",
                 "message": f"Failed to add '{title}': {str(e)}",
             },
@@ -1932,8 +1953,9 @@ async def transcode_page(request: Request):
     """Transcode job status page."""
     jobs = get_all_jobs()
     return templates.TemplateResponse(
+        request,
         "pages/transcode.html",
-        {"request": request, **_base_ctx(request), "jobs": jobs},
+        {**_base_ctx(request), "jobs": jobs},
     )
 
 
@@ -1942,8 +1964,9 @@ async def transcode_status(request: Request):
     """HTMX partial: live job status panel (auto-refreshes while jobs are running)."""
     jobs = get_all_jobs()
     return templates.TemplateResponse(
+        request,
         "partials/transcode_status.html",
-        {"request": request, "jobs": jobs},
+        {"jobs": jobs},
     )
 
 
@@ -1953,9 +1976,9 @@ async def transcode_cancel(request: Request, job_id: str):
     ok = cancel_job(job_id)
     jobs = get_all_jobs()
     return templates.TemplateResponse(
+        request,
         "partials/transcode_status.html",
         {
-            "request": request,
             "jobs": jobs,
             "toast_message": f"Job {job_id} cancellation requested." if ok else f"Job {job_id} not found.",
             "toast_type": "success" if ok else "error",
@@ -2029,8 +2052,9 @@ def _plex_thumb_url(path: str) -> str:
 async def upcoming_page(request: Request):
     """Upcoming calendar page — episodes and movies airing in the next few days."""
     return templates.TemplateResponse(
+        request,
         "pages/upcoming.html",
-        {"request": request, **_base_ctx(request)},
+        {**_base_ctx(request)},
     )
 
 
@@ -2156,9 +2180,9 @@ async def upcoming_content(
     ]
 
     return templates.TemplateResponse(
+        request,
         "partials/upcoming_content.html",
         {
-            "request": request,
             "grouped": grouped,
             "days": days,
             "error": error,
@@ -2224,9 +2248,9 @@ async def plex_page(request: Request):
                 break
 
     return templates.TemplateResponse(
+        request,
         "pages/plex.html",
         {
-            "request": request,
             **_base_ctx(request),
             "configured": configured,
             "accounts": accounts,
@@ -2355,8 +2379,9 @@ async def plex_history(
     else:
         error = "Plex is not configured"
     return templates.TemplateResponse(
+        request,
         "partials/plex_history.html",
-        {"request": request, "items": items, "error": error, "days": days},
+        {"items": items, "error": error, "days": days},
     )
 
 
@@ -2400,8 +2425,9 @@ async def plex_continue_watching(
     else:
         error = "Plex is not configured"
     return templates.TemplateResponse(
+        request,
         "partials/plex_continue.html",
-        {"request": request, "items": items, "error": error},
+        {"items": items, "error": error},
     )
 
 
@@ -2442,8 +2468,9 @@ async def plex_on_deck(
     else:
         error = "Plex is not configured"
     return templates.TemplateResponse(
+        request,
         "partials/plex_ondeck.html",
-        {"request": request, "items": items, "error": error},
+        {"items": items, "error": error},
     )
 
 
@@ -2487,8 +2514,9 @@ async def plex_recently_added(
     else:
         error = "Plex is not configured"
     return templates.TemplateResponse(
+        request,
         "partials/plex_recent.html",
-        {"request": request, "items": items, "error": error},
+        {"items": items, "error": error},
     )
 
 
@@ -2582,9 +2610,9 @@ async def plex_by_title(
 
     sorted_groups = sorted(groups.values(), key=lambda g: g["title"].lower())
     return templates.TemplateResponse(
+        request,
         "partials/plex_bytitle.html",
         {
-            "request": request,
             "groups": sorted_groups,
             "error": error,
             "search": bt_search,
@@ -2604,16 +2632,17 @@ async def plex_bytitle_sync(request: Request):
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         raw = await plex.get_history(limit=5000)
         count = plex_cache.populate_cache(raw)
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success",
                 "message": f"History synced — {count} items cached",
             },
@@ -2621,8 +2650,9 @@ async def plex_bytitle_sync(request: Request):
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": f"Sync failed: {e}"},
+            {"type": "error", "message": f"Sync failed: {e}"},
         )
     finally:
         await plex.close()
@@ -2654,8 +2684,9 @@ async def plex_butler(request: Request):
     else:
         error = "Plex is not configured"
     return templates.TemplateResponse(
+        request,
         "partials/plex_butler.html",
-        {"request": request, "tasks": tasks, "error": error},
+        {"tasks": tasks, "error": error},
     )
 
 
@@ -2665,8 +2696,9 @@ async def run_plex_butler_task(request: Request, task_name: str):
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         ok = await plex.run_butler_task(task_name)
@@ -2674,8 +2706,9 @@ async def run_plex_butler_task(request: Request, task_name: str):
         msg_type = "success" if ok else "error"
         msg = f"Started: {label}" if ok else f"Failed to start: {label}"
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": msg_type, "message": msg},
+            {"type": msg_type, "message": msg},
         )
     finally:
         await plex.close()
@@ -2691,15 +2724,16 @@ async def terminate_plex_session(
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         ok = await plex.terminate_session(session_id, reason)
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "error",
                 "message": "Session terminated" if ok else "Failed to terminate session",
             },
@@ -2720,16 +2754,17 @@ async def rate_plex_item(
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         ok = await plex.rate_item(rating_key, stars)
         label = title or rating_key
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "error",
                 "message": f"Rated '{label}' {int(stars)} ★" if ok else f"Failed to rate '{label}'",
             },
@@ -2744,15 +2779,16 @@ async def plex_detect_intro(request: Request, rating_key: str):
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         ok = await plex.detect_intro(rating_key)
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "error",
                 "message": "Intro detection queued" if ok else "Failed to queue intro detection",
             },
@@ -2767,15 +2803,16 @@ async def plex_detect_credits(request: Request, rating_key: str):
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         ok = await plex.detect_credits(rating_key)
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "error",
                 "message": "Credit detection queued" if ok else "Failed to queue credit detection",
             },
@@ -2790,15 +2827,16 @@ async def plex_mark_watched(request: Request, rating_key: str):
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         ok = await plex.mark_watched(rating_key)
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "error",
                 "message": "Marked as watched" if ok else "Failed to mark as watched",
             },
@@ -2813,15 +2851,16 @@ async def plex_mark_unwatched(request: Request, rating_key: str):
     plex = _plex_client()
     if not plex:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         ok = await plex.mark_unwatched(rating_key)
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "error",
                 "message": "Marked as unwatched" if ok else "Failed to mark as unwatched",
             },
@@ -2863,8 +2902,9 @@ async def plex_playlists(request: Request):
     else:
         error = "Plex is not configured"
     return templates.TemplateResponse(
+        request,
         "partials/plex_playlists.html",
-        {"request": request, "playlists": playlists, "error": error},
+        {"playlists": playlists, "error": error},
     )
 
 
@@ -2933,8 +2973,9 @@ async def plex_sessions_panel(request: Request):
     else:
         error = "Plex is not configured"
     return templates.TemplateResponse(
+        request,
         "partials/plex_sessions.html",
-        {"request": request, "sessions": sessions, "error": error},
+        {"sessions": sessions, "error": error},
     )
 
 
@@ -3009,9 +3050,9 @@ async def plex_share_panel(request: Request):
             await plex_tv.close()
 
     return templates.TemplateResponse(
+        request,
         "partials/plex_share.html",
         {
-            "request": request,
             "libraries": libraries,
             "friends": friends,
             "machine_id": machine_id,
@@ -3035,16 +3076,18 @@ async def plex_share_invite(request: Request):
 
     if not email:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Email address is required"},
+            {"type": "error", "message": "Email address is required"},
         )
 
     plex = _plex_client()
     plex_tv = _plex_tv_client()
     if not plex or not plex_tv:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
 
     try:
@@ -3052,14 +3095,16 @@ async def plex_share_invite(request: Request):
         await plex.close()
         if not machine_id:
             return templates.TemplateResponse(
+                request,
                 "components/toast.html",
-                {"request": request, "type": "error", "message": "Could not get Plex server ID"},
+                {"type": "error", "message": "Could not get Plex server ID"},
             )
         await plex_tv.share_server(machine_id, email, section_ids)
         lib_note = "all libraries" if not section_ids else f"{len(section_ids)} librar{'y' if len(section_ids) == 1 else 'ies'}"
         resp = templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "success", "message": f"Invite sent to {email} ({lib_note})"},
+            {"type": "success", "message": f"Invite sent to {email} ({lib_note})"},
         )
         resp.headers["HX-Trigger"] = "plexShareUpdated"
         return resp
@@ -3070,8 +3115,9 @@ async def plex_share_invite(request: Request):
         elif "401" in msg or "403" in msg:
             msg = "Authentication failed — check your PLEX_TOKEN"
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": msg},
+            {"type": "error", "message": msg},
         )
     finally:
         await plex_tv.close()
@@ -3087,15 +3133,16 @@ async def plex_share_remove(request: Request, friend_id: int):
     plex_tv = _plex_tv_client()
     if not plex_tv:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": "Plex is not configured"},
+            {"type": "error", "message": "Plex is not configured"},
         )
     try:
         ok = await plex_tv.remove_friend(friend_id)
         resp = templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "error",
                 "message": "Access revoked" if ok else "Failed to revoke access",
             },
@@ -3145,8 +3192,9 @@ async def plex_now_playing(request: Request):
         finally:
             await client.close()
     return templates.TemplateResponse(
+        request,
         "partials/plex_nowplaying.html",
-        {"request": request, "sessions": sessions},
+        {"sessions": sessions},
     )
 
 
@@ -3177,13 +3225,15 @@ async def toggle_monitor(
             finally:
                 await client.close()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "success", "message": f"Set to {label}"},
+            {"type": "success", "message": f"Set to {label}"},
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3213,13 +3263,15 @@ async def upgrade_item(
         else:
             msg = "Unsupported media type"
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "success", "message": msg},
+            {"type": "success", "message": msg},
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3238,14 +3290,16 @@ async def more_seasons(
         finally:
             await client.close()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "success",
+            {"type": "success",
              "message": f"All seasons monitored and search triggered for '{title}'"},
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3272,15 +3326,17 @@ async def remove_item(
             finally:
                 await client.close()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "success",
+            {"type": "success",
              "message": f"Removed '{title}' and all files"},
             headers={"HX-Trigger": "library-updated"},
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3316,8 +3372,9 @@ async def library_poster(service: str, item_id: int):
 async def downloads_page(request: Request):
     """Download manager overview page."""
     return templates.TemplateResponse(
+        request,
         "pages/downloads.html",
-        {"request": request, **_base_ctx(request)},
+        {**_base_ctx(request)},
     )
 
 
@@ -3394,8 +3451,9 @@ async def downloads_status(request: Request):
             await client.close()
 
     return templates.TemplateResponse(
+        request,
         "partials/downloads_status.html",
-        {"request": request, "managers": managers, **_base_ctx(request)},
+        {"managers": managers, **_base_ctx(request)},
     )
 
 
@@ -3430,13 +3488,15 @@ async def set_download_speed(
             await c.close()
         label = "unlimited" if kbps == 0 else f"{kbps} KB/s"
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "success", "message": f"Speed limit set to {label}"},
+            {"type": "success", "message": f"Speed limit set to {label}"},
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3477,9 +3537,9 @@ async def set_download_priority(
             ok = await c.set_bandwidth_priority(int(item_id), priority)
             await c.close()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "warning",
                 "message": "Priority updated" if ok else "Priority update submitted",
             },
@@ -3487,8 +3547,9 @@ async def set_download_priority(
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3527,9 +3588,9 @@ async def move_download_item(
             ok = await c.set_priority(item_id, action)
             await c.close()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "warning",
                 "message": "Queue order updated" if ok else "Queue move submitted",
             },
@@ -3537,8 +3598,9 @@ async def move_download_item(
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3566,9 +3628,9 @@ async def pause_download_item(
             ok = await c.pause_item(int(item_id))
             await c.close()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "warning",
                 "message": "Item paused" if ok else "Pause submitted",
             },
@@ -3576,8 +3638,9 @@ async def pause_download_item(
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3605,9 +3668,9 @@ async def resume_download_item(
             ok = await c.resume_item(int(item_id))
             await c.close()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "warning",
                 "message": "Item resumed" if ok else "Resume submitted",
             },
@@ -3615,8 +3678,9 @@ async def resume_download_item(
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3664,9 +3728,9 @@ async def add_download(
             ok = await c.add_url(url)
             await c.close()
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "warning",
                 "message": "Download added" if ok else "Download submitted",
             },
@@ -3674,8 +3738,9 @@ async def add_download(
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3704,9 +3769,9 @@ async def prowlarr_page(request: Request):
         finally:
             await client.close()
     return templates.TemplateResponse(
+        request,
         "pages/prowlarr.html",
         {
-            "request": request,
             **_base_ctx(request),
             "configured": configured,
             "indexers": indexers,
@@ -3737,9 +3802,9 @@ async def prowlarr_search(
             await client.close()
 
     return templates.TemplateResponse(
+        request,
         "partials/prowlarr_results.html",
         {
-            "request": request,
             "results": results,
             "query": query,
             "error": error,
@@ -3792,17 +3857,18 @@ async def prowlarr_send(
             await c.close()
         label = (title[:60] + "…") if len(title) > 60 else title or url[:60]
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
             {
-                "request": request,
                 "type": "success" if ok else "warning",
                 "message": f"Sent to {manager}: {label}" if ok else "Download submitted",
             },
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": str(e)},
+            {"type": "error", "message": str(e)},
         )
 
 
@@ -3816,8 +3882,10 @@ async def api_tokens_page(request: Request):
         raise AuthRedirectException("/web/login?next=/web/api-tokens")
     tokens = user_db.list_api_tokens(user["user_id"])
     return templates.TemplateResponse(
+        request,
         "pages/api_tokens.html",
-        {"request": request, "tokens": tokens, "new_token": None, **_base_ctx(request)},  # nosec B105
+        {"tokens": tokens, "new_token": None, **_base_ctx(request)},
+        # nosec B105,
     )
 
 
@@ -3849,9 +3917,9 @@ async def api_tokens_create(
     )
     tokens = user_db.list_api_tokens(user["user_id"])
     return templates.TemplateResponse(
+        request,
         "pages/api_tokens.html",
         {
-            "request": request,
             "tokens": tokens,
             "new_token": plain_token,
             "new_token_name": _name,
@@ -3869,8 +3937,9 @@ async def api_tokens_delete(request: Request, token_id: str):
     user_db.delete_api_token(token_id, user["user_id"])
     tokens = user_db.list_api_tokens(user["user_id"])
     return templates.TemplateResponse(
+        request,
         "partials/api_tokens_list.html",
-        {"request": request, "tokens": tokens, **_base_ctx(request)},
+        {"tokens": tokens, **_base_ctx(request)},
     )
 
 
@@ -3920,9 +3989,9 @@ def _lastfm_client() -> LastFMClient | None:
 @router.get("/discover", response_class=HTMLResponse)
 async def discover_page(request: Request):
     return templates.TemplateResponse(
+        request,
         "pages/discover.html",
         {
-            "request": request,
             "tmdb_ok":        bool(settings.tmdb_api_key),
             "lastfm_ok":      bool(settings.lastfm_api_key),
             "sonarr_ok":      bool(settings.sonarr_url and settings.sonarr_api_key),
@@ -4121,9 +4190,9 @@ async def discover_results(
         items = []
 
     return templates.TemplateResponse(
+        request,
         "partials/discover_results.html",
         {
-            "request": request,
             "items": items,
             "media_type": media_type,
             "source": source,
@@ -4224,9 +4293,9 @@ async def discover_add(
             success = False
 
     return templates.TemplateResponse(
+        request,
         "partials/discover_add_btn.html",
         {
-            "request": request,
             "success": success,
             "message": msg,
             "media_type": media_type,
@@ -4246,8 +4315,9 @@ async def discover_request(
     """Submit an audiobook request to ReadMeABook."""
     if not (settings.readmeabook_url and settings.readmeabook_api_key):
         return templates.TemplateResponse(
+            request,
             "partials/discover_add_btn.html",
-            {"request": request, "success": False,
+            {"success": False,
              "message": "ReadMeABook is not configured", "media_type": "audiobook"},
         )
     rmab = ReadMeABookClient(settings.readmeabook_url, settings.readmeabook_api_key)
@@ -4260,20 +4330,23 @@ async def discover_request(
         )
         if already:
             return templates.TemplateResponse(
+                request,
                 "partials/discover_add_btn.html",
-                {"request": request, "success": True,
+                {"success": True,
                  "message": f"'{title}' is already requested", "media_type": "audiobook"},
             )
         await rmab.create_request(asin=asin, title=title, author=author)
         return templates.TemplateResponse(
+            request,
             "partials/discover_add_btn.html",
-            {"request": request, "success": True,
+            {"success": True,
              "message": f"Requested '{title}'", "media_type": "audiobook"},
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "partials/discover_add_btn.html",
-            {"request": request, "success": False,
+            {"success": False,
              "message": str(e), "media_type": "audiobook"},
         )
     finally:
@@ -4289,9 +4362,9 @@ async def tags_page(request: Request):
     sonarr_configured = bool(settings.sonarr_url and settings.sonarr_api_key)
     radarr_configured = bool(settings.radarr_url and settings.radarr_api_key)
     return templates.TemplateResponse(
+        request,
         "pages/tags.html",
         {
-            "request": request,
             **_base_ctx(request),
             "sonarr_configured": sonarr_configured,
             "radarr_configured": radarr_configured,
@@ -4345,9 +4418,9 @@ async def tags_list(
         error = str(e)
 
     return templates.TemplateResponse(
+        request,
         "partials/tags_list.html",
         {
-            "request": request,
             "tags": tags,
             "service": service,
             "error": error,
@@ -4386,14 +4459,15 @@ async def tags_create(
 
     if error:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": error},
+            {"type": "error", "message": error},
         )
 
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
         {
-            "request": request,
             "type": "success",
             "message": f"Tag '{label}' created in {service.capitalize()}",
         },
@@ -4433,14 +4507,15 @@ async def tags_delete(
 
     if error:
         return templates.TemplateResponse(
+            request,
             "components/toast.html",
-            {"request": request, "type": "error", "message": error},
+            {"type": "error", "message": error},
         )
 
     return templates.TemplateResponse(
+        request,
         "components/toast.html",
         {
-            "request": request,
             "type": "success",
             "message": "Tag deleted",
         },
