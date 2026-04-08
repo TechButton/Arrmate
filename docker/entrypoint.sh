@@ -4,4 +4,4 @@
 DATA_DIR="${AUTH_DATA_DIR:-/data}"
 mkdir -p "$DATA_DIR"
 chown -R arrmate:arrmate "$DATA_DIR"
-exec su-exec arrmate "$@"
+exec gosu arrmate "$@"
