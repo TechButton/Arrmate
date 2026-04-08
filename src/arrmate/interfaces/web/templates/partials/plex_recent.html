@@ -34,7 +34,7 @@
                     <button @click="stars = {{ i }}"
                             :class="stars >= {{ i }} ? 'text-yellow-400' : 'text-gray-500'"
                             hx-post="/web/plex/rate"
-                            hx-vals='{"rating_key": "{{ item.rating_key }}", "stars": {{ i }}, "title": "{{ item.title|replace('"', '\\"') }}"}'
+                            hx-vals='{"rating_key": {{ item.rating_key | tojson }}, "stars": {{ i }}, "title": {{ item.title | tojson }}}'
                             hx-target="#toast-container"
                             hx-swap="beforeend"
                             class="text-lg hover:text-yellow-300 transition-colors">★</button>

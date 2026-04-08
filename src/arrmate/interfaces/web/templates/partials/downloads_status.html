@@ -137,14 +137,14 @@
                             </form>
                             <!-- Move up -->
                             <button hx-post="/web/downloads/move"
-                                    hx-vals='{"manager":"sabnzbd","item_id":"{{ item_id }}","action":"{{ [loop.index0 - 1, 0] | max }}"}'
+                                    hx-vals='{"manager":"sabnzbd","item_id":{{ item_id | tojson }},"action":"{{ [loop.index0 - 1, 0] | max }}"}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Move up" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded"
                                     {% if loop.first %}disabled{% endif %}>↑</button>
                             <!-- Move down -->
                             <button hx-post="/web/downloads/move"
-                                    hx-vals='{"manager":"sabnzbd","item_id":"{{ item_id }}","action":"{{ loop.index0 + 1 }}"}'
+                                    hx-vals='{"manager":"sabnzbd","item_id":{{ item_id | tojson }},"action":"{{ loop.index0 + 1 }}"}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Move down" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded"
@@ -152,13 +152,13 @@
                             <!-- Pause/Resume -->
                             {% if item.get("status") == "Paused" %}
                             <button hx-post="/web/downloads/item/resume"
-                                    hx-vals='{"manager":"sabnzbd","item_id":"{{ item_id }}"}'
+                                    hx-vals='{"manager":"sabnzbd","item_id":{{ item_id | tojson }}}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Resume" class="px-1 py-0.5 text-xs text-green-400 hover:text-green-300 bg-gray-700 hover:bg-gray-600 rounded">▶</button>
                             {% else %}
                             <button hx-post="/web/downloads/item/pause"
-                                    hx-vals='{"manager":"sabnzbd","item_id":"{{ item_id }}"}'
+                                    hx-vals='{"manager":"sabnzbd","item_id":{{ item_id | tojson }}}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Pause" class="px-1 py-0.5 text-xs text-yellow-400 hover:text-yellow-300 bg-gray-700 hover:bg-gray-600 rounded">⏸</button>
@@ -215,14 +215,14 @@
                             </form>
                             <!-- Move up -->
                             <button hx-post="/web/downloads/move"
-                                    hx-vals='{"manager":"nzbget","item_id":"{{ item_id }}","action":"-1"}'
+                                    hx-vals='{"manager":"nzbget","item_id":{{ item_id | tojson }},"action":"-1"}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Move up" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded"
                                     {% if loop.first %}disabled{% endif %}>↑</button>
                             <!-- Move down -->
                             <button hx-post="/web/downloads/move"
-                                    hx-vals='{"manager":"nzbget","item_id":"{{ item_id }}","action":"1"}'
+                                    hx-vals='{"manager":"nzbget","item_id":{{ item_id | tojson }},"action":"1"}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Move down" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded"
@@ -230,13 +230,13 @@
                             <!-- Pause/Resume -->
                             {% if item.get("Status") == "PAUSED" %}
                             <button hx-post="/web/downloads/item/resume"
-                                    hx-vals='{"manager":"nzbget","item_id":"{{ item_id }}"}'
+                                    hx-vals='{"manager":"nzbget","item_id":{{ item_id | tojson }}}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Resume" class="px-1 py-0.5 text-xs text-green-400 hover:text-green-300 bg-gray-700 hover:bg-gray-600 rounded">▶</button>
                             {% else %}
                             <button hx-post="/web/downloads/item/pause"
-                                    hx-vals='{"manager":"nzbget","item_id":"{{ item_id }}"}'
+                                    hx-vals='{"manager":"nzbget","item_id":{{ item_id | tojson }}}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Pause" class="px-1 py-0.5 text-xs text-yellow-400 hover:text-yellow-300 bg-gray-700 hover:bg-gray-600 rounded">⏸</button>
@@ -275,22 +275,22 @@
                         <div class="flex items-center justify-end gap-1">
                             <!-- qBittorrent priority: top/bottom/increase/decrease -->
                             <button hx-post="/web/downloads/move"
-                                    hx-vals='{"manager":"qbittorrent","item_id":"{{ item_hash }}","action":"top"}'
+                                    hx-vals='{"manager":"qbittorrent","item_id":{{ item_hash | tojson }},"action":"top"}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Move to top" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded">⇈</button>
                             <button hx-post="/web/downloads/move"
-                                    hx-vals='{"manager":"qbittorrent","item_id":"{{ item_hash }}","action":"increase"}'
+                                    hx-vals='{"manager":"qbittorrent","item_id":{{ item_hash | tojson }},"action":"increase"}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Move up" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded">↑</button>
                             <button hx-post="/web/downloads/move"
-                                    hx-vals='{"manager":"qbittorrent","item_id":"{{ item_hash }}","action":"decrease"}'
+                                    hx-vals='{"manager":"qbittorrent","item_id":{{ item_hash | tojson }},"action":"decrease"}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Move down" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded">↓</button>
                             <button hx-post="/web/downloads/move"
-                                    hx-vals='{"manager":"qbittorrent","item_id":"{{ item_hash }}","action":"bottom"}'
+                                    hx-vals='{"manager":"qbittorrent","item_id":{{ item_hash | tojson }},"action":"bottom"}'
                                     hx-target="#toast-container"
                                     hx-swap="beforeend"
                                     title="Move to bottom" class="px-1 py-0.5 text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded">⇊</button>

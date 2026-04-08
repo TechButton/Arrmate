@@ -60,7 +60,7 @@
                     ("convert all movies to H265", false),
                 ] %}
             {% for cmd, _all_roles in _cmds if _all_roles or current_user.role in ('admin', 'power_user') %}
-                <button onclick="document.getElementById('command-input').value = '{{ cmd }}'"
+                <button data-cmd="{{ cmd }}" onclick="document.getElementById('command-input').value = this.dataset.cmd"
                         class="px-3 py-1 text-xs bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white rounded-full border border-gray-700 hover:border-primary-600 transition-colors">
                     {{ cmd }}
                 </button>

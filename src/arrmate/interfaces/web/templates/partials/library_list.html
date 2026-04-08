@@ -50,7 +50,7 @@
         <div class="absolute inset-0 bg-gray-900/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
             <!-- Upgrade -->
             <button hx-post="/web/library/upgrade"
-                    hx-vals='{"item_id": "{{ item.id }}", "media_type": "{{ item.media_type }}", "title": "{{ item.title | replace('"', '&quot;') }}"}'
+                    hx-vals='{"item_id": {{ item.id | tojson }}, "media_type": {{ item.media_type | tojson }}, "title": {{ item.title | tojson }}}'
                     hx-target="#toast-container"
                     hx-swap="beforeend"
                     class="w-full py-1.5 px-2 text-xs bg-primary-700/90 hover:bg-primary-600 text-white rounded-lg transition-colors"
@@ -60,7 +60,7 @@
 
             <!-- Monitor toggle -->
             <button hx-post="/web/library/monitor"
-                    hx-vals='{"item_id": "{{ item.id }}", "media_type": "{{ item.media_type }}", "monitored": "{{ not item.monitored | lower }}"}'
+                    hx-vals='{"item_id": {{ item.id | tojson }}, "media_type": {{ item.media_type | tojson }}, "monitored": "{{ not item.monitored | lower }}"}'
                     hx-target="#toast-container"
                     hx-swap="beforeend"
                     hx-on::after-request="this.closest('[x-data]').dispatchEvent(new Event('monitor-toggled'))"
@@ -73,7 +73,7 @@
             {% if item.media_type == 'tv' %}
             <!-- More seasons: monitor all + search -->
             <button hx-post="/web/library/moreseasons"
-                    hx-vals='{"item_id": "{{ item.id }}", "title": "{{ item.title | replace('"', '&quot;') }}"}'
+                    hx-vals='{"item_id": {{ item.id | tojson }}, "title": {{ item.title | tojson }}}'
                     hx-target="#toast-container"
                     hx-swap="beforeend"
                     class="w-full py-1.5 px-2 text-xs bg-green-800/90 hover:bg-green-700 text-white rounded-lg transition-colors"
@@ -128,7 +128,7 @@
                 Cancel
             </button>
             <button hx-post="/web/library/remove"
-                    hx-vals='{"item_id": "{{ item.id }}", "media_type": "{{ item.media_type }}", "title": "{{ item.title | replace('"', '&quot;') }}"}'
+                    hx-vals='{"item_id": {{ item.id | tojson }}, "media_type": {{ item.media_type | tojson }}, "title": {{ item.title | tojson }}}'
                     hx-target="#toast-container"
                     hx-swap="beforeend"
                     @click="open = false"

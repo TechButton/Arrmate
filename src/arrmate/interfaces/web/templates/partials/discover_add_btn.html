@@ -6,7 +6,7 @@
 {% else %}
 <!-- Show error toast via OOB swap, keep button re-enabled -->
 <button hx-post="/web/discover/add"
-        hx-vals='{"tmdb_id": "{{ tmdb_id }}", "media_type": "{{ media_type }}", "title": "{{ title | replace('"', '\\"') }}"}'
+        hx-vals='{"tmdb_id": {{ tmdb_id | tojson }}, "media_type": {{ media_type | tojson }}, "title": {{ title | tojson }}}'
         hx-target="this"
         hx-swap="outerHTML"
         class="w-full text-xs py-1.5 rounded-lg bg-red-800/60 hover:bg-red-700 text-red-300 transition-colors text-center cursor-pointer font-medium border border-red-700/40"

@@ -61,8 +61,8 @@
                 ('butler',     '🔧 Maintenance'),
             ] %}
             {% for id, label in tabs %}
-            <button @click="tab = '{{ id }}'"
-                    :class="tab === '{{ id }}'
+            <button data-tab="{{ id }}" @click="tab = $el.dataset.tab"
+                    :class="tab === $el.dataset.tab
                         ? 'border-b-2 border-primary-500 text-white bg-gray-800'
                         : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
                     class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors -mb-px">

@@ -69,7 +69,7 @@
                 {% else %}
                 <button
                     hx-post="/web/library/add"
-                    hx-vals='{"title": "{{ result.title }}", "media_type": "{{ result.media_type }}"}'
+                    hx-vals='{"title": {{ result.title | tojson }}, "media_type": {{ result.media_type | tojson }}}'
                     hx-target="#toast-container"
                     hx-swap="beforeend"
                     class="btn-primary text-sm px-4 py-2"

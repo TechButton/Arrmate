@@ -43,8 +43,8 @@
                         ('top_rated_tv',     '🏆 Top Rated TV'),
                     ] %}
                     {% for id, label in tmdb_tabs %}
-                    <button @click="tab = '{{ id }}'; htmx.ajax('GET', '/web/discover/results?category={{ id }}', {target: '#discover-results', swap: 'innerHTML'})"
-                            :class="tab === '{{ id }}' ? 'border-b-2 border-primary-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                    <button data-category="{{ id }}" @click="tab = $el.dataset.category; htmx.ajax('GET', '/web/discover/results?category=' + encodeURIComponent($el.dataset.category), {target: '#discover-results', swap: 'innerHTML'})"
+                            :class="tab === $el.dataset.category ? 'border-b-2 border-primary-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
                             class="px-3 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
                         {{ label }}
                     </button>
@@ -63,8 +63,8 @@
                         ('top_tracks',  '🎵 Top Tracks'),
                     ] %}
                     {% for id, label in music_tabs %}
-                    <button @click="tab = '{{ id }}'; htmx.ajax('GET', '/web/discover/results?category={{ id }}', {target: '#discover-results', swap: 'innerHTML'})"
-                            :class="tab === '{{ id }}' ? 'border-b-2 border-purple-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                    <button data-category="{{ id }}" @click="tab = $el.dataset.category; htmx.ajax('GET', '/web/discover/results?category=' + encodeURIComponent($el.dataset.category), {target: '#discover-results', swap: 'innerHTML'})"
+                            :class="tab === $el.dataset.category ? 'border-b-2 border-purple-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
                             class="px-3 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
                         {{ label }}
                     </button>
@@ -85,8 +85,8 @@
                         ('books_scifi',    '🚀 Sci-Fi'),
                     ] %}
                     {% for id, label in book_tabs %}
-                    <button @click="tab = '{{ id }}'; htmx.ajax('GET', '/web/discover/results?category={{ id }}', {target: '#discover-results', swap: 'innerHTML'})"
-                            :class="tab === '{{ id }}' ? 'border-b-2 border-amber-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                    <button data-category="{{ id }}" @click="tab = $el.dataset.category; htmx.ajax('GET', '/web/discover/results?category=' + encodeURIComponent($el.dataset.category), {target: '#discover-results', swap: 'innerHTML'})"
+                            :class="tab === $el.dataset.category ? 'border-b-2 border-amber-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
                             class="px-3 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
                         {{ label }}
                     </button>
@@ -104,8 +104,8 @@
                         ('audiobooks_new',     '🆕 New Releases'),
                     ] %}
                     {% for id, label in audio_tabs %}
-                    <button @click="tab = '{{ id }}'; htmx.ajax('GET', '/web/discover/results?category={{ id }}', {target: '#discover-results', swap: 'innerHTML'})"
-                            :class="tab === '{{ id }}' ? 'border-b-2 border-teal-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
+                    <button data-category="{{ id }}" @click="tab = $el.dataset.category; htmx.ajax('GET', '/web/discover/results?category=' + encodeURIComponent($el.dataset.category), {target: '#discover-results', swap: 'innerHTML'})"
+                            :class="tab === $el.dataset.category ? 'border-b-2 border-teal-500 text-white bg-gray-800' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'"
                             class="px-3 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px whitespace-nowrap">
                         {{ label }}
                     </button>

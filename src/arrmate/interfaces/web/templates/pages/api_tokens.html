@@ -22,7 +22,7 @@
         <div class="flex items-center gap-2">
             <code id="new-token-text"
                   class="flex-1 block bg-gray-900 border border-gray-600 rounded-lg px-3 py-2.5 text-sm font-mono text-green-300 break-all select-all">{{ new_token }}</code>
-            <button @click="navigator.clipboard.writeText('{{ new_token }}'); copied = true; setTimeout(() => copied = false, 2000)"
+            <button data-token="{{ new_token }}" @click="navigator.clipboard.writeText($el.dataset.token); copied = true; setTimeout(() => copied = false, 2000)"
                     class="flex-shrink-0 px-3 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-lg text-sm transition-colors">
                 <span x-show="!copied">📋 Copy</span>
                 <span x-show="copied" x-cloak class="text-green-400">✓ Copied</span>

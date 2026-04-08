@@ -25,8 +25,8 @@
             ('invites', '🔗 Invites', invites|length),
             ('requests', '📋 Pending Requests', pending_requests|length)
         ] %}
-        <button @click="tab = '{{ t }}'"
-                :class="tab === '{{ t }}' ? 'bg-primary-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'"
+        <button data-tab="{{ t }}" @click="tab = $el.dataset.tab"
+                :class="tab === $el.dataset.tab ? 'bg-primary-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'"
                 class="flex-1 min-w-fit px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 justify-center">
             {{ label }}
             {% if badge > 0 %}<span class="bg-gray-600 text-gray-200 text-xs px-1.5 py-0.5 rounded-full">{{ badge }}</span>{% endif %}

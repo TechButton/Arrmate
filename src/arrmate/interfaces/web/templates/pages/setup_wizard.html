@@ -230,7 +230,7 @@
                 <div class="mt-2 flex items-center gap-2">
                     <button type="button"
                             hx-post="/web/setup/test-service"
-                            hx-vals='{"service":"{{ svc }}"}'
+                            hx-vals='{"service":{{ svc | tojson }}}'
                             hx-include="#url_{{ svc }}, #key_{{ svc }}"
                             hx-target="#test_{{ svc }}"
                             class="text-xs px-2.5 py-1 bg-gray-600 hover:bg-gray-500 rounded text-gray-200 transition-colors">
@@ -279,7 +279,7 @@
                 <div class="mt-2 flex items-center gap-2">
                     <button type="button"
                             hx-post="/web/setup/test-service"
-                            hx-vals='{"service":"{{ svc }}"}'
+                            hx-vals='{"service":{{ svc | tojson }}}'
                             hx-include="#url_{{ svc }}"
                             hx-target="#test_{{ svc }}"
                             class="text-xs px-2.5 py-1 bg-gray-600 hover:bg-gray-500 rounded text-gray-200 transition-colors">
@@ -331,7 +331,7 @@
                 <div class="mt-2 flex items-center gap-2">
                     <button type="button"
                             hx-post="/web/setup/test-service"
-                            hx-vals='{"service":"{{ svc }}"}'
+                            hx-vals='{"service":{{ svc | tojson }}}'
                             hx-include="#url_{{ svc }}, #key_{{ svc }}"
                             hx-target="#test_{{ svc }}"
                             class="text-xs px-2.5 py-1 bg-gray-600 hover:bg-gray-500 rounded text-gray-200 transition-colors">

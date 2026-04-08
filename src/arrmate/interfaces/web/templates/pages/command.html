@@ -99,7 +99,7 @@
             ] %}
             {% for cmd, desc, _all_roles in _examples if _all_roles or current_user.role in ('admin', 'power_user') %}
             <div class="p-3 bg-gray-800 rounded-lg border border-gray-700 cursor-pointer hover:border-primary-500/50 transition-colors"
-                 onclick="document.getElementById('command-input').value = '{{ cmd }}'">
+                 data-cmd="{{ cmd }}" onclick="document.getElementById('command-input').value = this.dataset.cmd">
                 <code class="text-sm text-gray-200">{{ cmd }}</code>
                 <p class="text-xs text-gray-400 mt-1">{{ desc }}</p>
             </div>
