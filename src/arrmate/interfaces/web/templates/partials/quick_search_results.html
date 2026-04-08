@@ -1,0 +1,61 @@
+{% if not sonarr_ok and not radarr_ok %}
+<p class="text-sm text-gray-500 text-center py-4">Configure Sonarr and/or Radarr in Settings to enable search.</p>
+{% elif results %}
+<div class="divide-y divide-gray-800">
+    {% for result in results %}
+    <div class="flex items-center gap-3 py-2.5 {% if loop.first %}pt-0{% endif %}">
+        <!-- Poster thumbnail -->
+        <div class="w-10 h-14 flex-shrink-0 bg-gray-800 rounded overflow-hidden border border-gray-700 flex items-center justify-center">
+            {% if result.poster_url %}
+            <img src="{{ result.poster_url }}" alt="" class="w-full h-full object-cover">
+            {% else %}
+            <span class="text-lg">{% if result.media_type == 'tv' %}📺{% else %}🎬{% endif %}</span>
+            {% endif %}
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-1.5 flex-wrap">
+                <span class="text-sm font-medium text-white truncate">{{ result.title }}</span>
+                {% if result.year %}
+                <span class="text-xs text-gray-500 flex-shrink-0">{{ result.year }}</span>
+                {% endif %}
+                <span class="text-xs px-1.5 py-0.5 rounded flex-shrink-0
+                    {% if result.media_type == 'tv' %}bg-purple-900/50 text-purple-300 border border-purple-700/40
+                    {% else %}bg-green-900/50 text-green-300 border border-green-700/40{% endif %}">
+                    {% if result.media_type == 'tv' %}TV{% else %}Movie{% endif %}
+                </span>
+                {% if result.in_library %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-green-900/40 text-green-400 border border-green-700/40 flex-shrink-0">✓ In Library</span>
+                {% endif %}
+            </div>
+            {% if result.overview %}
+            <p class="text-xs text-gray-500 truncate mt-0.5">{{ result.overview }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Action -->
+        <div class="flex-shrink-0">
+            {% if result.in_library %}
+            <span class="text-xs text-green-500">✓</span>
+            {% else %}
+            <button
+                hx-post="/web/library/add"
+                hx-vals='{"title": {{ result.title | tojson }}, "media_type": {{ result.media_type | tojson }}}'
+                hx-target="#toast-container"
+                hx-swap="beforeend"
+                class="px-3 py-1.5 text-xs bg-primary-700 hover:bg-primary-600 text-white rounded-lg transition-colors"
+                style="min-height: 32px;">
+                + Add
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% elif query %}
+<div class="py-6 text-center">
+    <p class="text-sm text-gray-400">No results found for <span class="text-white">{{ query }}</span></p>
+    <p class="text-xs text-gray-500 mt-1">Try a different title or check that Sonarr/Radarr are reachable.</p>
+</div>
+{% endif %}

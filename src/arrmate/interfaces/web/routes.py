@@ -1837,6 +1837,129 @@ async def search_results(
     )
 
 
+@router.get("/search/quick-results", response_class=HTMLResponse)
+async def quick_search_results(
+    request: Request,
+    query: str = Query(..., min_length=1),
+):
+    """Search both TV (Sonarr) and movies (Radarr) in parallel and return combined results."""
+
+    async def _search_service(media_type: str) -> list[dict]:
+        try:
+            client = get_client_for_media_type(media_type)
+            try:
+                raw = await client.search(query)
+            finally:
+                await client.close()
+        except Exception:
+            return []
+
+        results = []
+        for item in raw[:8]:
+            result = {
+                "title": item.get("title", "Unknown"),
+                "media_type": media_type,
+                "year": item.get("year"),
+                "overview": item.get("overview", ""),
+                "status": item.get("status", ""),
+                "poster_url": None,
+                "rating": None,
+                "in_library": False,
+                "tmdb_id": item.get("tmdbId"),
+            }
+            images = item.get("images") or item.get("remotePoster")
+            if isinstance(images, list):
+                for img in images:
+                    if img.get("coverType") == "poster":
+                        result["poster_url"] = img.get("remoteUrl") or img.get("url")
+                        break
+            elif isinstance(images, str):
+                result["poster_url"] = images
+            ratings = item.get("ratings")
+            if ratings and isinstance(ratings, dict) and ratings.get("value"):
+                result["rating"] = f"{ratings['value']:.1f}"
+            results.append(result)
+        return results
+
+    tv_results, movie_results = await asyncio.gather(
+        _search_service("tv"),
+        _search_service("movie"),
+    )
+
+    # Cross-reference library membership
+    async def _get_library_ids(media_type: str) -> tuple[set, set]:
+        try:
+            if media_type == "tv" and settings.sonarr_url and settings.sonarr_api_key:
+                client = SonarrClient(settings.sonarr_url, settings.sonarr_api_key)
+                try:
+                    items = await client.get_all_series()
+                finally:
+                    await client.close()
+            elif media_type == "movie" and settings.radarr_url and settings.radarr_api_key:
+                client = RadarrClient(settings.radarr_url, settings.radarr_api_key)
+                try:
+                    items = await client.get_all_movies()
+                finally:
+                    await client.close()
+            else:
+                return set(), set()
+            tmdb_ids = {i["tmdbId"] for i in items if i.get("tmdbId")}
+            titles = {i["title"].lower() for i in items if i.get("title")}
+            return tmdb_ids, titles
+        except Exception:
+            return set(), set()
+
+    (tv_tmdb, tv_titles), (movie_tmdb, movie_titles) = await asyncio.gather(
+        _get_library_ids("tv"),
+        _get_library_ids("movie"),
+    )
+
+    for r in tv_results:
+        r["in_library"] = (r["tmdb_id"] in tv_tmdb if r["tmdb_id"] else False) or r["title"].lower() in tv_titles
+    for r in movie_results:
+        r["in_library"] = (r["tmdb_id"] in movie_tmdb if r["tmdb_id"] else False) or r["title"].lower() in movie_titles
+
+    # Interleave: pick top results from each type, prioritise by title similarity
+    query_lower = query.lower()
+
+    def _score(r: dict) -> int:
+        title = r["title"].lower()
+        if title == query_lower:
+            return 0
+        if title.startswith(query_lower):
+            return 1
+        if query_lower in title:
+            return 2
+        return 3
+
+    tv_results.sort(key=_score)
+    movie_results.sort(key=_score)
+
+    # Build combined list: best match first, then interleave remaining
+    combined = []
+    tv_q, mv_q = list(tv_results), list(movie_results)
+    while tv_q or mv_q:
+        if tv_q:
+            combined.append(tv_q.pop(0))
+        if mv_q:
+            combined.append(mv_q.pop(0))
+
+    sonarr_ok = bool(settings.sonarr_url and settings.sonarr_api_key)
+    radarr_ok = bool(settings.radarr_url and settings.radarr_api_key)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/quick_search_results.html",
+        {
+            "results": combined,
+            "query": query,
+            "sonarr_ok": sonarr_ok,
+            "radarr_ok": radarr_ok,
+            **_base_ctx(request),
+        },
+    )
+
+
 @router.post("/library/add", response_class=HTMLResponse)
 async def add_to_library(
     request: Request,
