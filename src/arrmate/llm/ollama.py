@@ -15,6 +15,7 @@ class OllamaProvider(BaseLLMProvider):
         self,
         model: str = "qwen2.5:7b",
         base_url: str = "http://localhost:11434",
+        api_key: Optional[str] = None,
     ) -> None:
         """Initialize Ollama provider.
 
@@ -22,10 +23,12 @@ class OllamaProvider(BaseLLMProvider):
             model: Ollama model to use (must support tool calling).
                 Recommended: qwen2.5:7b, llama3.1:8b, mistral-nemo:12b
             base_url: Ollama server base URL
+            api_key: Optional bearer token for authenticated Ollama instances
         """
         super().__init__(model)
         self.base_url = base_url
-        self.client = ollama.Client(host=base_url)
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+        self.client = ollama.Client(host=base_url, headers=headers)
 
     def supports_tool_calling(self) -> bool:
         """Ollama supports tool calling with compatible models."""

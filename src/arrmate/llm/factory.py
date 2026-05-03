@@ -53,6 +53,7 @@ def create_llm_provider(provider_name: str | None = None) -> BaseLLMProvider:
         return OllamaProvider(
             model=settings.ollama_model,
             base_url=settings.ollama_base_url,
+            api_key=settings.ollama_api_key,
         )
     elif provider_name == "openai":
         if not settings.openai_api_key:

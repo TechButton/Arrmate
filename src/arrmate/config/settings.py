@@ -37,6 +37,9 @@ class Settings(BaseSettings):
         default="qwen2.5:7b",
         description="Ollama model to use (must support tool calling, e.g. qwen2.5:7b, llama3.1:8b)",
     )
+    ollama_api_key: Optional[str] = Field(
+        default=None, description="Ollama API key (bearer token for authenticated Ollama instances)"
+    )
 
     # OpenAI settings
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
